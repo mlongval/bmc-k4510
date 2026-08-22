@@ -5,14 +5,16 @@
         .import   copydata, zerobss, initlib
         .importzp sp
         .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save
-        .export   _ticks, _cursor_cell, _cursor_vis
+        .export   _ticks, _cursor_cell, _cursor_vis, _speed_loop
 
         .zeropage
 _cursor_cell: .res 2           ; -> attribute byte of the cell under the cursor
+cnt:          .res 2
 
         .bss
 _ticks:       .res 1
 _cursor_vis:  .res 1           ; nonzero while the ROM wants a cursor shown
+t0:           .res 1
 
         .segment "STARTUP"
 reset:  sei
@@ -51,6 +53,26 @@ irq:    pha
         pla
         rti
 nmi:    rti
+
+; unsigned speed_loop(void): iterations of a fixed loop during one frame.
+; 18 cycles per iteration on the 40.5 MHz timing table (see INFO -c)
+_speed_loop:
+        lda _ticks
+@w:     cmp _ticks              ; wait for a tick edge
+        beq @w
+        lda _ticks
+        sta t0
+        stz cnt
+        stz cnt+1
+@l:     inc cnt
+        bne @s
+        inc cnt+1
+@s:     lda t0
+        cmp _ticks
+        beq @l
+        lda cnt
+        ldx cnt+1
+        rts
 
 ; ---- jump table at $FF80: the system call interface ----
         .segment "JUMPTAB"

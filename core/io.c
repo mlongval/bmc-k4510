@@ -121,8 +121,38 @@ static void dma_run(uint8_t cmd)
 
 /* ---- dispatch ------------------------------------------------------------ */
 
+/* ---- SYS $D500 ---------------------------------------------------------- */
+#include <time.h>
+extern uint32_t mem_rom_base;
+static uint8_t  sys_reg[0x10];
+static uint32_t sys_frames;
+static uint8_t  sid_shadow[4][32];
+static const char sys_version[16] = "k4510 0.3";
+void io_frame_tick(void) { sys_frames++; }
+static void sys_latch(void)
+{
+    time_t t = time(NULL); struct tm *m = localtime(&t);
+    sys_reg[0] = 40500 & 0xFF; sys_reg[1] = 40500 >> 8;
+    sys_reg[2] = 256 & 0xFF;   sys_reg[3] = 256 >> 8;
+    sys_reg[5] = m->tm_sec; sys_reg[6] = m->tm_min; sys_reg[7] = m->tm_hour;
+    sys_reg[8] = m->tm_mday; sys_reg[9] = m->tm_mon + 1;
+    sys_reg[10] = (m->tm_year + 1900) & 0xFF; sys_reg[11] = (m->tm_year + 1900) >> 8;
+    sys_reg[12] = m->tm_wday;
+}
+static uint8_t sys_read(uint8_t r)
+{
+    if (r == 4) { sys_latch(); return 0; }
+    if (r < 4) { sys_latch(); return sys_reg[r]; }
+    if (r < 0x0D) return sys_reg[r];
+    if (r < 0x10) return (uint8_t)(sys_frames >> ((r - 0x0D) * 8));
+    if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
+    if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
+    return 0xFF;
+}
+
 void io_reset(void)
 {
+    sys_frames = 0; memset(sid_shadow, 0, sizeof sid_shadow);
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();
@@ -135,8 +165,11 @@ uint8_t io_read(uint16_t addr)
     case IO_VICKE:
         return vicke_read(addr & 0xFF);
     case IO_SID:
-        if (addr < IO_FM) return sid_read((addr - IO_SID) >> 5, addr & 0x1F);
+        if (addr < IO_FM) return ((addr & 0x1F) < 0x19) ? sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F]
+                                                        : sid_read((addr - IO_SID) >> 5, addr & 0x1F);
         return 0xFF;
+    case IO_SYS:
+        return sys_read(addr & 0xFF);
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
@@ -158,7 +191,7 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_VICKE:
         vicke_write(addr & 0xFF, v); return;
     case IO_SID:
-        if (addr < IO_FM) sid_write((addr - IO_SID) >> 5, addr & 0x1F, v);
+        if (addr < IO_FM) { sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F] = v; sid_write((addr - IO_SID) >> 5, addr & 0x1F, v); }
         return;
     case IO_DMA:
         if ((addr & 0xFF) < 12) { dma_reg[addr & 0xFF] = v; return; }

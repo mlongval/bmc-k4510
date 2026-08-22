@@ -14,7 +14,16 @@
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
 #define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
-#define IO_SYS         0xD500u   /* $D500-$D5FF  RTC, timers, IRQ        */
+#define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
+/* SYS registers (read-only unless noted):
+ *   $00,01  CPU clock, kHz, LE (40500)      $02,03  physical RAM, MB, LE (256)
+ *   $04     read: latch the host clock into $05-$0C and return 0
+ *   $05 sec $06 min $07 hour $08 day $09 month $0A,0B year LE $0C weekday (0=Sun)
+ *   $0D,0E,0F  frames since reset, 24-bit LE (vblank count)
+ *   $10-$1F  version string, NUL-terminated
+ *   $20     ROM base page (e.g. $A0 for a 24 KB ROM)
+ * SID registers $00-$18 read back the last value written (a shadow; real
+ * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
 
 /* --- input ($D100) ------------------------------------------------------ */
 /* Keyboard: a FIFO of key-down events. Printable keys arrive as ASCII
@@ -72,6 +81,7 @@ void    fs_set_root(const char *dir);
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);
+void    io_frame_tick(void);                 /* called by VICKe at vblank */
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);
 

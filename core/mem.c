@@ -74,14 +74,17 @@ void mem_load(uint32_t phys, const uint8_t *data, size_t len)
 uint8_t mem_peek(uint32_t phys)            { return k4510_ram[phys & K4510_PHYS_MASK]; }
 void    mem_poke(uint32_t phys, uint8_t v) { k4510_ram[phys & K4510_PHYS_MASK] = v; }
 
+uint32_t mem_rom_base = 0xE000;
+
 int mem_load_rom(const char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
-    uint8_t buf[0x10000 - K4510_ROM_BASE];
+    uint8_t buf[K4510_ROM_MAX];
     size_t n = fread(buf, 1, sizeof buf, f);
     fclose(f);
     memcpy(&k4510_ram[0x10000 - n], buf, n);
+    mem_rom_base = 0x10000 - n;
     return (int)n;
 }
 
@@ -120,8 +123,8 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY(addr >= K4510_ROM_BASE)) return;             /* ROM */
         if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
+        if (XEMU_UNLIKELY(addr >= mem_rom_base)) return;               /* ROM (I/O page wins: the hole in a big ROM) */
         k4510_ram[addr] = data;
         return;
     }

@@ -1,9 +1,9 @@
-/* BMC-K4510 system ROM, Stage 2. cc65, 65C02 subset of the 45GS02.
+/* BMC-K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS02.
  *
  * A colour text terminal on VICKe text32, a keyboard driver, the host
- * filesystem, and a shell that keeps Wozmon's syntax and adds files.
- * Everything the machine can do from software is reached through the
- * registers in io.h; this file is the first user of them.
+ * filesystem, and a shell that keeps Wozmon's syntax and adds files,
+ * 28-bit memory access through DMA, INFO, and a handful of utilities.
+ * 24 KB ROM at $A000-$FFFF with the I/O hole at $D000 (rom/k4510.cfg).
  */
 #include <stdint.h>
 #include <string.h>
@@ -16,11 +16,15 @@
 #define DMA    0xD200u
 #define FS     0xD300u
 #define SID0   0xD400u
+#define SYS    0xD500u
 
 #define SCREEN   0x0800u              /* text32: 80x60 cells x 4 bytes = 19200 -> $0800-$5300 */
 #define FONT     0x010000UL           /* placed by the loader */
+#define USER     0x6000u              /* free RAM for programs: $6000-$9FFF */
+#define USER_END 0xA000u
 #define COLS 80
 #define ROWS 60
+#define ROM_VERSION "stage 3"
 
 #define C_BG   0x06   /* VIC-II blue     */
 #define C_FG   0x0E   /* light blue      */
@@ -33,9 +37,12 @@ static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
 extern uint8_t *cursor_cell;                     /* crt0.s, zero page */
 #pragma zpsym("cursor_cell")
+uint16_t speed_loop(void);                       /* crt0.s */
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
 static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
+static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1) << 8) | ((uint32_t)REG(r + 2) << 16) | ((uint32_t)REG(r + 3) << 24); }
+static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1) << 8); }
 
 static uint8_t *cell(uint8_t x, uint8_t y) { return (uint8_t *)(SCREEN + ((uint16_t)y * COLS + x) * 4); }
 
@@ -80,6 +87,7 @@ void __fastcall__ k_chrout(uint8_t ch)
     if (ch == '\r' || ch == '\n') { newline(); return; }
     if (ch == 8) { if (cx) { cx--; c = cell(cx, cy); c[0] = ' '; c[1] = 0; } return; }
     if (ch == 12) { cls(); return; }
+    if (ch == 9) { do { k_chrout(' '); } while (cx & 7); return; }
     if (ch < 0x20) return;
     c = cell(cx, cy); c[0] = ch; c[1] = 0; c[2] = fg; c[3] = bg;
     if (++cx >= COLS) newline();
@@ -87,7 +95,13 @@ void __fastcall__ k_chrout(uint8_t ch)
 
 static void puts_(const char *s) { while (*s) k_chrout(*s++); }
 static void puthex(uint8_t v) { static const char h[] = "0123456789ABCDEF"; k_chrout(h[v >> 4]); k_chrout(h[v & 15]); }
+static void puthex16(uint16_t v) { puthex(v >> 8); puthex(v); }
+static void puthex28(uint32_t v) { puthex(v >> 24); puthex(v >> 16); puthex(v >> 8); puthex(v); }
 static void putdec(uint32_t v) { char b[11]; uint8_t i = 10; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); puts_(&b[i]); }
+static void putdec2(uint8_t v) { k_chrout('0' + v / 10); k_chrout('0' + v % 10); }
+static void pad(uint8_t col) { while (cx < col) k_chrout(' '); }
+static void label(const char *s) { uint8_t o = fg; fg = C_HI; puts_(s); fg = o; pad(8); }
+static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
 
 /* ---- keyboard ---------------------------------------------------------- */
 uint8_t k_getin(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
@@ -120,13 +134,29 @@ static void fs_name(const char *name) { w32(FS + 4, (uint16_t)name); }
 #define P_NAME  (*(volatile uint16_t *)0xF0)
 #define P_ADDR  (*(volatile uint32_t *)0xF2)
 #define P_LEN   (*(volatile uint32_t *)0xF6)
-uint8_t k_load(void) { uint8_t st; w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); st = fs_cmd(9); P_LEN = *(volatile uint32_t *)(FS + 12); return st; }
+uint8_t k_load(void) { uint8_t st; w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); st = fs_cmd(9); P_LEN = r32(FS + 12); return st; }
 uint8_t k_save(void) { w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); w32(FS + 12, P_LEN); return fs_cmd(10); }
+
+/* ---- 28-bit memory through DMA ------------------------------------------ */
+static uint8_t dmabuf[16];
+static void dma_copy(uint32_t src, uint32_t dst, uint32_t len) { w32(DMA, src); w32(DMA + 4, dst); w32(DMA + 8, len); REG(DMA + 12) = 1; }
+static void dma_fill(uint8_t v, uint32_t dst, uint32_t len) { REG(DMA) = v; w32(DMA + 4, dst); w32(DMA + 8, len); REG(DMA + 12) = 2; }
+static uint8_t peek(uint32_t a)
+{
+    if (a < 0x10000UL) return *(uint8_t *)(uint16_t)a;              /* CPU view: I/O and ROM as the CPU sees them */
+    dma_copy(a, (uint16_t)dmabuf, 1); return dmabuf[0];
+}
+static void poke(uint32_t a, uint8_t v)
+{
+    if (a < 0x10000UL) { *(uint8_t *)(uint16_t)a = v; return; }
+    dmabuf[0] = v; dma_copy((uint16_t)dmabuf, a, 1);
+}
 
 /* ---- shell ------------------------------------------------------------- */
 static char line[96];
 static uint32_t xam;          /* last opened address */
 static uint8_t mode;          /* 0 xam, 1 store, 2 block */
+static char last_name[64]; static uint32_t last_addr, last_len;     /* last LOAD */
 
 static uint8_t ishex(char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
 static uint8_t hexval(char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; }
@@ -136,17 +166,33 @@ static uint32_t parsehex(const char **p, uint8_t *digits)
     while (ishex(**p)) { v = (v << 4) | hexval(**p); (*p)++; (*digits)++; }
     return v;
 }
-static uint8_t peek(uint32_t a) { return a < 0x10000UL ? *(uint8_t *)(uint16_t)a : 0; }   /* 64 KB view for now */
-static void poke(uint32_t a, uint8_t v) { if (a < 0x10000UL) *(uint8_t *)(uint16_t)a = v; }
+static void skipsp(const char **p) { while (**p == ' ') (*p)++; }
+static uint8_t getname(const char **p, char *name)
+{
+    uint8_t i = 0;
+    skipsp(p);
+    while (**p && **p != ' ' && i < 63) name[i++] = *(*p)++;
+    name[i] = 0; skipsp(p);
+    return i;
+}
+/* case-insensitive command match; on success *p points past the word */
+static uint8_t is_cmd(const char **p, const char *cmd)
+{
+    const char *s = *p;
+    while (*cmd) { if (((*s) | 0x20) != ((*cmd) | 0x20)) return 0; s++; cmd++; }
+    if (*s && *s != ' ') return 0;
+    *p = s; skipsp(p);
+    return 1;
+}
 
 static void dump(uint32_t from, uint32_t to)
 {
     uint8_t n = 0;
     for (; from <= to; from++) {
-        if (n == 0) { puthex(from >> 16); puthex(from >> 8); puthex(from); puts_(": "); }
+        if (n == 0) { puthex28(from); puts_(": "); }
         puthex(peek(from)); k_chrout(' ');
         if (++n == 16) { n = 0; newline(); }
-        if (from == 0xFFFFFFFFUL) break;
+        if (from == 0x0FFFFFFFUL) break;
     }
     if (n) newline();
 }
@@ -155,39 +201,33 @@ static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline
 
 static void cmd_dir(void)
 {
-    char name[64]; uint16_t count = 0;
+    char name[64]; uint16_t count = 0; uint32_t total = 0, sz;
     if (fs_cmd(6)) { error("dir: no device"); return; }
     for (;;) {
         w32(FS + 8, (uint16_t)name);
         if (fs_cmd(7)) break;
-        puts_(name); { uint8_t i = strlen(name); while (i++ < 24) k_chrout(' '); }
-        putdec(*(volatile uint32_t *)(FS + 16)); newline(); count++;
+        sz = r32(FS + 16);
+        puts_(name); pad(26); putdec(sz); newline(); count++; total += sz;
     }
-    putdec(count); puts_(" file(s)"); newline();
+    putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
 }
 
 static void cmd_load(const char *p)
 {
-    char name[64]; uint8_t i = 0, d; uint32_t addr = 0x1000;
-    while (*p == ' ') p++;
-    while (*p && *p != ' ' && i < 63) name[i++] = *p++;
-    name[i] = 0;
-    while (*p == ' ') p++;
+    char name[64]; uint8_t d; uint32_t addr = USER;
+    if (!getname(&p, name)) { error("load: name?"); return; }
     if (*p) addr = parsehex(&p, &d);
-    if (!i) { error("load: name?"); return; }
     fs_name(name); w32(FS + 8, addr);
     if (fs_cmd(9)) { error("load: not found"); return; }
-    puts_("loaded "); putdec(*(volatile uint32_t *)(FS + 12)); puts_(" bytes at "); puthex(addr >> 8); puthex(addr); newline();
+    last_len = r32(FS + 12); last_addr = addr; strcpy(last_name, name);
+    puts_("loaded "); putdec(last_len); puts_(" bytes at "); puthex28(addr); newline();
     xam = addr;
 }
 
 static void cmd_save(const char *p)
 {
-    char name[64]; uint8_t i = 0, d; uint32_t from, to;
-    while (*p == ' ') p++;
-    while (*p && *p != ' ' && i < 63) name[i++] = *p++;
-    name[i] = 0;
-    while (*p == ' ') p++;
+    char name[64]; uint8_t d; uint32_t from, to;
+    if (!getname(&p, name)) { error("save: name from.to"); return; }
     from = parsehex(&p, &d); if (!d || *p != '.') { error("save: name from.to"); return; }
     p++; to = parsehex(&p, &d); if (!d || to < from) { error("save: name from.to"); return; }
     fs_name(name); w32(FS + 8, from); w32(FS + 12, to - from + 1);
@@ -195,31 +235,216 @@ static void cmd_save(const char *p)
     puts_("saved "); putdec(to - from + 1); puts_(" bytes"); newline();
 }
 
+static void cmd_type(const char *p)
+{
+    char name[64]; uint32_t n; uint16_t i;
+    if (!getname(&p, name)) { error("type: name?"); return; }
+    fs_name(name);
+    if (fs_cmd(1)) { error("type: not found"); return; }
+    for (;;) {
+        w32(FS + 8, (uint16_t)line); w32(FS + 12, sizeof line);
+        if (fs_cmd(3)) break;
+        n = r32(FS + 12); if (!n) break;
+        for (i = 0; i < n; i++) k_chrout(line[i]);
+    }
+    fs_cmd(5);
+    if (cx) newline();
+}
+
 typedef void (*fn_t)(void);
+static void cmd_run(const char *p)
+{
+    uint8_t d; uint32_t a = last_addr ? last_addr : xam;
+    if (*p) a = parsehex(&p, &d);
+    if (a >= 0x10000UL) { error("run: 16-bit address"); return; }
+    ((fn_t)(uint16_t)a)();
+    cursor_vis = 0;
+}
+
+static void cmd_fill(const char *p)
+{
+    uint8_t d; uint32_t from, to, v;
+    from = parsehex(&p, &d); if (!d || *p != '.') { error("fill: from.to value"); return; }
+    p++; to = parsehex(&p, &d); if (!d || to < from) { error("fill: from.to value"); return; }
+    skipsp(&p); v = parsehex(&p, &d); if (!d) { error("fill: from.to value"); return; }
+    dma_fill((uint8_t)v, from, to - from + 1);
+    putdec(to - from + 1); puts_(" bytes filled"); newline();
+}
+
+static void cmd_copy(const char *p)
+{
+    uint8_t d; uint32_t from, to, dst;
+    from = parsehex(&p, &d); if (!d || *p != '.') { error("copy: from.to dest"); return; }
+    p++; to = parsehex(&p, &d); if (!d || to < from) { error("copy: from.to dest"); return; }
+    skipsp(&p); dst = parsehex(&p, &d); if (!d) { error("copy: from.to dest"); return; }
+    dma_copy(from, dst, to - from + 1);
+    putdec(to - from + 1); puts_(" bytes copied to "); puthex28(dst); newline();
+}
+
+static void cmd_color(const char *p)
+{
+    uint8_t d; uint32_t f, b = bg;
+    f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
+    skipsp(&p); if (*p) b = parsehex(&p, &d);
+    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKE + 1) = bg;
+    cls();
+}
+
+/* ---- INFO ----------------------------------------------------------------- */
+static const char *const daynames[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
+
+static void info_version(void)
+{
+    uint8_t i;
+    label("SYSTEM"); puts_("BMC-K4510 system ROM " ROM_VERSION ", emulator ");
+    for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
+    newline();
+}
+
+static void info_cpu(void)
+{
+    uint16_t it; uint32_t mhz100;
+    label("CPU"); puts_("45GS02: 4510 + Q register + 32-bit flat + 28-bit MAP, "); putdec(r16(SYS)); puts_(" kHz"); newline();
+    it = speed_loop();                                  /* 18 cycles per iteration, one frame */
+    mhz100 = (uint32_t)it * 18UL * 60UL / 10000UL;
+    pad(8); puts_("measured "); putdec(mhz100 / 100); k_chrout('.'); putdec2(mhz100 % 100); puts_(" MHz  (");
+    putdec(it); puts_(" loop iterations per frame, 18 cycles each)"); newline();
+}
+
+static void info_mem(void)
+{
+    uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
+    label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
+    pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  system $0200-$07FF"); newline();
+    pad(8); puts_("screen $0800-$52FF  system $5300-$5FFF  user $6000-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB free)"); newline();
+    pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
+    pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();
+    if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); newline(); }
+}
+
+static void info_video(void)
+{
+    uint8_t ctrl = REG(VICKE), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
+    label("VIDEO"); puts_("VICKe "); puts_((ctrl & 2) ? "320x240 (lowres)" : "640x480"); puts_(", display ");
+    onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKE + 1)); puts_(", raster "); putdec(r16(VICKE + 2) & 0x1FF);
+    puts_(", irq mask $"); puthex(REG(VICKE + 5)); newline();
+    for (n = 0; n < 4; n++) {
+        L = 0x10 + n * 0x10; lc = REG(VICKE + L);
+        pad(8); puts_("layer "); k_chrout('0' + n); puts_(": ");
+        if (!(lc & 1)) { puts_("off"); newline(); continue; }
+        puts_(modenames[(lc >> 1) & 3]); k_chrout(' '); putdec(1 << ((lc >> 3) & 3)); puts_(" bpp");
+        if (((lc >> 1) & 3) == 1) { puts_(", "); putdec(8 << ((lc >> 5) & 3)); puts_("px tiles"); }
+        if (((lc >> 1) & 3) >= 2) { puts_(", 8x"); putdec((lc & 0x20) ? 16 : 8); puts_(" cells"); }
+        puts_(", stride "); putdec(r16(VICKE + L + 6)); puts_(", scroll "); putdec(r16(VICKE + L + 2)); k_chrout(','); putdec(r16(VICKE + L + 4)); newline();
+        pad(17); puts_("data $"); puthex28(r32(VICKE + L + 8)); puts_("  map $"); puthex28(r32(VICKE + L + 12)); newline();
+    }
+    t = r32(VICKE + 0x0A);
+    pad(8); puts_("sprites "); onoff(REG(VICKE + 0x0E) & 1);
+    if (REG(VICKE + 0x0E) & 1) {
+        for (i = 0; i < 128; i++) if (peek(t + (uint32_t)i * 16 + 8) & 1) cnt++;
+        puts_(", table $"); puthex28(t); puts_(", "); putdec(cnt); puts_(" of 128 enabled");
+    }
+    newline();
+    pad(8); puts_("SHEILA "); onoff(REG(VICKE + 0x64) & 1); puts_(", list $"); puthex28(r32(VICKE + 0x60)); newline();
+}
+
+static void info_sound(void)
+{
+    uint8_t c, v, gates;
+    label("SOUND"); puts_("4 x SID 6581 (reSID) at $D400 $D420 $D440 $D460, mono mix"); newline();
+    for (c = 0; c < 4; c++) {
+        uint16_t b = SID0 + c * 0x20;
+        gates = 0; for (v = 0; v < 3; v++) if (REG(b + 4 + v * 7) & 1) gates |= 1 << v;
+        pad(8); puts_("SID "); k_chrout('0' + c); puts_(": volume "); putdec(REG(b + 0x18) & 15);
+        puts_(", gates "); k_chrout((gates & 1) ? '1' : '-'); k_chrout((gates & 2) ? '2' : '-'); k_chrout((gates & 4) ? '3' : '-');
+        puts_(", filter $"); puthex(REG(b + 0x17)); newline();
+    }
+    pad(8); puts_("OPL2 at $D480: not fitted yet"); newline();
+}
+
+static void info_files(void)
+{
+    char name[64]; uint16_t count = 0; uint32_t total = 0;
+    label("FILES"); puts_("host filesystem at $D300 (the emulator's fs/)");
+    if (fs_cmd(6)) { puts_(": no device"); newline(); return; }
+    for (;;) { w32(FS + 8, (uint16_t)name); if (fs_cmd(7)) break; total += r32(FS + 16); count++; }
+    puts_(": "); putdec(count); puts_(" files, "); putdec(total); puts_(" bytes"); newline();
+}
+
+static void info_time(void)
+{
+    uint32_t f; uint32_t s;
+    { volatile uint8_t d = REG(SYS + 4); (void)d; }      /* latch the host clock */
+    label("TIME"); putdec(r16(SYS + 0x0A)); k_chrout('-'); putdec2(REG(SYS + 9)); k_chrout('-'); putdec2(REG(SYS + 8));
+    k_chrout(' '); putdec2(REG(SYS + 7)); k_chrout(':'); putdec2(REG(SYS + 6)); k_chrout(':'); putdec2(REG(SYS + 5));
+    k_chrout(' '); puts_(daynames[REG(SYS + 12) % 7]);
+    f = (uint32_t)REG(SYS + 0x0D) | ((uint32_t)REG(SYS + 0x0E) << 8) | ((uint32_t)REG(SYS + 0x0F) << 16);
+    s = f / 60;
+    puts_(", up "); putdec(s / 3600); k_chrout(':'); putdec2((s / 60) % 60); k_chrout(':'); putdec2(s % 60);
+    puts_(" ("); putdec(f); puts_(" frames)"); newline();
+}
+
+static void cmd_info(const char *p)
+{
+    uint8_t flags = 0;
+    while (*p) {
+        if (*p == '-') { p++; continue; }
+        switch (*p | 0x20) {
+        case 'v': flags |= 1; break;   case 'c': flags |= 2; break;   case 'm': flags |= 4; break;
+        case 'g': flags |= 8; break;   case 's': flags |= 16; break;  case 'f': flags |= 32; break;
+        case 't': flags |= 64; break;  case 'a': flags |= 127; break;
+        case ' ': break;
+        default: error("info [-v -c -m -g -s -f -t]  version cpu memory graphics sound files time"); return;
+        }
+        p++;
+    }
+    if (!flags) flags = 127;
+    if (flags & 1)  info_version();
+    if (flags & 2)  info_cpu();
+    if (flags & 4)  info_mem();
+    if (flags & 8)  info_video();
+    if (flags & 16) info_sound();
+    if (flags & 32) info_files();
+    if (flags & 64) info_time();
+}
+
+static void cmd_help(void)
+{
+    uint8_t o = fg;
+    fg = C_HI; puts_("Wozmon:  "); fg = o; puts_("addr   addr.addr   addr:b b b   addrR      (28-bit hex; DMA beyond 64K)"); newline();
+    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR   LOAD name [addr]   SAVE name from.to   TYPE name   RUN [addr]"); newline();
+    fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]   TIME   COLOR fg [bg]   ECHO text   CLS   RESET   HELP"); newline();
+}
 
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v;
-    while (*p == ' ') p++;
+    skipsp(&p);
     if (!*p) return;
-    if (!strncmp(p, "DIR", 3) || !strncmp(p, "dir", 3)) { cmd_dir(); return; }
-    if (!strncmp(p, "LOAD", 4) || !strncmp(p, "load", 4)) { cmd_load(p + 4); return; }
-    if (!strncmp(p, "SAVE", 4) || !strncmp(p, "save", 4)) { cmd_save(p + 4); return; }
-    if (!strncmp(p, "CLS", 3) || !strncmp(p, "cls", 3)) { cls(); return; }
-    if (!strncmp(p, "HELP", 4) || !strncmp(p, "help", 4)) {
-        puts_("addr            examine    addr.addr   block    addr:b b b  store"); newline();
-        puts_("addrR           run        LOAD name [addr]       SAVE name from.to"); newline();
-        puts_("DIR  CLS  HELP  --  hex is 45GS02-flat, 28-bit"); newline();
-        return;
-    }
+    if (is_cmd(&p, "DIR"))   { cmd_dir(); return; }
+    if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
+    if (is_cmd(&p, "SAVE"))  { cmd_save(p); return; }
+    if (is_cmd(&p, "TYPE"))  { cmd_type(p); return; }
+    if (is_cmd(&p, "RUN"))   { cmd_run(p); return; }
+    if (is_cmd(&p, "FILL"))  { cmd_fill(p); return; }
+    if (is_cmd(&p, "COPY"))  { cmd_copy(p); return; }
+    if (is_cmd(&p, "INFO"))  { cmd_info(p); return; }
+    if (is_cmd(&p, "TIME"))  { info_time(); return; }
+    if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { cmd_color(p); return; }
+    if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
+    if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
+    if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     /* Wozmon grammar */
     mode = 0;
     for (;;) {
-        while (*p == ' ') p++;
+        skipsp(&p);
         if (!*p) return;
         if (*p == ':') { mode = 1; p++; continue; }
         if (*p == '.') { mode = 2; p++; continue; }
-        if (*p == 'R' || *p == 'r') { ((fn_t)(uint16_t)xam)(); return; }
+        if (*p == 'R' || *p == 'r') { if (xam < 0x10000UL) ((fn_t)(uint16_t)xam)(); else error("run: 16-bit address"); cursor_vis = 0; return; }
         v = parsehex(&p, &d);
         if (!d) { error("?"); return; }
         if (mode == 1) { poke(xam++, (uint8_t)v); continue; }
@@ -250,8 +475,10 @@ int main(void)
 {
     video_init();
     cls();
-    fg = C_HI; puts_("BMC-K4510   system ROM stage 2   45GS02 / VICKe / SHEILA"); newline();
-    fg = C_DIM; puts_("256 MB   4 x SID   host filesystem at $D300   type HELP"); newline(); newline();
+    fg = C_HI; puts_("BMC-K4510   system ROM " ROM_VERSION "   45GS02 / VICKe / SHEILA"); newline();
+    fg = C_DIM; puts_("256 MB   4 x SID   host filesystem at $D300   type HELP or INFO"); newline();
+    info_time();
+    newline();
     fg = C_FG;
     for (;;) {
         puts_("] ");

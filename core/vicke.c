@@ -1,5 +1,6 @@
 #include "vicke.h"
 #include "mem.h"
+#include "io.h"
 #include <string.h>
 
 static uint8_t  reg[256];
@@ -272,6 +273,7 @@ void vicke_end_frame(void)
     if (any) reg[VR_IRQSTAT] |= VI_COLL;
     reg[VR_IRQSTAT] |= VI_VBLANK;
     cur_line = VICKE_HEIGHT;   /* vblank */
+    io_frame_tick();
 }
 
 void vicke_render(uint8_t *fb, int pitch)

@@ -17,7 +17,7 @@ author's server and are not part of this repo.
     core/xemu/   cpu65.c + cpu65.h from Xemu (GPL2), unchanged
     core/        shim header, memory system, VICKe
     sdl/         desktop frontend
-    rom/         ROM sources: wozmon.a, demo.a (ACME); kernal.c (cc65)
+    rom/         ROM sources: wozmon.a, demo.a (ACME); kernal.c (cc65, 24 KB at $A000)
     demo/        demo ROMs in C (cc65): balls, cube, mandel  -- make demos
     test/        tests; capture = headless screenshots
 
