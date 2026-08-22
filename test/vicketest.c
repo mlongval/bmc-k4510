@@ -6,10 +6,21 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicke.h"
+#include <stdlib.h>
+static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
+/* K4510_SHOT=dir: write each stage's framebuffer as a PPM there */
+static void shot(const char *name)
+{
+    const char *dir = getenv("K4510_SHOT"); if (!dir) return;
+    char path[512]; snprintf(path, sizeof path, "%s/vicketest-%s.ppm", dir, name);
+    FILE *f = fopen(path, "wb"); if (!f) return;
+    fprintf(f, "P6 640 480 255\n");
+    for (int i = 0; i < 640 * 480; i++) { uint32_t c = vicke_palette_rgb(fb[i]); fputc(c >> 16, f); fputc(c >> 8, f); fputc(c, f); }
+    fclose(f);
+}
 
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
-static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
 static void W(int r, uint8_t v) { io_write(IO_VICKE + r, v); }
 static void W32(int r, uint32_t v) { for (int i = 0; i < 4; i++) W(r + i, (v >> (8 * i)) & 0xFF); }
 static void W16(int r, uint16_t v) { W(r, v & 0xFF); W(r + 1, v >> 8); }
@@ -35,6 +46,7 @@ int main(void)
     W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
     W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_BITMAP << 1) | (3 << 3));   /* enable, bitmap, 8 bpp */
     vicke_render(fb, VICKE_WIDTH);
+    shot("1-bitmap");
     printf("1. bitmap: px(10,10)=%d hole(150,150)=%d (index 0 transparent -> BGCOL)\n", fb[10*640+10], fb[150*640+150]);
     CHECK(fb[10 * 640 + 10] == 7, "bitmap pixel");
     CHECK(fb[150 * 640 + 150] == 2, "index 0 transparent: BGCOL shows");
@@ -49,6 +61,7 @@ int main(void)
     W(VR_LAYER(1) + VL_PALOFS, 9);                     /* 1 bpp: index = (9<<1)|pix = 18/19 */
     W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT << 1));
     vicke_render(fb, VICKE_WIDTH);
+    shot("2-text-over-bitmap");
     printf("2. text over bitmap: (0,0)=%d  (20,0)=%d (space: transparent, bitmap shows)\n", fb[0], fb[20]);
     CHECK(fb[0] == 19, "text pixel with palette offset");
     CHECK(fb[20] == 7,  "transparent text cell shows bitmap");
@@ -77,6 +90,7 @@ int main(void)
     W32(VR_LAYER(0) + VL_DATA, tiles); W32(VR_LAYER(0) + VL_MAP, tmap); W16(VR_LAYER(0) + VL_STRIDE, 40);
     W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TILE << 1) | (2 << 3) | (1 << 5));   /* tile, 4 bpp, 16 px */
     vicke_render(fb, VICKE_WIDTH);
+    shot("3-tiles");
     printf("3. tiles 16x16 4bpp: cell0 (0,5)=%d (12,5)=%d | cell1 flipped+palofs3 (16,5)=%d (28,5)=%d\n",
            fb[5*640+0], fb[5*640+12], fb[5*640+16], fb[5*640+28]);
     CHECK(fb[5*640+0] == 1 && fb[5*640+12] == 2, "tile halves");
@@ -91,6 +105,7 @@ int main(void)
     W32(VR_LAYER(1) + VL_DATA, f16); W32(VR_LAYER(1) + VL_MAP, m32); W16(VR_LAYER(1) + VL_STRIDE, 80);
     W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));   /* text32, 8x16 */
     vicke_render(fb, VICKE_WIDTH);
+    shot("4-text32");
     printf("4. text32 8x16: cell0 (1,12)=%d (6,12)=%d | reversed cell1 (9,12)=%d (14,12)=%d\n",
            fb[12*640+1], fb[12*640+6], fb[12*640+9], fb[12*640+14]);
     CHECK(fb[12*640+1] == 9 && fb[12*640+6] == 4, "text32 fg/bg");
@@ -113,6 +128,7 @@ int main(void)
     W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
     W(VR_LAYER(0) + VL_CTRL, 1 | (3 << 3));
     vicke_render(fb, VICKE_WIDTH);
+    shot("5-sprites");
     printf("5. sprites: s0(100,50)=%d  s1 over s0 (110,60)=%d  outside=%d  colSS=$%02X colSL=$%02X\n",
            fb[50*640+100], fb[60*640+110], fb[40*640+100], io_read(IO_VICKE+VR_COLSS), io_read(IO_VICKE+VR_COLSL));
     CHECK(fb[50*640+100] == 0x33, "sprite 0 pixel");
@@ -151,6 +167,7 @@ int main(void)
         if (irq_at_sheila < 0 && (io_read(IO_VICKE + VR_IRQSTAT) & VI_SHEILA)) irq_at_sheila = y;
     }
     vicke_end_frame();
+    shot("6-sheila");
     printf("6. SHEILA: bg@50=%d bg@150=%d bg@250=%d  rasterIRQ@%d sheilaIRQ@%d  irq=%d\n",
            fb[50*640], fb[150*640], fb[250*640], irq_at_raster, irq_at_sheila, vicke_irq());
     CHECK(fb[50*640] == 1 && fb[150*640] == 2 && fb[250*640] == 3, "SHEILA gradient");

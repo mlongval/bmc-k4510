@@ -24,11 +24,11 @@ int main(void)
     CHECK(find("]") >= 0, "prompt");
     type("E000.E00F\n");
     CHECK(find("00E000: 78 D8 A2 FF 9A") >= 0, "examine ROM (cc65 crt0: SEI CLD LDX TXS)");
-    type("load hello.txt 2000\n");
-    CHECK(find("loaded 31 bytes at 2000") >= 0, "LOAD message");
-    CHECK(memcmp(&k4510_ram[0x2000], "hello from", 10) == 0, "file landed in RAM");
-    type("2000.2009\n");
-    CHECK(find("002000: 68 65 6C 6C 6F") >= 0, "examine loaded bytes");
+    type("load hello.txt 6000\n");
+    CHECK(find("loaded 31 bytes at 6000") >= 0, "LOAD message");
+    CHECK(memcmp(&k4510_ram[0x6000], "hello from", 10) == 0, "file landed in RAM");
+    type("6000.6009\n");
+    CHECK(find("006000: 68 65 6C 6C 6F") >= 0, "examine loaded bytes");
     /* user program: LDA #$42 ; STA $0700 ; RTS  at $3000, run with 3000R */
     type("3000:A9 42 8D 00 07 60\n");
     type("3000R\n");

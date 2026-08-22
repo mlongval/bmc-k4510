@@ -4,7 +4,15 @@
         .import   __RAM_START__, __RAM_SIZE__, __STACKSIZE__
         .import   copydata, zerobss, initlib
         .importzp sp
-        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_irq_handler
+        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save
+        .export   _ticks, _cursor_cell, _cursor_vis
+
+        .zeropage
+_cursor_cell: .res 2           ; -> attribute byte of the cell under the cursor
+
+        .bss
+_ticks:       .res 1
+_cursor_vis:  .res 1           ; nonzero while the ROM wants a cursor shown
 
         .segment "STARTUP"
 reset:  sei
@@ -22,12 +30,24 @@ reset:  sei
         jsr _main
 _exit:  jmp _exit
 
+; IRQ: pure assembly -- cc65 C code must never run here (it would clobber
+; the zero-page temporaries of whatever was interrupted).
 irq:    pha
-        phx
-        phy
-        jsr _k_irq_handler
-        ply
-        plx
+        lda $D004               ; VICKe IRQSTAT
+        pha
+        and #1                  ; vblank?
+        beq @ack
+        inc _ticks
+        lda _ticks
+        and #31
+        bne @ack
+        lda _cursor_vis
+        beq @ack
+        lda (_cursor_cell)      ; 65C02 (zp) = 45GS02 (zp),Z with Z=0
+        eor #$80
+        sta (_cursor_cell)
+@ack:   pla
+        sta $D004               ; acknowledge what we saw
         pla
         rti
 nmi:    rti

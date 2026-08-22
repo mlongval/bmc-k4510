@@ -30,7 +30,9 @@
 
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
-static uint8_t cursor_on;
+extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
+extern uint8_t *cursor_cell;                     /* crt0.s, zero page */
+#pragma zpsym("cursor_cell")
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
 static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
@@ -40,7 +42,10 @@ static uint8_t *cell(uint8_t x, uint8_t y) { return (uint8_t *)(SCREEN + ((uint1
 static void draw_cursor(uint8_t on)
 {
     uint8_t *c = cell(cx, cy);
-    c[1] = on ? 0x80 : 0x00;                 /* reverse bit = cursor */
+    cursor_vis = 0;
+    c[1] = on ? 0x80 : 0x00;                 /* reverse bit = cursor; IRQ blinks it */
+    cursor_cell = c + 1;
+    cursor_vis = on;
 }
 
 static void cls(void)
@@ -86,14 +91,6 @@ static void putdec(uint32_t v) { char b[11]; uint8_t i = 10; b[i] = 0; do { b[--
 
 /* ---- keyboard ---------------------------------------------------------- */
 uint8_t k_getin(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
-
-static volatile uint8_t ticks;
-void k_irq_handler(void)
-{
-    uint8_t st = REG(VICKE + 4);
-    if (st & 1) { ticks++; if ((ticks & 31) == 0) { cursor_on ^= 1; draw_cursor(cursor_on); } }
-    REG(VICKE + 4) = st;                      /* ack everything */
-}
 
 uint8_t k_chrin(void)
 {
