@@ -1,0 +1,5 @@
+*.o
+test/cputest
+sdl/k4510
+rom/*.bin
+rom/*.lst
