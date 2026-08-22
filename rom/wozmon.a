@@ -1,0 +1,308 @@
+; BMC-K4510 spike ROM: Wozmon, retargeted.
+;
+; Woz's 1976 monitor, logic untouched. Only the two machine-facing pieces
+; are ours: the keyboard register it polls, and ECHO, which on the Apple-1
+; wrote to a PIA and here writes into VICKe's screen RAM through a small
+; terminal (cursor, CR, backspace, scroll). Plain 6502 code throughout --
+; a 45GS02 runs it unchanged, which is the point of choosing it.
+;
+; Assemble:  acme --cpu m65 -o wozmon.bin wozmon.a      ($F000-$FFFF, 4 KB)
+
+!cpu m65
+
+; ---- K4510 spike memory map ---------------------------------------------
+SCREEN   = $0800        ; VICKe text layer, 80x60, ASCII glyph index
+COLS     = 80
+ROWS     = 60
+SCREND   = SCREEN + COLS*ROWS   ; $1AC0
+LASTROW  = SCREEN + COLS*(ROWS-1)
+
+KBD      = $D010        ; read: last key, bit7 set (Wozmon "high ASCII")
+KBDCR    = $D011        ; bit7 = key ready; cleared by reading KBD
+
+; ---- Wozmon page-0 variables (unchanged) --------------------------------
+XAML     = $24
+XAMH     = $25
+STL      = $26
+STH      = $27
+L        = $28
+H        = $29
+YSAV     = $2A
+MODE     = $2B
+IN       = $0200
+
+; ---- terminal page-0 variables (ours) -----------------------------------
+CURX     = $30          ; column 0..79
+ROWPTR   = $32          ; 16-bit pointer to start of current row
+SRC      = $34
+DST      = $36
+
+*= $F000
+
+; =========================================================================
+RESET:  cld
+        cli
+        ldx #$FF
+        txs
+        jsr CLS
+        lda #$8D        ; start with a CR so the prompt lands on a fresh line
+        jsr ECHO
+        lda #$8D
+        jsr ECHO
+        ; ---- from here on, Wozmon verbatim (except ECHO/KBD targets) ----
+NOTCR:  cmp #$DF        ; "_" (backspace)?
+        beq BACKSPACE
+        cmp #$9B        ; ESC?
+        beq ESCAPE
+        iny
+        bpl NEXTCHAR
+ESCAPE: lda #$DC        ; "\"
+        jsr ECHO
+GETLINE:
+        lda #$8D        ; CR
+        jsr ECHO
+        ldy #$01
+BACKSPACE:
+        dey
+        bmi GETLINE
+NEXTCHAR:
+        lda KBDCR
+        bpl NEXTCHAR
+        lda KBD
+        sta IN,y
+        jsr ECHO
+        cmp #$8D
+        bne NOTCR
+        ldy #$FF
+        lda #$00
+        tax
+SETSTOR:
+        asl
+SETMODE:
+        sta MODE
+BLSKIP: iny
+NEXTITEM:
+        lda IN,y
+        cmp #$8D
+        beq GETLINE
+        cmp #$AE        ; "."
+        bcc BLSKIP
+        beq SETMODE
+        cmp #$BA        ; ":"
+        beq SETSTOR
+        cmp #$D2        ; "R"
+        beq RUN
+        stx L
+        stx H
+        sty YSAV
+NEXTHEX:
+        lda IN,y
+        eor #$B0
+        cmp #$0A
+        bcc DIG
+        adc #$88
+        cmp #$FA
+        bcc NOTHEX
+DIG:    asl
+        asl
+        asl
+        asl
+        ldx #$04
+HEXSHIFT:
+        asl
+        rol L
+        rol H
+        dex
+        bne HEXSHIFT
+        iny
+        bne NEXTHEX
+NOTHEX: cpy YSAV
+        beq ESCAPE
+        bit MODE
+        bvc NOTSTOR
+        lda L
+        sta (STL,x)
+        inc STL
+        bne NEXTITEM
+        inc STH
+TONEXTITEM:
+        jmp NEXTITEM
+RUN:    jmp (XAML)
+NOTSTOR:
+        bmi XAMNEXT
+        ldx #$02
+SETADR: lda L-1,x
+        sta STL-1,x
+        sta XAML-1,x
+        dex
+        bne SETADR
+NXTPRNT:
+        bne PRDATA
+        lda #$8D
+        jsr ECHO
+        lda XAMH
+        jsr PRBYTE
+        lda XAML
+        jsr PRBYTE
+        lda #$BA        ; ":"
+        jsr ECHO
+PRDATA: lda #$A0        ; blank
+        jsr ECHO
+        lda (XAML,x)
+        jsr PRBYTE
+XAMNEXT:
+        stx MODE
+        lda XAML
+        cmp L
+        lda XAMH
+        sbc H
+        bcs TONEXTITEM
+        inc XAML
+        bne MOD8CHK
+        inc XAMH
+MOD8CHK:
+        lda XAML
+        and #$07
+        bpl NXTPRNT
+PRBYTE: pha
+        lsr
+        lsr
+        lsr
+        lsr
+        jsr PRHEX
+        pla
+PRHEX:  and #$0F
+        ora #$B0        ; "0"
+        cmp #$BA
+        bcc ECHO
+        adc #$06
+        ; falls into ECHO
+
+; =========================================================================
+; ECHO -- ours. A = character with bit 7 set. Preserves A, X, Y.
+; =========================================================================
+ECHO:   pha
+        phx
+        phy
+        and #$7F
+        cmp #$0D
+        beq .cr
+        cmp #$5F        ; "_" = backspace
+        beq .bs
+        ; printable: store at (ROWPTR),CURX
+        ldy CURX
+        sta (ROWPTR),y
+        iny
+        cpy #COLS
+        bcc .setx
+        jsr NEWLINE
+        ldy #0
+.setx:  sty CURX
+        bra .done
+.cr:    jsr NEWLINE
+        bra .done
+.bs:    ldy CURX
+        beq .done
+        dey
+        sty CURX
+        lda #$20
+        sta (ROWPTR),y
+.done:  ply
+        plx
+        pla
+        rts
+
+; NEWLINE: CURX=0, ROWPTR += COLS; scroll if past the last row.
+NEWLINE:
+        lda #0
+        sta CURX
+        clc
+        lda ROWPTR
+        adc #COLS
+        sta ROWPTR
+        lda ROWPTR+1
+        adc #0
+        sta ROWPTR+1
+        ; past the end?  ROWPTR >= SCREND
+        lda ROWPTR+1
+        cmp #>SCREND
+        bcc .ok
+        lda ROWPTR
+        cmp #<SCREND
+        bcc .ok
+        jsr SCROLL
+        lda #<LASTROW
+        sta ROWPTR
+        lda #>LASTROW
+        sta ROWPTR+1
+.ok:    rts
+
+; SCROLL: move rows 1..59 up to 0..58, clear row 59.
+SCROLL: lda #<(SCREEN+COLS)
+        sta SRC
+        lda #>(SCREEN+COLS)
+        sta SRC+1
+        lda #<SCREEN
+        sta DST
+        lda #>SCREEN
+        sta DST+1
+        ldx #>(COLS*(ROWS-1))     ; full pages
+        ldy #0
+.page:  lda (SRC),y
+        sta (DST),y
+        iny
+        bne .page
+        inc SRC+1
+        inc DST+1
+        dex
+        bne .page
+        ; remainder: (COLS*(ROWS-1)) & $FF bytes
+.rem:   cpy #<(COLS*(ROWS-1))
+        beq .clr
+        lda (SRC),y
+        sta (DST),y
+        iny
+        bne .rem
+.clr:   lda #<LASTROW
+        sta DST
+        lda #>LASTROW
+        sta DST+1
+        lda #$20
+        ldy #COLS-1
+.c:     sta (DST),y
+        dey
+        bpl .c
+        rts
+
+; CLS: fill the screen with spaces, cursor home.
+CLS:    lda #<SCREEN
+        sta DST
+        lda #>SCREEN
+        sta DST+1
+        lda #$20
+        ldx #>(COLS*ROWS)
+        ldy #0
+.p:     sta (DST),y
+        iny
+        bne .p
+        inc DST+1
+        dex
+        bne .p
+.r:     cpy #<(COLS*ROWS)
+        beq .h
+        sta (DST),y
+        iny
+        bne .r
+.h:     lda #<SCREEN
+        sta ROWPTR
+        lda #>SCREEN
+        sta ROWPTR+1
+        lda #0
+        sta CURX
+        rts
+
+; ---- vectors -------------------------------------------------------------
+*= $FFFA
+        !word $0F00     ; NMI
+        !word RESET
+        !word $0000     ; IRQ/BRK

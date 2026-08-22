@@ -1,7 +1,8 @@
 /* K4510 desktop frontend -- spike version.
  *
- * SDL2 window, 60 Hz, VICKe renders the text layer from screen RAM.
- * Step 2: write "K4510" into screen RAM from C and show it.
+ * SDL2 window, 60 Hz. Each frame: run the 45GS02 for a frame's worth of
+ * cycles, feed keys into the keyboard register, let VICKe render screen
+ * RAM. The ROM (Wozmon) does everything else.
  */
 #include <SDL.h>
 #include <stdio.h>
@@ -12,6 +13,8 @@
 #include "../core/vicke.h"
 
 #define SCALE 2
+#define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
+#define CYCLES_PER_FRAME (CPU_HZ / 60)
 
 /* Build an ASCII-ordered 8x8 font from a C64 chargen (PETSCII screen
  * codes, uppercase set). ASCII $20-$3F map 1:1; $40-$5F and $60-$7F both
@@ -49,12 +52,11 @@ int main(int argc, char **argv)
     vicke_init();
     vicke_set_font(font);
 
-    /* Step 2 payload: say hello from C, straight into screen RAM. */
-    const char *msg = "BMC-K4510  --  VICKe text layer, 80x60";
-    mem_load(VICKE_SCREEN_BASE + 1 * VICKE_COLS + 2, (const uint8_t *)msg, strlen(msg));
-    const char *msg2 = "45GS02 core: Xemu / cpu65.c   memory: 64 KB (spike)";
-    mem_load(VICKE_SCREEN_BASE + 3 * VICKE_COLS + 2, (const uint8_t *)msg2, strlen(msg2));
-    for (int c = 0; c < 80; c++) mem_poke(VICKE_SCREEN_BASE + 5 * VICKE_COLS + c, 0x20 + (c % 0x60));
+    if (mem_load_rom("rom/wozmon.bin") != 4096) {
+        fprintf(stderr, "need rom/wozmon.bin (make rom)\n");
+        return 1;
+    }
+    cpu65_reset();
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -68,13 +70,36 @@ int main(int argc, char **argv)
     uint32_t pal[256];
     vicke_palette(pal, 256);
 
+    SDL_StartTextInput();
     int running = 1;
     while (running) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) running = 0;
-            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) running = 0;
+            switch (e.type) {
+            case SDL_QUIT: running = 0; break;
+            case SDL_TEXTINPUT: {
+                /* Wozmon is an uppercase-only 1976 monitor; fold case for it. */
+                for (const char *c = e.text.text; *c; c++) {
+                    unsigned char ch = (unsigned char)*c;
+                    if (ch < 0x80) kbd_push((ch >= 'a' && ch <= 'z') ? ch - 32 : ch);
+                }
+                break;
+            }
+            case SDL_KEYDOWN:
+                switch (e.key.keysym.sym) {
+                case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(0x0D); break;
+                case SDLK_BACKSPACE: kbd_push('_'); break;      /* Wozmon's backspace */
+                case SDLK_ESCAPE:
+                    if (e.key.keysym.mod & KMOD_SHIFT) running = 0;   /* Shift+Esc quits */
+                    else kbd_push(0x1B);
+                    break;
+                case SDLK_F12: cpu65_reset(); break;
+                default: break;
+                }
+                break;
+            }
         }
+        cpu65_step(CYCLES_PER_FRAME);
         vicke_render(fb, VICKE_WIDTH);
 
         void *pixels; int pitch;

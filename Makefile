@@ -7,7 +7,14 @@ CORE_OBJS = core/xemu/cpu65.o core/mem.o core/vicke.o
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
-all: test/cputest sdl/k4510
+ACME ?= $(HOME)/.local/bin/acme
+
+all: rom/wozmon.bin test/cputest test/woztest sdl/k4510
+
+rom/wozmon.bin: rom/wozmon.a
+	$(ACME) --cpu m65 -o $@ $<
+
+rom: rom/wozmon.bin
 
 core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicdefs.h core/hypervisor.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -21,10 +28,14 @@ sdl/k4510: sdl/main.c $(CORE_OBJS)
 test/cputest: test/cputest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-test: test/cputest
+test/woztest: test/woztest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+test: test/cputest test/woztest rom/wozmon.bin
 	./test/cputest
+	./test/woztest
 
 clean:
-	rm -f core/*.o core/xemu/*.o test/cputest sdl/k4510
+	rm -f core/*.o core/xemu/*.o test/cputest test/woztest test/shot sdl/k4510 rom/wozmon.bin
 
-.PHONY: all test clean
+.PHONY: all test clean rom

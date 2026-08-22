@@ -10,6 +10,39 @@
 
 uint8_t k4510_ram[K4510_RAM_SIZE];
 
+/* ---- spike keyboard: a tiny FIFO behind two Apple-1-shaped registers --- */
+static uint8_t kbd_fifo[64];
+static int     kbd_head, kbd_tail;
+static uint8_t kbd_last;
+
+void kbd_push(uint8_t ascii)
+{
+    int next = (kbd_tail + 1) & 63;
+    if (next == kbd_head) return;           /* full: drop */
+    kbd_fifo[kbd_tail] = ascii;
+    kbd_tail = next;
+}
+
+static int kbd_ready(void) { return kbd_head != kbd_tail; }
+
+static uint8_t kbd_read(void)
+{
+    if (kbd_ready()) {
+        kbd_last = kbd_fifo[kbd_head] | 0x80;   /* Wozmon wants bit 7 set */
+        kbd_head = (kbd_head + 1) & 63;
+    }
+    return kbd_last;
+}
+
+int mem_load_rom(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    size_t n = fread(&k4510_ram[K4510_ROM_BASE], 1, K4510_RAM_SIZE - K4510_ROM_BASE, f);
+    fclose(f);
+    return (int)n;
+}
+
 /* MEGA65-build globals the core references. */
 int cpu_mega65_opcodes = 1;     /* enable the Q / 32-bit extensions */
 
@@ -31,18 +64,27 @@ void    mem_poke(uint32_t addr, uint8_t v) { k4510_ram[addr & (K4510_RAM_SIZE - 
 
 Uint8 cpu65_read_callback(Uint16 addr)
 {
+    if (XEMU_UNLIKELY((addr & 0xFF00) == 0xD000)) {
+        switch (addr) {
+        case K4510_IO_KBD:   return kbd_read();
+        case K4510_IO_KBDCR: return kbd_ready() ? 0x80 : 0x00;
+        default:             return 0xFF;
+        }
+    }
     return k4510_ram[addr];
 }
 
 void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
+    if (XEMU_UNLIKELY(addr >= K4510_ROM_BASE)) return;        /* ROM */
+    if (XEMU_UNLIKELY((addr & 0xFF00) == 0xD000)) return;     /* no writable I/O yet */
     k4510_ram[addr] = data;
 }
 
 void cpu65_write_rmw_callback(Uint16 addr, Uint8 old_data, Uint8 new_data)
 {
     (void)old_data;                         /* no I/O yet that cares about the double write */
-    k4510_ram[addr] = new_data;
+    cpu65_write_callback(addr, new_data);
 }
 
 /* ---- 32-bit flat forms: [$nn],Z and the Q-register quad forms ------- */

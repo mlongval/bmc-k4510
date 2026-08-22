@@ -18,4 +18,12 @@ void     mem_load(uint32_t addr, const uint8_t *data, size_t len);
 uint8_t  mem_peek(uint32_t addr);          /* side-effect-free, for tests/monitor */
 void     mem_poke(uint32_t addr, uint8_t v);
 
+/* Spike I/O: ROM at $F000-$FFFF (write-protected), keyboard at $D010/11. */
+#define K4510_ROM_BASE   0xF000u
+#define K4510_IO_KBD     0xD010u    /* read: last key | $80; clears ready */
+#define K4510_IO_KBDCR   0xD011u    /* bit 7: key ready */
+
+int      mem_load_rom(const char *path);     /* 4 KB into $F000 */
+void     kbd_push(uint8_t ascii);            /* from the frontend */
+
 #endif
