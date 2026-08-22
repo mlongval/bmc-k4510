@@ -12,7 +12,7 @@ static void crc_init(void){for(uint32_t n=0;n<256;n++){uint32_t c=n;for(int k=0;
 static uint32_t crc(uint32_t c,const uint8_t*b,size_t n){c=~c;for(size_t i=0;i<n;i++)c=crc_table[(c^b[i])&0xFF]^(c>>8);return ~c;}
 static uint32_t adler(const uint8_t*b,size_t n){uint32_t a=1,s=0;for(size_t i=0;i<n;i++){a=(a+b[i])%65521;s=(s+a)%65521;}return (s<<16)|a;}
 static void be32(FILE*f,uint32_t v){fputc(v>>24,f);fputc(v>>16,f);fputc(v>>8,f);fputc(v,f);}
-static void chunk(FILE*f,const char*t,const uint8_t*d,size_t n){be32(f,n);uint8_t tb[4];memcpy(tb,t,4);fwrite(tb,1,4,f);if(n)fwrite(d,1,n,f);uint32_t c=crc(0,tb,4);c=~crc(~c,d,n);be32(f,c);}
+static void chunk(FILE*f,const char*t,const uint8_t*d,size_t n){be32(f,n);uint8_t*b=malloc(n+4);memcpy(b,t,4);if(n)memcpy(b+4,d,n);fwrite(b,1,n+4,f);be32(f,crc(0,b,n+4));free(b);}
 int main(int argc,char**argv){
     const char*rom=argc>1?argv[1]:"rom/wozmon.bin"; int frames=argc>2?atoi(argv[2]):60; const char*out=argc>3?argv[3]:"/tmp/k4510.png";
     const char*keys=argc>4?argv[4]:"";

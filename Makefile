@@ -3,13 +3,17 @@
 #   make test       -> run the CPU wrapper test
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o
+CXX     ?= g++
+CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions -DVERSION=\"1.0-vice3.3\"
+RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o $(RESID_OBJS)
+LDLIBS  = -lstdc++ -lm
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin test/capture test/cputest test/woztest test/maptest test/dmatest test/vicketest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin test/capture test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -18,7 +22,7 @@ rom/demo.bin: rom/demo.a
 	$(ACME) --cpu m65 -o $@ $<
 
 test/capture: test/capture.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 rom: rom/wozmon.bin rom/demo.bin
 
@@ -27,34 +31,42 @@ core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicd
 
 core/mem.o: core/mem.c core/mem.h core/xemu/emutools_basicdefs.h
 core/vicke.o: core/vicke.c core/vicke.h core/mem.h
-core/io.o: core/io.c core/io.h core/mem.h core/vicke.h
+core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h
+core/sid.o: core/sid.cc core/sid.h
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+core/resid/%.o: core/resid/%.cc
+	$(CXX) $(CXXFLAGS) -Wno-unused-parameter -c -o $@ $<
 
 sdl/k4510: sdl/main.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS) $(LDLIBS)
 
 test/cputest: test/cputest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/woztest: test/woztest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/maptest: test/maptest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/dmatest: test/dmatest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/vicketest: test/vicketest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: test/cputest test/woztest test/maptest test/dmatest test/vicketest rom/wozmon.bin
+test/sidtest: test/sidtest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest rom/wozmon.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
 	./test/dmatest
 	./test/vicketest
+	./test/sidtest
 
 clean:
-	rm -f core/*.o core/xemu/*.o test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
+	rm -f core/*.o core/xemu/*.o core/resid/*.o test/sidtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom

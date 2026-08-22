@@ -1,6 +1,7 @@
 #include "io.h"
 #include "mem.h"
 #include "vicke.h"
+#include "sid.h"
 #include <string.h>
 
 /* ---- keyboard: a FIFO behind two registers (Wozmon polls them) -------- */
@@ -65,6 +66,7 @@ void io_reset(void)
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();
+    sid_reset();
 }
 
 uint8_t io_read(uint16_t addr)
@@ -72,6 +74,9 @@ uint8_t io_read(uint16_t addr)
     switch (addr & 0xFF00) {
     case IO_VICKE:
         return vicke_read(addr & 0xFF);
+    case IO_SID:
+        if (addr < IO_FM) return sid_read((addr - IO_SID) >> 5, addr & 0x1F);
+        return 0xFF;
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDCR) return kbd_ready() ? 0x80 : 0x00;
@@ -89,6 +94,9 @@ void io_write(uint16_t addr, uint8_t v)
     switch (addr & 0xFF00) {
     case IO_VICKE:
         vicke_write(addr & 0xFF, v); return;
+    case IO_SID:
+        if (addr < IO_FM) sid_write((addr - IO_SID) >> 5, addr & 0x1F, v);
+        return;
     case IO_DMA:
         if ((addr & 0xFF) < 12) { dma_reg[addr & 0xFF] = v; return; }
         if (addr == IO_DMA_CMD) { dma_run(v); return; }

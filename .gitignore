@@ -7,3 +7,4 @@ test/maptest
 test/dmatest
 test/vicketest
 test/capture
+test/sidtest
