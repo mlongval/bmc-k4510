@@ -4,7 +4,7 @@
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 CXX     ?= g++
-CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions -DVERSION=\"1.0-vice3.3\"
+CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
 CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm
@@ -13,7 +13,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin test/capture test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -21,10 +21,23 @@ rom/wozmon.bin: rom/wozmon.a
 rom/demo.bin: rom/demo.a
 	$(ACME) --cpu m65 -o $@ $<
 
+# System ROM: C with cc65 (65C02 output is a subset of the 45GS02)
+rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
+	cc65 -O -t none --cpu 65c02 -o rom/kernal.s rom/kernal.c
+	ca65 --cpu 65c02 -o rom/kernal.o rom/kernal.s
+	ca65 --cpu 65c02 -o rom/crt0.o rom/crt0.s
+	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/kernal.o none.lib -m rom/kernal.map
+
+test/fstest: test/fstest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+test/romtest: test/romtest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test/capture: test/capture.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-rom: rom/wozmon.bin rom/demo.bin
+rom: rom/wozmon.bin rom/demo.bin rom/kernal.bin
 
 core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicdefs.h core/hypervisor.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -58,15 +71,17 @@ test/vicketest: test/vicketest.c $(CORE_OBJS)
 test/sidtest: test/sidtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest rom/wozmon.bin
+test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest test/fstest test/romtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
 	./test/dmatest
 	./test/vicketest
 	./test/sidtest
+	./test/fstest
+	./test/romtest
 
 clean:
-	rm -f core/*.o core/xemu/*.o core/resid/*.o test/sidtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
+	rm -f core/*.o core/xemu/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom

@@ -17,11 +17,11 @@ int main(int argc,char**argv){
     const char*rom=argc>1?argv[1]:"rom/wozmon.bin"; int frames=argc>2?atoi(argv[2]):60; const char*out=argc>3?argv[3]:"/tmp/k4510.png";
     const char*keys=argc>4?argv[4]:"";
     uint8_t font[2048]; FILE*ff=fopen("data/font8.bin","rb"); if(!ff||fread(font,1,2048,ff)!=2048){fprintf(stderr,"font\n");return 1;} fclose(ff);
-    if(mem_init())return 1; mem_load(K4510_FONT8_PHYS,font,2048); if(mem_load_rom(rom)!=4096){fprintf(stderr,"rom\n");return 1;}
+    if(mem_init())return 1; mem_load(K4510_FONT8_PHYS,font,2048); if(mem_load_rom(rom)<=0){fprintf(stderr,"rom\n");return 1;}
     cpu65_reset();
-    static uint8_t fb[640*480];
+    static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){
-        if(fr==5) for(const char*k=keys;*k;k++) kbd_push(*k=='\\n'?0x0D:(uint8_t)*k);
+        if(fr>=5 && ki<kn){ uint8_t k=(uint8_t)keys[ki++]; kbd_push(k=='\n'?0x0D:k); }   /* one key per frame */
         vicke_begin_frame(fb,640);
         for(int y=0;y<480;y++){cpu65.irqLevel=vicke_irq()?1:0;cpu65_step(40500000/60/480);vicke_line(y);}
         vicke_end_frame();

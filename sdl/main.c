@@ -40,7 +40,8 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 
 int main(int argc, char **argv)
 {
-    const char *rom = (argc > 1) ? argv[1] : "rom/wozmon.bin";
+    const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
+    if (argc > 2) fs_set_root(argv[2]);
     uint8_t font[256 * 8];
     if (load_file("data/font8.bin", font, sizeof font) != sizeof font) {
         fprintf(stderr, "need data/font8.bin (run from repo root)\n");
@@ -50,8 +51,8 @@ int main(int argc, char **argv)
     mem_load(K4510_FONT8_PHYS, font, sizeof font);       /* the ROM points VICKe at this */
 
 
-    if (mem_load_rom(rom) != 4096) {
-        fprintf(stderr, "cannot load 4 KB ROM %s\n", rom);
+    if (mem_load_rom(rom) <= 0) {
+        fprintf(stderr, "cannot load ROM %s\n", rom);
         return 1;
     }
     cpu65_reset();
@@ -79,25 +80,35 @@ int main(int argc, char **argv)
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
             case SDL_TEXTINPUT: {
-                /* Wozmon is an uppercase-only 1976 monitor; fold case for it. */
+                /* The host layout (incl. dead keys) has already produced the character. */
                 for (const char *c = e.text.text; *c; c++) {
                     unsigned char ch = (unsigned char)*c;
-                    if (ch < 0x80) kbd_push((ch >= 'a' && ch <= 'z') ? ch - 32 : ch);
+                    if (ch >= 0x20 && ch < 0x7F) kbd_push(ch);
                 }
                 break;
             }
-            case SDL_KEYDOWN:
-                switch (e.key.keysym.sym) {
-                case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(0x0D); break;
-                case SDLK_BACKSPACE: kbd_push('_'); break;      /* Wozmon's backspace */
-                case SDLK_ESCAPE:
-                    if (e.key.keysym.mod & KMOD_SHIFT) running = 0;   /* Shift+Esc quits */
-                    else kbd_push(0x1B);
-                    break;
+            case SDL_KEYDOWN: case SDL_KEYUP: {
+                SDL_Keymod m = SDL_GetModState();
+                kbd_modifiers(m & KMOD_SHIFT, m & KMOD_CTRL, m & KMOD_ALT);
+                if (e.type != SDL_KEYDOWN) break;
+                SDL_Keycode k = e.key.keysym.sym;
+                if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
+                switch (k) {
+                case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;
+                case SDLK_BACKSPACE: kbd_push(KEY_BS); break;
+                case SDLK_TAB:       kbd_push(KEY_TAB); break;
+                case SDLK_ESCAPE:    if (m & KMOD_SHIFT) running = 0; else kbd_push(KEY_ESC); break;
+                case SDLK_UP: kbd_push(KEY_UP); break;     case SDLK_DOWN: kbd_push(KEY_DOWN); break;
+                case SDLK_LEFT: kbd_push(KEY_LEFT); break; case SDLK_RIGHT: kbd_push(KEY_RIGHT); break;
+                case SDLK_HOME: kbd_push(KEY_HOME); break; case SDLK_END: kbd_push(KEY_END); break;
+                case SDLK_PAGEUP: kbd_push(KEY_PGUP); break; case SDLK_PAGEDOWN: kbd_push(KEY_PGDN); break;
+                case SDLK_INSERT: kbd_push(KEY_INS); break; case SDLK_DELETE: kbd_push(KEY_DEL); break;
                 case SDLK_F12: cpu65_reset(); break;
-                default: break;
+                default:
+                    if (k >= SDLK_F1 && k <= SDLK_F11) kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1)));
+                    break;
                 }
-                break;
+                break; }
             }
         }
         vicke_begin_frame(fb, VICKE_WIDTH);

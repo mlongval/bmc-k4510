@@ -8,3 +8,10 @@ test/dmatest
 test/vicketest
 test/capture
 test/sidtest
+test/fstest
+test/romtest
+rom/kernal.bin
+rom/kernal.s
+rom/*.o
+rom/kernal.map
+fs/out.bin

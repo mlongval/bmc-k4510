@@ -19,8 +19,8 @@ LASTROW  = SCREEN + COLS*(ROWS-1)
 
 VICKE    = $D000        ; video chip register block   [io.h IO_VICKE]
 FONT     = $010000      ; 8x8 ASCII font, placed by the loader [io.h K4510_FONT8_PHYS]
-KBD      = $D100        ; read: last key, bit7 set   [io.h IO_KBD]
-KBDCR    = $D101        ; bit7 = key ready          [io.h IO_KBDCR]
+KBD      = $D100        ; read: next key (ASCII), pops   [io.h IO_KBD]
+KBDST    = $D101        ; bit7 = key ready          [io.h IO_KBDST]
 
 ; ---- Wozmon page-0 variables (unchanged) --------------------------------
 XAML     = $24
@@ -69,9 +69,18 @@ BACKSPACE:
         dey
         bmi GETLINE
 NEXTCHAR:
-        lda KBDCR
+        lda KBDST
         bpl NEXTCHAR
         lda KBD
+        cmp #$08
+        bne +
+        lda #$5F        ; backspace -> Wozmon's _
++       cmp #$61
+        bcc +
+        cmp #$7B
+        bcs +
+        and #$DF        ; lowercase -> uppercase
++       ora #$80        ; Wozmon works in high ASCII
         sta IN,y
         jsr ECHO
         cmp #$8D

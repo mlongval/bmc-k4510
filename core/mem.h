@@ -20,7 +20,7 @@
 extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed */
 
 /* ---- spike I/O and ROM, in the CPU's unmapped 64 KB view ------------- */
-#define K4510_ROM_BASE   0xF000u     /* 4 KB ROM, write-protected */
+#define K4510_ROM_BASE   0xE000u     /* up to 8 KB ROM, write-protected; files load top-aligned */
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
 
 int      mem_init(void);                                /* 0 on success */
@@ -28,7 +28,7 @@ void     mem_reset(void);                               /* MAP off, etc. */
 void     mem_load(uint32_t phys, const uint8_t *data, size_t len);
 uint8_t  mem_peek(uint32_t phys);                       /* physical, no side effects */
 void     mem_poke(uint32_t phys, uint8_t v);
-int      mem_load_rom(const char *path);                /* 4 KB into phys $F000 */
+int      mem_load_rom(const char *path);                /* <= 8 KB, top-aligned at $10000; returns size */
 
 /* CPU-view translation, for tests and the monitor. */
 uint32_t mem_cpu_to_phys(uint16_t cpu_addr);

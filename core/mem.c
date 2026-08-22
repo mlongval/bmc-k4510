@@ -78,8 +78,10 @@ int mem_load_rom(const char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
-    size_t n = fread(&k4510_ram[K4510_ROM_BASE], 1, 0x10000 - K4510_ROM_BASE, f);
+    uint8_t buf[0x10000 - K4510_ROM_BASE];
+    size_t n = fread(buf, 1, sizeof buf, f);
     fclose(f);
+    memcpy(&k4510_ram[0x10000 - n], buf, n);
     return (int)n;
 }
 

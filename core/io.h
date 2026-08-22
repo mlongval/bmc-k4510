@@ -17,8 +17,47 @@
 #define IO_SYS         0xD500u   /* $D500-$D5FF  RTC, timers, IRQ        */
 
 /* --- input ($D100) ------------------------------------------------------ */
-#define IO_KBD         (IO_INPUT + 0x00)  /* read: last key | $80; clears ready (Wozmon-shaped for now) */
-#define IO_KBDCR       (IO_INPUT + 0x01)  /* bit 7: key ready */
+/* Keyboard: a FIFO of key-down events. Printable keys arrive as ASCII
+ * ($20-$7E, already shifted/dead-keyed by the host layout on the desktop);
+ * control keys as ASCII controls; everything else as $80+ codes. */
+#define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none */
+#define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
+#define KEY_ENTER 0x0D
+#define KEY_BS    0x08
+#define KEY_TAB   0x09
+#define KEY_ESC   0x1B
+#define KEY_UP    0x80
+#define KEY_DOWN  0x81
+#define KEY_LEFT  0x82
+#define KEY_RIGHT 0x83
+#define KEY_HOME  0x84
+#define KEY_END   0x85
+#define KEY_PGUP  0x86
+#define KEY_PGDN  0x87
+#define KEY_INS   0x88
+#define KEY_DEL   0x89
+#define KEY_F1    0x90                    /* F1..F12 = $90..$9B */
+
+/* --- storage ($D300): the host filesystem, sandboxed to one directory --- */
+/* Names are NUL-terminated, at NAMEPTR. Transfers go straight to RAM. */
+#define IO_FS_CMD      (IO_STORAGE + 0x00) /* write: command; read: 0 idle */
+#define IO_FS_STATUS   (IO_STORAGE + 0x01) /* 0 ok, 1 not found, 2 io error, 3 bad cmd, 4 end of dir, 5 name too long */
+#define IO_FS_NAMEPTR  (IO_STORAGE + 0x04) /* 28-bit */
+#define IO_FS_ADDR     (IO_STORAGE + 0x08) /* 28-bit RAM address for READ/WRITE/DIRNEXT */
+#define IO_FS_LEN      (IO_STORAGE + 0x0C) /* 32-bit: bytes requested; updated to bytes done */
+#define IO_FS_SIZE     (IO_STORAGE + 0x10) /* 32-bit: file size after OPEN/STAT */
+#define FS_OPEN_READ   1   /* open NAMEPTR for reading; SIZE = file size; offset = 0 */
+#define FS_OPEN_WRITE  2   /* create/truncate NAMEPTR for writing */
+#define FS_READ        3   /* read LEN bytes at the current offset into ADDR; LEN = bytes read */
+#define FS_WRITE       4   /* write LEN bytes from ADDR */
+#define FS_CLOSE       5
+#define FS_DIR_FIRST   6   /* start a directory listing */
+#define FS_DIR_NEXT    7   /* copy next entry name (NUL-terminated) to ADDR, SIZE = its size; status 4 at end */
+#define FS_STAT        8   /* SIZE = size of NAMEPTR, status 1 if absent */
+#define FS_LOAD        9   /* convenience: OPEN_READ + read whole file to ADDR + CLOSE; LEN = size */
+#define FS_SAVE       10   /* convenience: OPEN_WRITE + write LEN bytes from ADDR + CLOSE */
+
+void    fs_set_root(const char *dir);
 
 /* --- DMA ($D200) -------------------------------------------------------- */
 /* All addresses physical, 28-bit, little-endian. Transfers are instant (§0.5). */
@@ -36,6 +75,7 @@ uint8_t io_read(uint16_t addr);
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);
 
-void    kbd_push(uint8_t ascii);
+void    kbd_push(uint8_t code);
+void    kbd_modifiers(uint8_t shift, uint8_t ctrl, uint8_t alt);
 
 #endif
