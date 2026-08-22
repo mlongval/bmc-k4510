@@ -34,6 +34,9 @@ test/fstest: test/fstest.c $(CORE_OBJS)
 test/romtest: test/romtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test/bench: test/bench.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test/capture: test/capture.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
