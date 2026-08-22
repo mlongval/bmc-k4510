@@ -16,6 +16,7 @@
 #define SCALE 2
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 #define CYCLES_PER_FRAME (CPU_HZ / 60)
+#define CYCLES_PER_LINE  (CYCLES_PER_FRAME / VICKE_HEIGHT)
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
 {
@@ -83,8 +84,14 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        cpu65_step(CYCLES_PER_FRAME);
-        vicke_render(fb, VICKE_WIDTH);
+        vicke_begin_frame(fb, VICKE_WIDTH);
+        for (int y = 0; y < VICKE_HEIGHT; y++) {
+            cpu65.irqLevel = vicke_irq() ? 1 : 0;
+            cpu65_step(CYCLES_PER_LINE);
+            vicke_line(y);
+        }
+        vicke_end_frame();
+        cpu65.irqLevel = vicke_irq() ? 1 : 0;
 
         void *pixels; int pitch;
         SDL_LockTexture(tex, NULL, &pixels, &pitch);

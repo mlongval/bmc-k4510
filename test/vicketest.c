@@ -127,6 +127,42 @@ int main(void)
     CHECK(sl == 0x03, "sprite-layer collision bits (%02X)", sl);
     CHECK(io_read(IO_VICKE + VR_COLSS) == 0, "collision cleared on read");
 
+    /* ---- copper: change BGCOL at lines 100 and 200, IRQ at 300; raster compare at 50 ---- */
+    mem_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 1);
+    uint32_t cop = 0x500000;
+    uint8_t prog[] = {
+        0x01, 100, 0,  0,       /* WAIT 100   */
+        0x02, VR_BGCOL, 2, 0,   /* MOVE BGCOL,2 */
+        0x01, 200, 0,  0,       /* WAIT 200   */
+        0x02, VR_BGCOL, 3, 0,
+        0x01, 44, 1,   0,       /* WAIT 300   */
+        0x05, 0, 0, 0,          /* IRQ        */
+        0x00, 0, 0, 0,          /* END        */
+    };
+    mem_load(cop, prog, sizeof prog);
+    W32(VR_COPPTR, cop); W(VR_COPCTL, 1);
+    W(VR_RASTER, 50); W(VR_RASTER + 1, 0);
+    W(VR_IRQMASK, VI_RASTER | VI_COPPER);
+    vicke_begin_frame(fb, VICKE_WIDTH);
+    int irq_at_raster = -1, irq_at_copper = -1;
+    for (int y = 0; y < VICKE_HEIGHT; y++) {
+        vicke_line(y);
+        if (irq_at_raster < 0 && (io_read(IO_VICKE + VR_IRQSTAT) & VI_RASTER)) irq_at_raster = y;
+        if (irq_at_copper < 0 && (io_read(IO_VICKE + VR_IRQSTAT) & VI_COPPER)) irq_at_copper = y;
+    }
+    vicke_end_frame();
+    printf("6. copper: bg@50=%d bg@150=%d bg@250=%d  rasterIRQ@%d copperIRQ@%d  irq=%d\n",
+           fb[50*640], fb[150*640], fb[250*640], irq_at_raster, irq_at_copper, vicke_irq());
+    CHECK(fb[50*640] == 1 && fb[150*640] == 2 && fb[250*640] == 3, "copper gradient");
+    CHECK(irq_at_raster == 50, "raster compare IRQ");
+    CHECK(irq_at_copper == 300, "copper IRQ");
+    CHECK(vicke_irq() && !(vicke_irq() & VI_VBLANK), "IRQ line respects mask (vblank masked)");
+    W(VR_IRQSTAT, VI_RASTER | VI_COPPER);
+    CHECK(vicke_irq() == 0, "ack clears");
+    vicke_render(fb, VICKE_WIDTH);
+    /* frame 2: BGCOL persists at 3 from frame 1 until the list sets 2 at line 100 -> proves restart */
+    CHECK(fb[50*640] == 3 && fb[150*640] == 2, "copper restarts each frame");
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

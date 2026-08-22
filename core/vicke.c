@@ -6,6 +6,9 @@ static uint8_t  reg[256];
 static uint32_t pal[256];
 static int      cur_line;
 static uint8_t  col_ss[16], col_sl[16];     /* collision accumulators for the frame in progress */
+static uint8_t *frame_fb; static int frame_pitch;
+static uint32_t cop_pc; static int cop_waiting_for;   /* -1 = not waiting, -2 = ended */
+static uint16_t raster_cmp;
 static uint8_t  owner[VICKE_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
 static uint8_t  layer_hit[VICKE_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
 
@@ -19,6 +22,7 @@ void vicke_reset(void)
     memset(reg, 0, sizeof reg);
     for (int i = 0; i < 256; i++) pal[i] = (i < 16) ? c64_palette[i] : (uint32_t)(i * 0x010101);
     cur_line = 0;
+    cop_waiting_for = -2; raster_cmp = 0xFFFF;
 }
 
 uint32_t vicke_palette_rgb(int i) { return pal[i & 0xFF]; }
@@ -37,6 +41,9 @@ uint8_t vicke_read(uint8_t r)
 
 void vicke_write(uint8_t r, uint8_t v)
 {
+    if (r == VR_IRQSTAT) { reg[r] &= ~v; return; }          /* ack */
+    if (r == VR_RASTER)     { raster_cmp = (raster_cmp & 0xFF00) | v; return; }
+    if (r == VR_RASTER + 1) { raster_cmp = (raster_cmp & 0x00FF) | (v << 8); return; }
     reg[r] = v;
     if (r == VR_PALB) {
         uint8_t i = reg[VR_PALIDX];
@@ -171,23 +178,63 @@ static void sprites_line(int z, int y, uint8_t *line)
     }
 }
 
-void vicke_render(uint8_t *fb, int pitch)
+/* ---- copper ------------------------------------------------------------ */
+static void copper_run(int y)
 {
-    int enabled = reg[VR_CTRL] & 1;
-    uint8_t bg = reg[VR_BGCOL];
-    memset(col_ss, 0, 16); memset(col_sl, 0, 16);
-    for (int y = 0; y < VICKE_HEIGHT; y++) {
-        cur_line = y;
-        uint8_t *line = fb + y * pitch;
-        memset(line, bg, VICKE_WIDTH);
-        if (!enabled) continue;
-        memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
-        int first = 1;
-        for (int n = 0; n < VICKE_LAYERS; n++) {
-            if (reg[VR_LAYER(n) + VL_CTRL] & 1) { layer_line(n, y, line, first); first = 0; }
-            sprites_line(n, y, line);
+    if (!(reg[VR_COPCTL] & 1) || cop_waiting_for == -2) return;
+    if (cop_waiting_for >= 0) { if (y < cop_waiting_for) return; cop_waiting_for = -1; }
+    for (int guard = 0; guard < 256; guard++) {
+        uint8_t op = ram(cop_pc), a0 = ram(cop_pc + 1), a1 = ram(cop_pc + 2), a2 = ram(cop_pc + 3);
+        cop_pc += 4;
+        switch (op) {
+        case 0x00: cop_waiting_for = -2; return;
+        case 0x01: { int l = a0 | (a1 << 8); if (y < l) { cop_waiting_for = l; return; } break; }
+        case 0x02: vicke_write(a0, a1); break;
+        case 0x03: if (y >= (a0 | (a1 << 8))) cop_pc += 4; break;
+        case 0x04: cop_pc = a0 | (a1 << 8) | ((uint32_t)a2 << 16); break;
+        case 0x05: reg[VR_IRQSTAT] |= VI_COPPER; break;
+        default:   cop_waiting_for = -2; return;       /* bad opcode ends the list */
         }
     }
-    for (int i = 0; i < 16; i++) { reg[VR_COLSS + i] |= col_ss[i]; reg[VR_COLSL + i] |= col_sl[i]; }
+}
+
+int vicke_irq(void) { return reg[VR_IRQSTAT] & reg[VR_IRQMASK]; }
+
+void vicke_begin_frame(uint8_t *fb, int pitch)
+{
+    frame_fb = fb; frame_pitch = pitch;
+    memset(col_ss, 0, 16); memset(col_sl, 0, 16);
+    cop_pc = rd32(&reg[VR_COPPTR]); cop_waiting_for = (reg[VR_COPCTL] & 1) ? -1 : -2;
+}
+
+void vicke_line(int y)
+{
+    cur_line = y;
+    copper_run(y);
+    if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
+    uint8_t *line = frame_fb + y * frame_pitch;
+    memset(line, reg[VR_BGCOL], VICKE_WIDTH);
+    if (!(reg[VR_CTRL] & 1)) return;
+    memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
+    int first = 1;
+    for (int n = 0; n < VICKE_LAYERS; n++) {
+        if (reg[VR_LAYER(n) + VL_CTRL] & 1) { layer_line(n, y, line, first); first = 0; }
+        sprites_line(n, y, line);
+    }
+}
+
+void vicke_end_frame(void)
+{
+    int any = 0;
+    for (int i = 0; i < 16; i++) { reg[VR_COLSS + i] |= col_ss[i]; reg[VR_COLSL + i] |= col_sl[i]; any |= col_ss[i] | col_sl[i]; }
+    if (any) reg[VR_IRQSTAT] |= VI_COLL;
+    reg[VR_IRQSTAT] |= VI_VBLANK;
     cur_line = VICKE_HEIGHT;   /* vblank */
+}
+
+void vicke_render(uint8_t *fb, int pitch)
+{
+    vicke_begin_frame(fb, pitch);
+    for (int y = 0; y < VICKE_HEIGHT; y++) vicke_line(y);
+    vicke_end_frame();
 }

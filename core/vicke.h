@@ -7,15 +7,19 @@
  *
  *   $00  CTRL      bit0 display enable
  *   $01  BGCOL     background palette index (where nothing is drawn)
- *   $02  RASTER    read: current line (low 8)   $03: high bits
- *   $04  IRQSTAT   (reserved: vblank/raster/copper/collision)
- *   $05  IRQMASK   (reserved)
+ *   $02  RASTER    read: current line (low 8); write: raster-compare low
+ *   $03            read: line high bits;         write: compare high
+ *   $04  IRQSTAT   bit0 vblank, bit1 raster==compare, bit2 copper IRQ op,
+ *                  bit3 sprite collision. Write 1s to acknowledge.
+ *   $05  IRQMASK   same bits; IRQ line = IRQSTAT & IRQMASK
  *   $06  PALIDX    palette index for the write port
  *   $07  PALR      $08 PALG   $09 PALB  -- writing B commits the entry and
  *                  increments PALIDX
  *   $0A-$0D SPRTAB 28-bit pointer to the sprite attribute table (128 x 16 B)
  *   $0E     SPRCTL bit0 sprites enable
- *   $0F            reserved (copper pointer: later)
+ *   $0F            reserved
+ *   $60-$63 COPPTR 28-bit pointer to the copper list
+ *   $64     COPCTL bit0 enable; the list restarts every frame at line 0
  *   $40-$4F COLSS  read: sprite-sprite collision bits, one bit per sprite
  *                  (sprite n hit another sprite this frame). Cleared on read of $40.
  *   $50-$5F COLSL  read: sprite-layer collision bits (sprite n over a
@@ -29,6 +33,17 @@
  *   +10  PALOFS (4 bpp: index = PALOFS<<4 | pixel)
  *   +11..15 reserved
  *   Pixel 0 is transparent. No per-line limit. 128 sprites.
+ *
+ * Copper list: 4-byte instructions in main RAM, executed at the start of
+ * each scanline until a WAIT blocks. Register writes take effect for the
+ * line about to be drawn.
+ *   00 END                       stop until next frame
+ *   01 WAIT lo hi                wait for line >= (hi<<8|lo)
+ *   02 MOVE reg val              write val to VICKe register reg
+ *   03 SKIP lo hi                skip next instruction if line >= value
+ *   04 JUMP a0 a1 a2             continue at 24-bit address
+ *   05 IRQ                       set IRQSTAT bit2
+ *   At most 256 instructions per line are executed (runaway guard).
  *
  *   Layers 0..3 at $10 + n*$10, 16 bytes each:
  *   +0   LCTRL     bit0 enable, bits1-2 mode (0 bitmap, 1 tile, 2 text8,
@@ -74,6 +89,14 @@
 #define VR_SPRCTL   0x0E
 #define VR_COLSS    0x40
 #define VR_COLSL    0x50
+#define VR_COPPTR   0x60
+#define VR_COPCTL   0x64
+#define VR_IRQSTAT  0x04
+#define VR_IRQMASK  0x05
+#define VI_VBLANK   1
+#define VI_RASTER   2
+#define VI_COPPER   4
+#define VI_COLL     8
 #define VICKE_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
 #define VL_CTRL     0
@@ -92,7 +115,12 @@
 void     vicke_reset(void);
 uint8_t  vicke_read(uint8_t reg);
 void     vicke_write(uint8_t reg, uint8_t v);
-void     vicke_render(uint8_t *fb, int pitch);        /* one full frame */
+void     vicke_render(uint8_t *fb, int pitch);        /* one full frame (tests) */
+/* Scanline-granular interface for the frontend: run the CPU between lines. */
+void     vicke_begin_frame(uint8_t *fb, int pitch);
+void     vicke_line(int y);                           /* render line y, run copper, raise IRQs */
+void     vicke_end_frame(void);                       /* vblank */
+int      vicke_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
 uint32_t vicke_palette_rgb(int index);                /* 0x00RRGGBB */
 
 #endif
