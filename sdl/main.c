@@ -29,7 +29,7 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 
 int main(int argc, char **argv)
 {
-    (void)argc; (void)argv;
+    const char *rom = (argc > 1) ? argv[1] : "rom/wozmon.bin";
     uint8_t font[256 * 8];
     if (load_file("data/font8.bin", font, sizeof font) != sizeof font) {
         fprintf(stderr, "need data/font8.bin (run from repo root)\n");
@@ -39,8 +39,8 @@ int main(int argc, char **argv)
     mem_load(K4510_FONT8_PHYS, font, sizeof font);       /* the ROM points VICKe at this */
 
 
-    if (mem_load_rom("rom/wozmon.bin") != 4096) {
-        fprintf(stderr, "need rom/wozmon.bin (make rom)\n");
+    if (mem_load_rom(rom) != 4096) {
+        fprintf(stderr, "cannot load 4 KB ROM %s\n", rom);
         return 1;
     }
     cpu65_reset();

@@ -245,9 +245,8 @@ void vicke_line(int y)
     memset(line, reg[VR_BGCOL], VICKE_WIDTH);
     if (!(reg[VR_CTRL] & 1)) return;
     memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
-    int first = 1;
     for (int n = 0; n < VICKE_LAYERS; n++) {
-        if (reg[VR_LAYER(n) + VL_CTRL] & 1) { layer_line(n, y, line, first); first = 0; }
+        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y, line, 0);
         sprites_line(n, y, line);
     }
 }

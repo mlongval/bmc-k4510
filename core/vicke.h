@@ -75,8 +75,9 @@
  *   text32  4 bytes/cell: glyph lo, glyph hi (16-bit index), fg, bg --
  *           byte-wide palette indices per cell. bit7 of glyph hi = reverse.
  *
- * Layer 0 is bottom. Pixel index 0 is transparent in every layer except
- * the lowest enabled one (text32 bg is never transparent).
+ * Layer 0 is bottom. Pixel index 0 is transparent in every layer; BGCOL is
+ * the ground (text32 bg is never transparent). Changed 2026-08-22 from
+ * "opaque in the lowest layer" so SHEILA backgrounds show under text.
  */
 #ifndef K4510_VICKE_H
 #define K4510_VICKE_H

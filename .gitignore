@@ -6,3 +6,4 @@ rom/*.lst
 test/maptest
 test/dmatest
 test/vicketest
+test/capture

@@ -35,9 +35,9 @@ int main(void)
     W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
     W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_BITMAP << 1) | (3 << 3));   /* enable, bitmap, 8 bpp */
     vicke_render(fb, VICKE_WIDTH);
-    printf("1. bitmap: px(10,10)=%d hole(150,150)=%d (lowest layer: 0 drawn, not bg)\n", fb[10*640+10], fb[150*640+150]);
+    printf("1. bitmap: px(10,10)=%d hole(150,150)=%d (index 0 transparent -> BGCOL)\n", fb[10*640+10], fb[150*640+150]);
     CHECK(fb[10 * 640 + 10] == 7, "bitmap pixel");
-    CHECK(fb[150 * 640 + 150] == 0, "lowest layer draws index 0");
+    CHECK(fb[150 * 640 + 150] == 2, "index 0 transparent: BGCOL shows");
 
     /* layer 1: text on top, glyph 'X' at cell (0,0) with a 1bpp font where 'X' = all ones; palofs 3 -> indices 6/7... */
     uint32_t font = 0x10000, map = 0x800;
