@@ -16,19 +16,6 @@
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 #define CYCLES_PER_FRAME (CPU_HZ / 60)
 
-/* Build an ASCII-ordered 8x8 font from a C64 chargen (PETSCII screen
- * codes, uppercase set). ASCII $20-$3F map 1:1; $40-$5F and $60-$7F both
- * land on screen codes $00-$1F (so lowercase shows as uppercase for now). */
-static void font_from_chargen(const uint8_t *chargen, uint8_t *out)
-{
-    memset(out, 0, 256 * 8);
-    for (int a = 0x20; a < 0x80; a++) {
-        int sc = (a < 0x40) ? a : (a & 0x1F);
-        if (a >= 0x40 && a < 0x60) sc = a & 0x3F;   /* @ A-Z [ \ ] ^ _ */
-        memcpy(&out[a * 8], &chargen[sc * 8], 8);
-    }
-}
-
 static int load_file(const char *path, uint8_t *buf, size_t max)
 {
     FILE *f = fopen(path, "rb");
@@ -41,12 +28,11 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 int main(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    uint8_t chargen[4096], font[256 * 8];
-    if (load_file("data/chargen", chargen, sizeof chargen) < 2048) {
-        fprintf(stderr, "need data/chargen (run from repo root)\n");
+    uint8_t font[256 * 8];
+    if (load_file("data/font8.bin", font, sizeof font) != sizeof font) {
+        fprintf(stderr, "need data/font8.bin (run from repo root)\n");
         return 1;
     }
-    font_from_chargen(chargen, font);
 
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     vicke_init();
