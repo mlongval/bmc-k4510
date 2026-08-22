@@ -10,7 +10,8 @@ static uint8_t *frame_fb; static int frame_pitch;
 static uint32_t sh_pc; static int sh_wait;   /* -1 = not waiting, -2 = ended */
 static uint16_t raster_cmp;
 static uint8_t  owner[VICKE_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
-static uint8_t  layer_hit[VICKE_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
+static uint8_t  layer_hit[VICKE_WIDTH];
+static uint8_t  lowres_tmp[VICKE_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */      /* per-pixel: a layer drew a non-zero index here */
 
 static const uint32_t c64_palette[16] = {   /* VIC-II colours as the first 16 entries (spec §2) */
     0x000000, 0xFFFFFF, 0x880000, 0xAAFFEE, 0xCC44CC, 0x00CC55, 0x0000AA, 0xEEEE77,
@@ -242,6 +243,19 @@ void vicke_line(int y)
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
     uint8_t *line = frame_fb + y * frame_pitch;
+    if (reg[VR_CTRL] & 2) {                      /* lowres: 320x240, every pixel doubled */
+        if (y & 1) { memcpy(line, line - frame_pitch, VICKE_WIDTH); return; }
+        memset(lowres_tmp, reg[VR_BGCOL], VICKE_WIDTH);
+        if (reg[VR_CTRL] & 1) {
+            memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
+            for (int n = 0; n < VICKE_LAYERS; n++) {
+                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y >> 1, lowres_tmp, 0);
+                sprites_line(n, y >> 1, lowres_tmp);
+            }
+        }
+        for (int x = 0; x < VICKE_WIDTH / 2; x++) line[2 * x] = line[2 * x + 1] = lowres_tmp[x];
+        return;
+    }
     memset(line, reg[VR_BGCOL], VICKE_WIDTH);
     if (!(reg[VR_CTRL] & 1)) return;
     memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);

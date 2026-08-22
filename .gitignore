@@ -15,3 +15,6 @@ rom/kernal.s
 rom/*.o
 rom/kernal.map
 fs/out.bin
+demo/*.o
+demo/*.s
+demo/*.map

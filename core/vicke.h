@@ -5,7 +5,8 @@
  * memory. Rendering is per scanline into an 8-bit indexed framebuffer the
  * frontend supplies; the frontend applies vicke_palette_rgb().
  *
- *   $00  CTRL      bit0 display enable
+ *   $00  CTRL      bit0 display enable, bit1 lowres (320x240 doubled; raster
+ *                  lines still 0..479)
  *   $01  BGCOL     background palette index (where nothing is drawn)
  *   $02  RASTER    read: current line (low 8); write: raster-compare low
  *   $03            read: line high bits;         write: compare high
@@ -28,9 +29,9 @@
  *   $81     BLTFLG  bit0 H-flip, bit1 V-flip
  *   $82     BLTCMD  write anything: go. Instant. Reads 0.
  *   Blits are 8 bpp (one byte per pixel) in this version.
- *   $40-$4F COLSS  read: sprite-sprite collision bits, one bit per sprite
+ *   $90-$9F COLSS  read: sprite-sprite collision bits, one bit per sprite
  *                  (sprite n hit another sprite this frame). Cleared on read of $40.
- *   $50-$5F COLSL  read: sprite-layer collision bits (sprite n over a
+ *   $A0-$AF COLSL  read: sprite-layer collision bits (sprite n over a
  *                  non-transparent layer pixel). Cleared on read of $50.
  *
  *   Sprite attribute entry, 16 bytes, in main RAM:
@@ -97,8 +98,8 @@
 #define VR_PALB     0x09
 #define VR_SPRTAB   0x0A
 #define VR_SPRCTL   0x0E
-#define VR_COLSS    0x40
-#define VR_COLSL    0x50
+#define VR_COLSS    0x90
+#define VR_COLSL    0xA0
 #define VR_SHEILA   0x60
 #define VR_SHEILACTL   0x64
 #define VR_IRQSTAT  0x04

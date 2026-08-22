@@ -34,4 +34,4 @@ int main(int argc,char**argv){
     uint32_t ad=adler(raw,raw_n); z[zi++]=ad>>24;z[zi++]=ad>>16;z[zi++]=ad>>8;z[zi++]=ad;
     crc_init(); FILE*o=fopen(out,"wb"); fwrite("\x89PNG\r\n\x1a\n",1,8,o);
     uint8_t ih[13]={0,0,2,128,0,0,1,224,8,2,0,0,0}; chunk(o,"IHDR",ih,13); chunk(o,"IDAT",z,zi); chunk(o,"IEND",NULL,0); fclose(o);
-    printf("%s: %d frames -> %s\n",rom,frames,out); return 0; }
+    printf("%s: %d frames -> %s  (PC=$%04X SP=$%04X I=%d inh=%d irqst=%02X prefix=%d)\n",rom,frames,out,cpu65.pc,cpu65.sphi|cpu65.s,cpu65.pf_i,cpu65.cpu_inhibit_interrupts,vicke_read(4),cpu65.prefix); return 0; }

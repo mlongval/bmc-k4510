@@ -13,7 +13,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -81,7 +81,21 @@ test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/si
 	./test/fstest
 	./test/romtest
 
-clean:
+clean: clean-demos
+clean-demos:
+	rm -f $(DEMOS) demo/*.o demo/*.s demo/*.map
+
 	rm -f core/*.o core/xemu/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
+
+# Demo ROMs: C with cc65, demo/crt0.s supplies MAP and the vblank counter
+DEMOS = rom/balls.bin rom/cube.bin rom/mandel.bin
+demo/crt0.o: demo/crt0.s
+	ca65 --cpu 65c02 -o $@ $<
+rom/%.bin: demo/%.c demo/k4510.h demo/crt0.o demo/demo.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
+	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
+	ld65 -C demo/demo.cfg -o $@ demo/crt0.o demo/$*.o none.lib -m demo/$*.map
+demos: $(DEMOS)
+.PHONY: demos
