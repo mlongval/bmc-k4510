@@ -10,6 +10,7 @@
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
+#include "../core/io.h"
 #include "../core/vicke.h"
 
 #define SCALE 2

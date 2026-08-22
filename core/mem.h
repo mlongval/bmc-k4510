@@ -21,9 +21,7 @@ extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed *
 
 /* ---- spike I/O and ROM, in the CPU's unmapped 64 KB view ------------- */
 #define K4510_ROM_BASE   0xF000u     /* 4 KB ROM, write-protected */
-#define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O */
-#define K4510_IO_KBD     0xD010u     /* read: last key | $80; clears ready */
-#define K4510_IO_KBDCR   0xD011u     /* bit 7: key ready */
+#define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
 
 int      mem_init(void);                                /* 0 on success */
 void     mem_reset(void);                               /* MAP off, etc. */
@@ -43,6 +41,5 @@ typedef struct {
 } k4510_map_t;
 const k4510_map_t *mem_map_state(void);
 
-void     kbd_push(uint8_t ascii);
 
 #endif

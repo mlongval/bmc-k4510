@@ -5,3 +5,4 @@ rom/*.bin
 rom/*.lst
 test/shot
 test/maptest
+test/dmatest

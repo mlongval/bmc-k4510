@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../core/mem.h"
+#include "../core/io.h"
 #include "../core/vicke.h"
 static int load_file(const char *p, uint8_t *b, size_t m){FILE*f=fopen(p,"rb");if(!f)return -1;int n=fread(b,1,m,f);fclose(f);return n;}
 int main(void){

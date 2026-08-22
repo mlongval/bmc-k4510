@@ -16,6 +16,7 @@
 #include "xemu/emutools_basicdefs.h"
 #include "xemu/cpu65.h"
 #include "mem.h"
+#include "io.h"
 #include <string.h>
 #include <sys/mman.h>
 
@@ -61,6 +62,7 @@ void mem_reset(void)
 {
     memset(&map, 0, sizeof map);
     map_apply();
+    io_reset();
 }
 
 void mem_load(uint32_t phys, const uint8_t *data, size_t len)
@@ -98,25 +100,6 @@ static XEMU_INLINE uint32_t cpu_to_phys(uint16_t a)
 
 uint32_t mem_cpu_to_phys(uint16_t a) { return cpu_to_phys(a); }
 
-/* ---- spike keyboard: a FIFO behind two Apple-1-shaped registers -------- */
-static uint8_t kbd_fifo[64];
-static int     kbd_head, kbd_tail;
-static uint8_t kbd_last;
-
-void kbd_push(uint8_t ascii)
-{
-    int next = (kbd_tail + 1) & 63;
-    if (next == kbd_head) return;
-    kbd_fifo[kbd_tail] = ascii;
-    kbd_tail = next;
-}
-static int kbd_ready(void) { return kbd_head != kbd_tail; }
-static uint8_t kbd_read(void)
-{
-    if (kbd_ready()) { kbd_last = kbd_fifo[kbd_head] | 0x80; kbd_head = (kbd_head + 1) & 63; }
-    return kbd_last;
-}
-
 /* ---- the eleven callbacks --------------------------------------------- */
 /* I/O and ROM live in the *unmapped* view only: if a block is MAPped over
  * $D000 or $F000 the CPU sees RAM there, as on the C65/MEGA65. */
@@ -125,13 +108,7 @@ Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
-            switch (addr) {
-            case K4510_IO_KBD:   return kbd_read();
-            case K4510_IO_KBDCR: return kbd_ready() ? 0x80 : 0x00;
-            default:             return 0xFF;
-            }
-        }
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) return io_read(addr);
         return k4510_ram[addr];
     }
     return k4510_ram[cpu_to_phys(addr)];
@@ -142,7 +119,7 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
         if (XEMU_UNLIKELY(addr >= K4510_ROM_BASE)) return;             /* ROM */
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) return;  /* no writable I/O yet */
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
         k4510_ram[addr] = data;
         return;
     }

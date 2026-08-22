@@ -17,8 +17,8 @@ ROWS     = 60
 SCREND   = SCREEN + COLS*ROWS   ; $1AC0
 LASTROW  = SCREEN + COLS*(ROWS-1)
 
-KBD      = $D010        ; read: last key, bit7 set (Wozmon "high ASCII")
-KBDCR    = $D011        ; bit7 = key ready; cleared by reading KBD
+KBD      = $D100        ; read: last key, bit7 set   [io.h IO_KBD]
+KBDCR    = $D101        ; bit7 = key ready          [io.h IO_KBDCR]
 
 ; ---- Wozmon page-0 variables (unchanged) --------------------------------
 XAML     = $24
