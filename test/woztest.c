@@ -25,25 +25,25 @@ static void type(const char *s)
 
 static void screen_row(int row, char *out)
 {
-    for (int c = 0; c < VICKE_COLS; c++) {
-        uint8_t ch = mem_peek(VICKE_SCREEN_BASE + row * VICKE_COLS + c);
+    for (int c = 0; c < 80; c++) {
+        uint8_t ch = mem_peek(K4510_SCREEN_PHYS + row * 80 + c);
         out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : '.';
     }
-    out[VICKE_COLS] = 0;
+    out[80] = 0;
     /* trim */
-    for (int i = VICKE_COLS - 1; i >= 0 && out[i] == ' '; i--) out[i] = 0;
+    for (int i = 80 - 1; i >= 0 && out[i] == ' '; i--) out[i] = 0;
 }
 
 static int find_line(const char *prefix)
 {
-    char r[VICKE_COLS + 1];
-    for (int i = 0; i < VICKE_ROWS; i++) { screen_row(i, r); if (strncmp(r, prefix, strlen(prefix)) == 0) return 1; }
+    char r[80 + 1];
+    for (int i = 0; i < 60; i++) { screen_row(i, r); if (strncmp(r, prefix, strlen(prefix)) == 0) return 1; }
     return 0;
 }
 
 static void dump(int rows)
 {
-    char r[VICKE_COLS + 1];
+    char r[80 + 1];
     for (int i = 0; i < rows; i++) { screen_row(i, r); printf("  |%s\n", r); }
 }
 

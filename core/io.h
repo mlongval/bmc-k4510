@@ -28,6 +28,10 @@
 #define IO_DMA_CMD     (IO_DMA + 0x0C)    /* write: 1 copy, 2 fill (value = SRC byte 0), 3 swap; read: 0 = idle */
 #define IO_DMA_STATUS  (IO_DMA + 0x0D)    /* read: last command, or $FF if bad */
 
+/* --- boot-time data the frontend places in RAM (until the system ROM carries it) --- */
+#define K4510_FONT8_PHYS   0x00010000u   /* 256 glyphs x 8 rows, ASCII order, 2 KB at 64 KB */
+#define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
+
 uint8_t io_read(uint16_t addr);
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);

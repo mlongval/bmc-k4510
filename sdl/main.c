@@ -34,10 +34,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "need data/font8.bin (run from repo root)\n");
         return 1;
     }
-
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
-    vicke_init();
-    vicke_set_font(font);
+    mem_load(K4510_FONT8_PHYS, font, sizeof font);       /* the ROM points VICKe at this */
+
 
     if (mem_load_rom("rom/wozmon.bin") != 4096) {
         fprintf(stderr, "need rom/wozmon.bin (make rom)\n");
@@ -54,8 +53,6 @@ int main(int argc, char **argv)
                                          VICKE_WIDTH, VICKE_HEIGHT);
 
     static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
-    uint32_t pal[256];
-    vicke_palette(pal, 256);
 
     SDL_StartTextInput();
     int running = 1;
@@ -94,7 +91,7 @@ int main(int argc, char **argv)
         for (int y = 0; y < VICKE_HEIGHT; y++) {
             uint32_t *dst = (uint32_t *)((uint8_t *)pixels + y * pitch);
             const uint8_t *src = fb + y * VICKE_WIDTH;
-            for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | pal[src[x]];
+            for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | vicke_palette_rgb(src[x]);
         }
         SDL_UnlockTexture(tex);
         SDL_RenderClear(ren);

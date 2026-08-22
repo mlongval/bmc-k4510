@@ -17,6 +17,8 @@ ROWS     = 60
 SCREND   = SCREEN + COLS*ROWS   ; $1AC0
 LASTROW  = SCREEN + COLS*(ROWS-1)
 
+VICKE    = $D000        ; video chip register block   [io.h IO_VICKE]
+FONT     = $010000      ; 8x8 ASCII font, placed by the loader [io.h K4510_FONT8_PHYS]
 KBD      = $D100        ; read: last key, bit7 set   [io.h IO_KBD]
 KBDCR    = $D101        ; bit7 = key ready          [io.h IO_KBDCR]
 
@@ -44,6 +46,7 @@ RESET:  cld
         cli
         ldx #$FF
         txs
+        jsr VINIT
         jsr CLS
         lda #$8D        ; start with a CR so the prompt lands on a fresh line
         jsr ECHO
@@ -272,6 +275,60 @@ SCROLL: lda #<(SCREEN+COLS)
 .c:     sta (DST),y
         dey
         bpl .c
+        rts
+
+; VINIT: program VICKe -- layer 0 = text, 80 cells/row, map at SCREEN,
+; glyphs at FONT, palette 0 = VIC-II blue, 1 = light blue.
+VINIT:  lda #0
+        sta VICKE+$00           ; display off while we set up
+        lda #0
+        sta VICKE+$01           ; background = entry 0
+        ; palette entry 0: $35,$28,$79  entry 1: $6C,$5E,$B5
+        lda #0
+        sta VICKE+$06
+        lda #$35
+        sta VICKE+$07
+        lda #$28
+        sta VICKE+$08
+        lda #$79
+        sta VICKE+$09           ; commits 0, index -> 1
+        lda #$6C
+        sta VICKE+$07
+        lda #$5E
+        sta VICKE+$08
+        lda #$B5
+        sta VICKE+$09           ; commits 1
+        ; layer 0: text mode (2<<1), 1 bpp (0<<3), enabled
+        lda #<COLS
+        sta VICKE+$16
+        lda #>COLS
+        sta VICKE+$17           ; stride = 80 cells
+        lda #<SCREEN
+        sta VICKE+$1C
+        lda #>SCREEN
+        sta VICKE+$1D
+        lda #0
+        sta VICKE+$1E
+        sta VICKE+$1F           ; map = SCREEN
+        lda #<FONT
+        sta VICKE+$18
+        lda #>FONT
+        sta VICKE+$19
+        lda #^FONT
+        sta VICKE+$1A
+        lda #0
+        sta VICKE+$1B           ; data = FONT
+        lda #0
+        sta VICKE+$12
+        sta VICKE+$13
+        sta VICKE+$14
+        sta VICKE+$15           ; no scroll
+        lda #0
+        sta VICKE+$11           ; palette offset 0 -> indices 0/1
+        lda #%00000101          ; enable | text mode
+        sta VICKE+$10
+        lda #1
+        sta VICKE+$00           ; display on
         rts
 
 ; CLS: fill the screen with spaces, cursor home.
