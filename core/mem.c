@@ -1,16 +1,104 @@
-/* K4510 memory system -- spike version: the eleven callbacks cpu65.c needs.
+/* K4510 memory system: 256 MB, 28-bit MAP, the eleven CPU callbacks.
  *
- * This is the whole CPU<->machine interface. Everything the 45GS02 does to
- * the outside world comes through here.
+ * MAP semantics follow the 4510 as extended by the 45GS02, read from
+ * Xemu's MEGA65 target (memory_mapper.c) rather than from a datasheet:
+ *
+ *   MAP with A,X,Y,Z:
+ *     X == $0F : A is the megabyte for the lower 32 KB   (45GS02)
+ *     else     : offset_low  = A<<8 | (X&15)<<16 ; mask[3:0] = X>>4
+ *     Z == $0F : Y is the megabyte for the upper 32 KB   (45GS02)
+ *     else     : offset_high = Y<<8 | (Z&15)<<16 ; mask[7:4] = Z>>4
+ *   A mapped 8 KB block n (CPU $n000*2) resolves to
+ *     phys = megabyte + ((offset + cpu_addr) & $FFFFF)
+ *   An unmapped block resolves to phys = cpu_addr.
+ *   MAP inhibits interrupts until the next EOM (NOP).
  */
 #include "xemu/emutools_basicdefs.h"
 #include "xemu/cpu65.h"
 #include "mem.h"
 #include <string.h>
+#include <sys/mman.h>
 
-uint8_t k4510_ram[K4510_RAM_SIZE];
+uint8_t *k4510_ram;
+int cpu_mega65_opcodes = 1;          /* MEGA65-build global: enable Q / 32-bit forms */
 
-/* ---- spike keyboard: a tiny FIFO behind two Apple-1-shaped registers --- */
+static k4510_map_t map;
+static uint32_t block_base[8];       /* per 8 KB block: phys address of CPU offset 0 within it, or
+                                        UNMAPPED */
+#define UNMAPPED 0xFFFFFFFFu
+
+/* ---- physical RAM ----------------------------------------------------- */
+
+int mem_init(void)
+{
+    if (!k4510_ram) {
+        void *p = mmap(NULL, K4510_PHYS_SIZE, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+        if (p == MAP_FAILED) return -1;
+        k4510_ram = p;                /* zero-filled, lazily committed by the kernel */
+    } else {
+        madvise(k4510_ram, K4510_PHYS_SIZE, MADV_DONTNEED);   /* back to zero, release pages */
+    }
+    mem_reset();
+    return 0;
+}
+
+static void map_apply(void)
+{
+    for (int b = 0; b < 8; b++) {
+        if (map.mask & (1u << b)) {
+            uint32_t off = (b < 4) ? map.offset_low : map.offset_high;
+            uint32_t mb  = (b < 4) ? map.mb_low     : map.mb_high;
+            /* phys(cpu) = mb + ((off + cpu) & 0xFFFFF); cpu = b*8K + i, so precompute for i = 0 */
+            block_base[b] = mb + ((off + (uint32_t)(b << 13)) & 0xFFFFFu);
+        } else {
+            block_base[b] = UNMAPPED;
+        }
+    }
+}
+
+void mem_reset(void)
+{
+    memset(&map, 0, sizeof map);
+    map_apply();
+}
+
+void mem_load(uint32_t phys, const uint8_t *data, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+        k4510_ram[(phys + i) & K4510_PHYS_MASK] = data[i];
+}
+
+uint8_t mem_peek(uint32_t phys)            { return k4510_ram[phys & K4510_PHYS_MASK]; }
+void    mem_poke(uint32_t phys, uint8_t v) { k4510_ram[phys & K4510_PHYS_MASK] = v; }
+
+int mem_load_rom(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    size_t n = fread(&k4510_ram[K4510_ROM_BASE], 1, 0x10000 - K4510_ROM_BASE, f);
+    fclose(f);
+    return (int)n;
+}
+
+const k4510_map_t *mem_map_state(void) { return &map; }
+
+/* ---- CPU 16-bit view -> physical -------------------------------------- */
+
+static XEMU_INLINE uint32_t cpu_to_phys(uint16_t a)
+{
+    uint32_t base = block_base[a >> 13];
+    if (base == UNMAPPED) return a;
+    /* within the mapped block the 20-bit add can wrap at the megabyte: redo it exactly */
+    uint32_t off = (a < 0x8000) ? map.offset_low : map.offset_high;
+    uint32_t mb  = (a < 0x8000) ? map.mb_low     : map.mb_high;
+    (void)base;
+    return (mb + ((off + a) & 0xFFFFFu)) & K4510_PHYS_MASK;
+}
+
+uint32_t mem_cpu_to_phys(uint16_t a) { return cpu_to_phys(a); }
+
+/* ---- spike keyboard: a FIFO behind two Apple-1-shaped registers -------- */
 static uint8_t kbd_fifo[64];
 static int     kbd_head, kbd_tail;
 static uint8_t kbd_last;
@@ -18,135 +106,114 @@ static uint8_t kbd_last;
 void kbd_push(uint8_t ascii)
 {
     int next = (kbd_tail + 1) & 63;
-    if (next == kbd_head) return;           /* full: drop */
+    if (next == kbd_head) return;
     kbd_fifo[kbd_tail] = ascii;
     kbd_tail = next;
 }
-
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
-
 static uint8_t kbd_read(void)
 {
-    if (kbd_ready()) {
-        kbd_last = kbd_fifo[kbd_head] | 0x80;   /* Wozmon wants bit 7 set */
-        kbd_head = (kbd_head + 1) & 63;
-    }
+    if (kbd_ready()) { kbd_last = kbd_fifo[kbd_head] | 0x80; kbd_head = (kbd_head + 1) & 63; }
     return kbd_last;
 }
 
-int mem_load_rom(const char *path)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    size_t n = fread(&k4510_ram[K4510_ROM_BASE], 1, K4510_RAM_SIZE - K4510_ROM_BASE, f);
-    fclose(f);
-    return (int)n;
-}
-
-/* MEGA65-build globals the core references. */
-int cpu_mega65_opcodes = 1;     /* enable the Q / 32-bit extensions */
-
-void mem_init(void)
-{
-    memset(k4510_ram, 0, sizeof k4510_ram);
-}
-
-void mem_load(uint32_t addr, const uint8_t *data, size_t len)
-{
-    for (size_t i = 0; i < len; i++)
-        k4510_ram[(addr + i) & (K4510_RAM_SIZE - 1)] = data[i];
-}
-
-uint8_t mem_peek(uint32_t addr)            { return k4510_ram[addr & (K4510_RAM_SIZE - 1)]; }
-void    mem_poke(uint32_t addr, uint8_t v) { k4510_ram[addr & (K4510_RAM_SIZE - 1)] = v; }
-
-/* ---- 16-bit CPU-visible bus ------------------------------------------ */
+/* ---- the eleven callbacks --------------------------------------------- */
+/* I/O and ROM live in the *unmapped* view only: if a block is MAPped over
+ * $D000 or $F000 the CPU sees RAM there, as on the C65/MEGA65. */
 
 Uint8 cpu65_read_callback(Uint16 addr)
 {
-    if (XEMU_UNLIKELY((addr & 0xFF00) == 0xD000)) {
-        switch (addr) {
-        case K4510_IO_KBD:   return kbd_read();
-        case K4510_IO_KBDCR: return kbd_ready() ? 0x80 : 0x00;
-        default:             return 0xFF;
+    uint32_t base = block_base[addr >> 13];
+    if (XEMU_LIKELY(base == UNMAPPED)) {
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
+            switch (addr) {
+            case K4510_IO_KBD:   return kbd_read();
+            case K4510_IO_KBDCR: return kbd_ready() ? 0x80 : 0x00;
+            default:             return 0xFF;
+            }
         }
+        return k4510_ram[addr];
     }
-    return k4510_ram[addr];
+    return k4510_ram[cpu_to_phys(addr)];
 }
 
 void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
-    if (XEMU_UNLIKELY(addr >= K4510_ROM_BASE)) return;        /* ROM */
-    if (XEMU_UNLIKELY((addr & 0xFF00) == 0xD000)) return;     /* no writable I/O yet */
-    k4510_ram[addr] = data;
+    uint32_t base = block_base[addr >> 13];
+    if (XEMU_LIKELY(base == UNMAPPED)) {
+        if (XEMU_UNLIKELY(addr >= K4510_ROM_BASE)) return;             /* ROM */
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) return;  /* no writable I/O yet */
+        k4510_ram[addr] = data;
+        return;
+    }
+    k4510_ram[cpu_to_phys(addr)] = data;
 }
 
 void cpu65_write_rmw_callback(Uint16 addr, Uint8 old_data, Uint8 new_data)
 {
-    (void)old_data;                         /* no I/O yet that cares about the double write */
+    (void)old_data;
     cpu65_write_callback(addr, new_data);
 }
 
-/* ---- 32-bit flat forms: [$nn],Z and the Q-register quad forms ------- */
-/* The core hands us no address and has NOT fetched the operand: the target
- * plays the CPU for this one byte, exactly as Xemu's MEGA65 target does
- * (memory_mapper.c: cpu_get_flat_addressing_mode_address). The base-page
- * byte names a 32-bit little-endian pointer; add Z (or the quad index). */
-
+/* 32-bit flat forms. The target fetches the operand byte itself (as Xemu's
+ * MEGA65 target does); the base-page pointer is read through the CPU view
+ * so a MAPped base page works. */
 static Uint32 flat_address(Uint8 index)
 {
-    const Uint8  bp   = cpu65_read_callback(cpu65.pc++);  /* fetch the operand */
-    const Uint16 base = cpu65.bphi;                        /* base page, already <<8 */
-    Uint32 p =  (Uint32)k4510_ram[base |  bp              ]
-             | ((Uint32)k4510_ram[base | ((bp + 1) & 0xFF)] << 8)
-             | ((Uint32)k4510_ram[base | ((bp + 2) & 0xFF)] << 16)
-             | ((Uint32)k4510_ram[base | ((bp + 3) & 0xFF)] << 24);
-    return (p + index) & 0x0FFFFFFFu;       /* 28-bit space */
+    const Uint8  bp   = cpu65_read_callback(cpu65.pc++);
+    const Uint16 base = cpu65.bphi;
+    Uint32 p =  (Uint32)cpu65_read_callback(base |  bp              )
+             | ((Uint32)cpu65_read_callback(base | ((bp + 1) & 0xFF)) << 8)
+             | ((Uint32)cpu65_read_callback(base | ((bp + 2) & 0xFF)) << 16)
+             | ((Uint32)cpu65_read_callback(base | ((bp + 3) & 0xFF)) << 24);
+    return (p + index) & K4510_PHYS_MASK;
 }
 
-Uint8 cpu65_read_linear_opcode_callback(void)
-{
-    return k4510_ram[flat_address(cpu65.z) & (K4510_RAM_SIZE - 1)];
-}
-
-void cpu65_write_linear_opcode_callback(Uint8 data)
-{
-    k4510_ram[flat_address(cpu65.z) & (K4510_RAM_SIZE - 1)] = data;
-}
+Uint8  cpu65_read_linear_opcode_callback(void)             { return k4510_ram[flat_address(cpu65.z)]; }
+void   cpu65_write_linear_opcode_callback(Uint8 data)      { k4510_ram[flat_address(cpu65.z)] = data; }
 
 Uint32 cpu65_read_linear_long_opcode_callback(const Uint8 index)
 {
     Uint32 a = flat_address(index);
-    return  (Uint32)k4510_ram[(a    ) & (K4510_RAM_SIZE - 1)]
-         | ((Uint32)k4510_ram[(a + 1) & (K4510_RAM_SIZE - 1)] << 8)
-         | ((Uint32)k4510_ram[(a + 2) & (K4510_RAM_SIZE - 1)] << 16)
-         | ((Uint32)k4510_ram[(a + 3) & (K4510_RAM_SIZE - 1)] << 24);
+    return  (Uint32)k4510_ram[(a    ) & K4510_PHYS_MASK]
+         | ((Uint32)k4510_ram[(a + 1) & K4510_PHYS_MASK] << 8)
+         | ((Uint32)k4510_ram[(a + 2) & K4510_PHYS_MASK] << 16)
+         | ((Uint32)k4510_ram[(a + 3) & K4510_PHYS_MASK] << 24);
 }
 
 void cpu65_write_linear_long_opcode_callback(const Uint8 index, Uint32 data)
 {
     Uint32 a = flat_address(index);
-    k4510_ram[(a    ) & (K4510_RAM_SIZE - 1)] =  data        & 0xFF;
-    k4510_ram[(a + 1) & (K4510_RAM_SIZE - 1)] = (data >>  8) & 0xFF;
-    k4510_ram[(a + 2) & (K4510_RAM_SIZE - 1)] = (data >> 16) & 0xFF;
-    k4510_ram[(a + 3) & (K4510_RAM_SIZE - 1)] = (data >> 24) & 0xFF;
+    k4510_ram[(a    ) & K4510_PHYS_MASK] =  data        & 0xFF;
+    k4510_ram[(a + 1) & K4510_PHYS_MASK] = (data >>  8) & 0xFF;
+    k4510_ram[(a + 2) & K4510_PHYS_MASK] = (data >> 16) & 0xFF;
+    k4510_ram[(a + 3) & K4510_PHYS_MASK] = (data >> 24) & 0xFF;
 }
 
 /* ---- MAP / EOM --------------------------------------------------------- */
-/* Spike: MAP is accepted and ignored (flat 64 KB). Phase 3 gives it the
- * 28-bit MMU. EOM (NOP) re-enables interrupts after MAP, as on silicon. */
 
 void cpu65_do_aug_callback(void)
 {
-    cpu65.cpu_inhibit_interrupts = 1;
+    cpu65.cpu_inhibit_interrupts = 1;       /* until EOM */
+    if (cpu65.x == 0x0F) {
+        map.mb_low = (uint32_t)cpu65.a << 20;
+    } else {
+        map.offset_low = ((uint32_t)cpu65.a << 8) | ((uint32_t)(cpu65.x & 15) << 16);
+        map.mask = (map.mask & 0xF0) | (cpu65.x >> 4);
+    }
+    if (cpu65.z == 0x0F) {
+        map.mb_high = (uint32_t)cpu65.y << 20;
+    } else {
+        map.offset_high = ((uint32_t)cpu65.y << 8) | ((uint32_t)(cpu65.z & 15) << 16);
+        map.mask = (map.mask & 0x0F) | (cpu65.z & 0xF0);
+    }
+    map_apply();
 }
 
 void cpu65_do_nop_callback(void)
 {
-    cpu65.cpu_inhibit_interrupts = 0;
+    cpu65.cpu_inhibit_interrupts = 0;       /* EOM */
 }
-
-/* ---- misc -------------------------------------------------------------- */
 
 void cpu65_illegal_opcode_callback(void)
 {

@@ -9,7 +9,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin test/cputest test/woztest sdl/k4510
+all: rom/wozmon.bin test/cputest test/woztest test/maptest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -31,11 +31,15 @@ test/cputest: test/cputest.c $(CORE_OBJS)
 test/woztest: test/woztest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-test: test/cputest test/woztest rom/wozmon.bin
+test/maptest: test/maptest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
+
+test: test/cputest test/woztest test/maptest rom/wozmon.bin
 	./test/cputest
 	./test/woztest
+	./test/maptest
 
 clean:
-	rm -f core/*.o core/xemu/*.o test/cputest test/woztest test/shot sdl/k4510 rom/wozmon.bin
+	rm -f core/*.o core/xemu/*.o test/cputest test/woztest test/maptest test/shot sdl/k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom

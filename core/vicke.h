@@ -16,7 +16,7 @@
 #define VICKE_WIDTH      (VICKE_COLS * VICKE_CELL_W)   /* 640 */
 #define VICKE_HEIGHT     (VICKE_ROWS * VICKE_CELL_H)   /* 480 */
 
-#define VICKE_SCREEN_BASE  0x0800u      /* 80*60 = 4800 bytes: $0800-$1AC0 */
+#define VICKE_SCREEN_BASE  0x0800u      /* physical; 80*60 = 4800 bytes */
 #define VICKE_FG           1            /* palette index */
 #define VICKE_BG           0
 

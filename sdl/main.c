@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     }
     font_from_chargen(chargen, font);
 
-    mem_init();
+    if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     vicke_init();
     vicke_set_font(font);
 

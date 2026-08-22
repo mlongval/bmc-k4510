@@ -4,3 +4,4 @@ sdl/k4510
 rom/*.bin
 rom/*.lst
 test/shot
+test/maptest
