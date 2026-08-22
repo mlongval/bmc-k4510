@@ -7,7 +7,7 @@ static uint32_t pal[256];
 static int      cur_line;
 static uint8_t  col_ss[16], col_sl[16];     /* collision accumulators for the frame in progress */
 static uint8_t *frame_fb; static int frame_pitch;
-static uint32_t cop_pc; static int cop_waiting_for;   /* -1 = not waiting, -2 = ended */
+static uint32_t sh_pc; static int sh_wait;   /* -1 = not waiting, -2 = ended */
 static uint16_t raster_cmp;
 static uint8_t  owner[VICKE_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
 static uint8_t  layer_hit[VICKE_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
@@ -22,7 +22,7 @@ void vicke_reset(void)
     memset(reg, 0, sizeof reg);
     for (int i = 0; i < 256; i++) pal[i] = (i < 16) ? c64_palette[i] : (uint32_t)(i * 0x010101);
     cur_line = 0;
-    cop_waiting_for = -2; raster_cmp = 0xFFFF;
+    sh_wait = -2; raster_cmp = 0xFFFF;
 }
 
 uint32_t vicke_palette_rgb(int i) { return pal[i & 0xFF]; }
@@ -178,22 +178,22 @@ static void sprites_line(int z, int y, uint8_t *line)
     }
 }
 
-/* ---- copper ------------------------------------------------------------ */
-static void copper_run(int y)
+/* ---- SHEILA, the display-list coprocessor ------------------------------------------------------------ */
+static void sheila_run(int y)
 {
-    if (!(reg[VR_COPCTL] & 1) || cop_waiting_for == -2) return;
-    if (cop_waiting_for >= 0) { if (y < cop_waiting_for) return; cop_waiting_for = -1; }
+    if (!(reg[VR_SHEILACTL] & 1) || sh_wait == -2) return;
+    if (sh_wait >= 0) { if (y < sh_wait) return; sh_wait = -1; }
     for (int guard = 0; guard < 256; guard++) {
-        uint8_t op = ram(cop_pc), a0 = ram(cop_pc + 1), a1 = ram(cop_pc + 2), a2 = ram(cop_pc + 3);
-        cop_pc += 4;
+        uint8_t op = ram(sh_pc), a0 = ram(sh_pc + 1), a1 = ram(sh_pc + 2), a2 = ram(sh_pc + 3);
+        sh_pc += 4;
         switch (op) {
-        case 0x00: cop_waiting_for = -2; return;
-        case 0x01: { int l = a0 | (a1 << 8); if (y < l) { cop_waiting_for = l; return; } break; }
+        case 0x00: sh_wait = -2; return;
+        case 0x01: { int l = a0 | (a1 << 8); if (y < l) { sh_wait = l; return; } break; }
         case 0x02: vicke_write(a0, a1); break;
-        case 0x03: if (y >= (a0 | (a1 << 8))) cop_pc += 4; break;
-        case 0x04: cop_pc = a0 | (a1 << 8) | ((uint32_t)a2 << 16); break;
-        case 0x05: reg[VR_IRQSTAT] |= VI_COPPER; break;
-        default:   cop_waiting_for = -2; return;       /* bad opcode ends the list */
+        case 0x03: if (y >= (a0 | (a1 << 8))) sh_pc += 4; break;
+        case 0x04: sh_pc = a0 | (a1 << 8) | ((uint32_t)a2 << 16); break;
+        case 0x05: reg[VR_IRQSTAT] |= VI_SHEILA; break;
+        default:   sh_wait = -2; return;       /* bad opcode ends the list */
         }
     }
 }
@@ -204,13 +204,13 @@ void vicke_begin_frame(uint8_t *fb, int pitch)
 {
     frame_fb = fb; frame_pitch = pitch;
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
-    cop_pc = rd32(&reg[VR_COPPTR]); cop_waiting_for = (reg[VR_COPCTL] & 1) ? -1 : -2;
+    sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
 }
 
 void vicke_line(int y)
 {
     cur_line = y;
-    copper_run(y);
+    sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
     uint8_t *line = frame_fb + y * frame_pitch;
     memset(line, reg[VR_BGCOL], VICKE_WIDTH);
