@@ -16,9 +16,9 @@
 #include "xemu/emutools_basicdefs.h"
 #include "xemu/cpu65.h"
 #include "mem.h"
+#include "host.h"
 #include "io.h"
 #include <string.h>
-#include <sys/mman.h>
 
 uint8_t *k4510_ram;
 int cpu_mega65_opcodes = 1;          /* MEGA65-build global: enable Q / 32-bit forms */
@@ -33,12 +33,10 @@ static uint32_t block_base[8];       /* per 8 KB block: phys address of CPU offs
 int mem_init(void)
 {
     if (!k4510_ram) {
-        void *p = mmap(NULL, K4510_PHYS_SIZE, PROT_READ | PROT_WRITE,
-                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-        if (p == MAP_FAILED) return -1;
-        k4510_ram = p;                /* zero-filled, lazily committed by the kernel */
+        k4510_ram = host_alloc_zeroed(K4510_PHYS_SIZE);
+        if (!k4510_ram) return -1;
     } else {
-        madvise(k4510_ram, K4510_PHYS_SIZE, MADV_DONTNEED);   /* back to zero, release pages */
+        host_zero(k4510_ram, K4510_PHYS_SIZE);
     }
     mem_reset();
     return 0;

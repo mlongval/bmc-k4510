@@ -13,6 +13,7 @@
 #include "../core/io.h"
 #include "../core/vicke.h"
 #include "../core/sid.h"
+#include "../core/host.h"
 
 #define SCALE 2
 #define AUDIO_RATE 48000
@@ -38,7 +39,7 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
     return (int)n;
 }
 
-int main(int argc, char **argv)
+int k4510_frontend_main(int argc, char **argv)
 {
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     if (argc > 2) fs_set_root(argv[2]);
@@ -111,6 +112,7 @@ int main(int argc, char **argv)
                 break; }
             }
         }
+        host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
         vicke_begin_frame(fb, VICKE_WIDTH);
         for (int y = 0; y < VICKE_HEIGHT; y++) {
             cpu65.irqLevel = vicke_irq() ? 1 : 0;
@@ -137,3 +139,7 @@ int main(int argc, char **argv)
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
     return 0;
 }
+
+#ifndef K4510_PI
+int main(int argc, char **argv) { return k4510_frontend_main(argc, argv); }
+#endif

@@ -1,0 +1,15 @@
+# BMC-K4510 on a Raspberry Pi 3B+ (bare metal, Circle + circle-libsdl2)
+# The TV is driven at 640x480@60 and upscales itself; the emulator presents 1:1.
+hdmi_group=1
+hdmi_mode=1
+disable_overscan=1
+
+arm_64bit=1
+kernel_address=0x80000
+initial_turbo=0
+
+[pi3]
+kernel=kernel8.img
+
+[pi3+]
+kernel=kernel8.img

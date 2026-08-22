@@ -6,7 +6,7 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o $(RESID_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o sdl/host_posix.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -45,7 +45,8 @@ rom: rom/wozmon.bin rom/demo.bin rom/kernal.bin
 core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicdefs.h core/hypervisor.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-core/mem.o: core/mem.c core/mem.h core/xemu/emutools_basicdefs.h
+core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
+sdl/host_posix.o: sdl/host_posix.c core/host.h
 core/vicke.o: core/vicke.c core/vicke.h core/mem.h
 core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h
 core/sid.o: core/sid.cc core/sid.h
@@ -88,7 +89,7 @@ clean: clean-demos
 clean-demos:
 	rm -f $(DEMOS) demo/*.o demo/*.s demo/*.map
 
-	rm -f core/*.o core/xemu/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
+	rm -f core/*.o core/xemu/*.o sdl/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 
