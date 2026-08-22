@@ -20,6 +20,14 @@
  *   $0F            reserved
  *   $60-$63 SHEILA 28-bit pointer to SHEILA's list
  *   $64     SHEILACTL bit0 enable; the list restarts every frame at line 0
+ *   $70-$73 BLTSRC  28-bit     $74-$77 BLTDST 28-bit
+ *   $78,79  BLTW    width px   $7A,7B  BLTH   height px
+ *   $7C,7D  BLTSS   source stride (bytes)   $7E,7F BLTDS dest stride
+ *   $80     BLTOP   0 copy, 1 keyed copy (src 0 skipped), 2 fill (value =
+ *                   BLTSRC byte 0), 3 AND, 4 OR, 5 XOR
+ *   $81     BLTFLG  bit0 H-flip, bit1 V-flip
+ *   $82     BLTCMD  write anything: go. Instant. Reads 0.
+ *   Blits are 8 bpp (one byte per pixel) in this version.
  *   $40-$4F COLSS  read: sprite-sprite collision bits, one bit per sprite
  *                  (sprite n hit another sprite this frame). Cleared on read of $40.
  *   $50-$5F COLSL  read: sprite-layer collision bits (sprite n over a
@@ -98,6 +106,15 @@
 #define VI_RASTER   2
 #define VI_SHEILA   4
 #define VI_COLL     8
+#define VR_BLTSRC   0x70
+#define VR_BLTDST   0x74
+#define VR_BLTW     0x78
+#define VR_BLTH     0x7A
+#define VR_BLTSS    0x7C
+#define VR_BLTDS    0x7E
+#define VR_BLTOP    0x80
+#define VR_BLTFLG   0x81
+#define VR_BLTCMD   0x82
 #define VICKE_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
 #define VL_CTRL     0

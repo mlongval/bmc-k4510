@@ -25,6 +25,7 @@ void vicke_reset(void)
     sh_wait = -2; raster_cmp = 0xFFFF;
 }
 
+static void blit(void);
 uint32_t vicke_palette_rgb(int i) { return pal[i & 0xFF]; }
 
 uint8_t vicke_read(uint8_t r)
@@ -42,6 +43,7 @@ uint8_t vicke_read(uint8_t r)
 void vicke_write(uint8_t r, uint8_t v)
 {
     if (r == VR_IRQSTAT) { reg[r] &= ~v; return; }          /* ack */
+    if (r == VR_BLTCMD)  { blit(); return; }
     if (r == VR_RASTER)     { raster_cmp = (raster_cmp & 0xFF00) | v; return; }
     if (r == VR_RASTER + 1) { raster_cmp = (raster_cmp & 0x00FF) | (v << 8); return; }
     reg[r] = v;
@@ -194,6 +196,33 @@ static void sheila_run(int y)
         case 0x04: sh_pc = a0 | (a1 << 8) | ((uint32_t)a2 << 16); break;
         case 0x05: reg[VR_IRQSTAT] |= VI_SHEILA; break;
         default:   sh_wait = -2; return;       /* bad opcode ends the list */
+        }
+    }
+}
+
+/* ---- blitter ------------------------------------------------------------- */
+static void blit(void)
+{
+    uint32_t src = rd32(&reg[VR_BLTSRC]), dst = rd32(&reg[VR_BLTDST]);
+    int w = rd16(&reg[VR_BLTW]), h = rd16(&reg[VR_BLTH]);
+    int ss = rd16(&reg[VR_BLTSS]), ds = rd16(&reg[VR_BLTDS]);
+    int op = reg[VR_BLTOP], hf = reg[VR_BLTFLG] & 1, vf = reg[VR_BLTFLG] & 2;
+    uint8_t fill = reg[VR_BLTSRC];
+    for (int y = 0; y < h; y++) {
+        int sy = vf ? (h - 1 - y) : y;
+        uint32_t srow = src + (uint32_t)sy * ss, drow = dst + (uint32_t)y * ds;
+        for (int x = 0; x < w; x++) {
+            int sx = hf ? (w - 1 - x) : x;
+            uint8_t *d = &ram_ptr(drow + x);
+            uint8_t  s = (op == 2) ? fill : ram(srow + sx);
+            switch (op) {
+            case 0: case 2: *d = s; break;
+            case 1: if (s) *d = s; break;
+            case 3: *d &= s; break;
+            case 4: *d |= s; break;
+            case 5: *d ^= s; break;
+            default: return;
+            }
         }
     }
 }

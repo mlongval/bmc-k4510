@@ -163,6 +163,24 @@ int main(void)
     /* frame 2: BGCOL persists at 3 from frame 1 until the list sets 2 at line 100 -> proves restart */
     CHECK(fb[50*640] == 3 && fb[150*640] == 2, "SHEILA restarts each frame");
 
+    /* ---- blitter: 4x2 sprite-ish block, keyed copy with H-flip onto a filled area ---- */
+    mem_reset();
+    uint32_t bs = 0x600000, bd = 0x610000;
+    uint8_t blk[8] = { 1, 2, 0, 4,   5, 0, 7, 8 };          /* 4 wide, 2 high, stride 4 */
+    mem_load(bs, blk, 8);
+    W32(VR_BLTSRC, 9); W32(VR_BLTDST, bd); W16(VR_BLTW, 6); W16(VR_BLTH, 3); W16(VR_BLTDS, 6);
+    W(VR_BLTOP, 2); W(VR_BLTFLG, 0); W(VR_BLTCMD, 1);      /* fill 6x3 with 9 */
+    CHECK(mem_peek(bd) == 9 && mem_peek(bd + 17) == 9 && mem_peek(bd + 18) == 0, "fill 6x3");
+    W32(VR_BLTSRC, bs); W32(VR_BLTDST, bd + 1); W16(VR_BLTW, 4); W16(VR_BLTH, 2); W16(VR_BLTSS, 4); W16(VR_BLTDS, 6);
+    W(VR_BLTOP, 1); W(VR_BLTFLG, 1); W(VR_BLTCMD, 1);      /* keyed, H-flipped, at (1,0) */
+    printf("7. blit keyed+hflip: row0 = %d %d %d %d %d %d | row1 = %d %d %d %d %d %d\n",
+        mem_peek(bd),mem_peek(bd+1),mem_peek(bd+2),mem_peek(bd+3),mem_peek(bd+4),mem_peek(bd+5),
+        mem_peek(bd+6),mem_peek(bd+7),mem_peek(bd+8),mem_peek(bd+9),mem_peek(bd+10),mem_peek(bd+11));
+    CHECK(mem_peek(bd+1) == 4 && mem_peek(bd+2) == 9 && mem_peek(bd+3) == 2 && mem_peek(bd+4) == 1, "keyed H-flip row 0");
+    CHECK(mem_peek(bd+7) == 8 && mem_peek(bd+8) == 7 && mem_peek(bd+9) == 9 && mem_peek(bd+10) == 5, "keyed H-flip row 1");
+    W(VR_BLTOP, 5); W(VR_BLTFLG, 0); W(VR_BLTCMD, 1);      /* XOR same block unflipped at (1,0) */
+    CHECK(mem_peek(bd+1) == (4 ^ 1) && mem_peek(bd+2) == (9 ^ 2), "XOR");
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }
