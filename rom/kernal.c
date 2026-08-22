@@ -156,7 +156,7 @@ static void poke(uint32_t a, uint8_t v)
 static char line[96];
 static uint32_t xam;          /* last opened address */
 static uint8_t mode;          /* 0 xam, 1 store, 2 block */
-static char last_name[64]; static uint32_t last_addr, last_len;     /* last LOAD */
+static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run;   /* last LOAD */
 
 static uint8_t ishex(char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
 static uint8_t hexval(char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; }
@@ -212,16 +212,47 @@ static void cmd_dir(void)
     putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
 }
 
+static uint8_t is_prg(const char *name)
+{
+    uint8_t n = strlen(name);
+    return n > 4 && name[n - 4] == '.' && (name[n - 3] | 0x20) == 'p' && (name[n - 2] | 0x20) == 'r' && (name[n - 1] | 0x20) == 'g';
+}
+
+/* returns 0 on success. A .prg carries a 4-byte header: load address, run address. */
+static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
+{
+    uint8_t hdr[4];
+    last_run = 0;
+    fs_name(name);
+    if (is_prg(name)) {
+        if (fs_cmd(1)) return 1;
+        w32(FS + 8, (uint16_t)hdr); w32(FS + 12, 4);
+        if (fs_cmd(3) || r32(FS + 12) != 4) { fs_cmd(5); return 2; }
+        if (!has_addr) addr = hdr[0] | ((uint16_t)hdr[1] << 8);
+        last_run = hdr[2] | ((uint16_t)hdr[3] << 8);
+        w32(FS + 8, addr); w32(FS + 12, 0x100000UL);
+        if (fs_cmd(3)) { fs_cmd(5); return 2; }
+        last_len = r32(FS + 12); fs_cmd(5);
+    } else {
+        w32(FS + 8, addr);
+        if (fs_cmd(9)) return 1;
+        last_len = r32(FS + 12);
+    }
+    last_addr = addr; strcpy(last_name, name); xam = addr;
+    return 0;
+}
+
 static void cmd_load(const char *p)
 {
-    char name[64]; uint8_t d; uint32_t addr = USER;
+    char name[64]; uint8_t d, st, has = 0; uint32_t addr = USER;
     if (!getname(&p, name)) { error("load: name?"); return; }
-    if (*p) addr = parsehex(&p, &d);
-    fs_name(name); w32(FS + 8, addr);
-    if (fs_cmd(9)) { error("load: not found"); return; }
-    last_len = r32(FS + 12); last_addr = addr; strcpy(last_name, name);
-    puts_("loaded "); putdec(last_len); puts_(" bytes at "); puthex28(addr); newline();
-    xam = addr;
+    if (*p) { addr = parsehex(&p, &d); has = 1; }
+    st = do_load(name, addr, has);
+    if (st == 1) { error("load: not found"); return; }
+    if (st) { error("load: bad file"); return; }
+    puts_("loaded "); putdec(last_len); puts_(" bytes at "); puthex28(last_addr);
+    if (last_run) { puts_(", run address "); puthex16(last_run); }
+    newline();
 }
 
 static void cmd_save(const char *p)
@@ -252,13 +283,30 @@ static void cmd_type(const char *p)
 }
 
 typedef void (*fn_t)(void);
+static void video_init(void);
+static void run_at(uint16_t a)
+{
+    ((fn_t)a)();
+    video_init();                    /* the program may have reconfigured VICKe */
+    cls();
+}
 static void cmd_run(const char *p)
 {
-    uint8_t d; uint32_t a = last_addr ? last_addr : xam;
+    uint8_t d; uint32_t a; const char *q = p;
+    while (ishex(*q)) q++;
+    if (*p && *q && *q != ' ') {                  /* not a hex number: RUN name.prg */
+        char name[64]; uint8_t st;
+        getname(&p, name);
+        st = do_load(name, USER, 0);
+        if (st == 1) { error("run: not found"); return; }
+        if (st) { error("run: bad file"); return; }
+        if (!last_run) { error("run: not a program"); return; }
+        run_at(last_run); return;
+    }
+    a = last_run ? last_run : (last_addr ? last_addr : xam);
     if (*p) a = parsehex(&p, &d);
     if (a >= 0x10000UL) { error("run: 16-bit address"); return; }
-    ((fn_t)(uint16_t)a)();
-    cursor_vis = 0;
+    run_at((uint16_t)a);
 }
 
 static void cmd_fill(const char *p)
@@ -317,10 +365,10 @@ static void info_mem(void)
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
     pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  system $0200-$07FF"); newline();
-    pad(8); puts_("screen $0800-$52FF  system $5300-$5FFF  user $6000-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB free)"); newline();
+    pad(8); puts_("screen $0800-$52FF  free $5300-$5FFF  user $6000-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB free)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();
-    if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); newline(); }
+    if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); if (last_run) { puts_(", run $"); puthex16(last_run); } newline(); }
 }
 
 static void info_video(void)
@@ -413,7 +461,7 @@ static void cmd_help(void)
 {
     uint8_t o = fg;
     fg = C_HI; puts_("Wozmon:  "); fg = o; puts_("addr   addr.addr   addr:b b b   addrR      (28-bit hex; DMA beyond 64K)"); newline();
-    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR   LOAD name [addr]   SAVE name from.to   TYPE name   RUN [addr]"); newline();
+    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR   LOAD name [addr]   SAVE name from.to   TYPE name   RUN [name.prg|addr]"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
     fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]   TIME   COLOR fg [bg]   ECHO text   CLS   RESET   HELP"); newline();
 }
@@ -453,11 +501,16 @@ static void shell_line(const char *p)
     }
 }
 
+static const uint8_t c64pal[16][3] = {
+    {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
+    {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
+
 static void video_init(void)
 {
     uint8_t i;
     REG(VICKE + 0) = 0;
     REG(VICKE + 1) = C_BG;
+    for (i = 0; i < 16; i++) { REG(VICKE + 6) = i; REG(VICKE + 7) = c64pal[i][0]; REG(VICKE + 8) = c64pal[i][1]; REG(VICKE + 9) = c64pal[i][2]; }
     /* layer 0: text32, 8x8, map SCREEN, glyphs FONT, 80 cells/row */
     w16(VICKE + 0x16, COLS);
     w32(VICKE + 0x1C, SCREEN);

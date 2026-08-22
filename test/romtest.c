@@ -47,6 +47,15 @@ int main(void)
     CHECK(findsub("ROM $A000-$FFFF (24 KB)") >= 0, "INFO -m reports the ROM");
     type("info -t\n");
     CHECK(find("TIME") >= 0 && findsub("frames)") >= 0, "INFO -t");
+    type("load balls.prg\n");
+    CHECK(findsub("4646 bytes at $00006000, run address 6000") >= 0 || findsub("bytes at 00006000, run address 6000") >= 0, "LOAD honours the .prg header");
+    CHECK(mem_peek(0x6000) == 0xA9, "program image landed at $6000 without its header");
+    type("run balls.prg\n");
+    frames(30);
+    CHECK((io_read(IO_VICKE + 0x0E) & 1) == 1, "balls.prg is running (sprites on)");
+    type("x\n");
+    frames(10);
+    CHECK((io_read(IO_VICKE + 0x0E) & 1) == 0 && find("]") >= 0, "a key returns to the shell and video is restored");
     type("dir\n");
     CHECK(find("hello.txt") >= 0, "DIR lists hello.txt");
     CHECK(find("]") >= 0, "prompt after commands");

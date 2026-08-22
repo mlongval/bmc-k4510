@@ -1,17 +1,15 @@
-/* BMC-K4510 demo: rotating cube, wireframe then solid with hidden-line
- * removal. 320x240 (VICKe lowres), 4 bpp bitmap layer, two frame buffers in
- * high RAM ($110000 / $120000) reached through the 45GS02 MAP window at
- * $2000; the flip is one write to the layer's DATA pointer. Faces are
- * back-face culled and scanline filled; the frame is cleared by DMA. */
-#include <string.h>
+/* BMC-K4510 demo: rotating cube, wireframe then solid with hidden faces
+ * removed. 320x240 (VICKe lowres), 8 bpp bitmap, two frame buffers in far
+ * RAM ($110000 / $130000). Pixels go out with the 45GS02 flat store,
+ * spans with DMA fill, the clear with DMA fill, and the flip is one write
+ * to the layer's DATA pointer. Any key exits. */
 #include "k4510.h"
 
 #define W 320
 #define H 240
-#define STRIDE 160
 #define BUF0 0x110000UL
-#define BUF1 0x120000UL
-#define TEXTMAP 0x1000u                 /* 40 x 30 = 1200 bytes */
+#define BUF1 0x130000UL
+#define TEXTMAP 0x123000UL
 
 static const int16_t sintab[256] = {
     0,6,13,19,25,31,38,44,50,56,62,68,74,80,86,92,98,104,109,115,121,126,132,137,142,147,152,157,162,167,172,177,
@@ -26,7 +24,7 @@ static const int16_t sintab[256] = {
 #define COS(a) sintab[(uint8_t)((a) + 64)]
 
 static const int8_t  vert[8][3] = { {-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1} };
-static const uint8_t face[6][4] = { {0,3,2,1},{4,5,6,7},{0,1,5,4},{3,7,6,2},{0,4,7,3},{1,2,6,5} };   /* outward winding */
+static const uint8_t face[6][4] = { {0,3,2,1},{4,5,6,7},{0,1,5,4},{3,7,6,2},{0,4,7,3},{1,2,6,5} };
 static const uint8_t edge[12][2] = { {0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7} };
 static const uint8_t facecol[6] = { 2, 3, 4, 5, 6, 7 };
 #define R 56
@@ -34,13 +32,12 @@ static const uint8_t facecol[6] = { 2, 3, 4, 5, 6, 7 };
 static int16_t sx[8], sy[8];
 static int16_t xl[H], xr[H];
 static uint8_t a, b, c, back;
+static uint32_t buf;
 
 static void plot(int16_t x, int16_t y, uint8_t col)
 {
-    uint8_t *p;
     if (x < 0 || x >= W || y < 0 || y >= H) return;
-    p = WINDOW + y * STRIDE + (x >> 1);
-    if (x & 1) *p = (*p & 0xF0) | col; else *p = (*p & 0x0F) | (col << 4);
+    far_poke(buf + (uint32_t)y * W + x, col);
 }
 
 static void line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t col)
@@ -58,11 +55,9 @@ static void line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t col)
 
 static void span(int16_t y, int16_t x0, int16_t x1, uint8_t col)
 {
-    uint8_t *row = WINDOW + y * STRIDE;
-    if (x0 > x1) return;
-    if (x0 & 1) { row[x0 >> 1] = (row[x0 >> 1] & 0xF0) | col; x0++; }
-    if (!(x1 & 1)) { row[x1 >> 1] = (row[x1 >> 1] & 0x0F) | (col << 4); x1--; }
-    if (x0 <= x1) memset(row + (x0 >> 1), col | (col << 4), (x1 - x0 + 1) >> 1);
+    if (x0 > x1 || y < 0 || y >= H) return;
+    if (x0 < 0) x0 = 0; if (x1 >= W) x1 = W - 1;
+    dma_fill(col, buf + (uint32_t)y * W + x0, (uint16_t)(x1 - x0 + 1));
 }
 
 static void edge_walk(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
@@ -93,9 +88,9 @@ static void transform(void)
     int16_t sa = SIN(a), ca = COS(a), sb = SIN(b), cb = COS(b), sc = SIN(c), cc = COS(c);
     for (i = 0; i < 8; i++) {
         int16_t x = vert[i][0] * R, y = vert[i][1] * R, z = vert[i][2] * R, t;
-        t = (y * ca - z * sa) >> 8; z = (y * sa + z * ca) >> 8; y = t;      /* X axis */
-        t = (x * cb + z * sb) >> 8; z = (z * cb - x * sb) >> 8; x = t;      /* Y axis */
-        t = (x * cc - y * sc) >> 8; y = (x * sc + y * cc) >> 8; x = t;      /* Z axis */
+        t = (y * ca - z * sa) >> 8; z = (y * sa + z * ca) >> 8; y = t;
+        t = (x * cb + z * sb) >> 8; z = (z * cb - x * sb) >> 8; x = t;
+        t = (x * cc - y * sc) >> 8; y = (x * sc + y * cc) >> 8; x = t;
         z += 300;
         sx[i] = 160 + (int16_t)(((long)x * 230) / z);
         sy[i] = 120 + (int16_t)(((long)y * 230) / z);
@@ -114,23 +109,22 @@ void main(void)
     REG(V_CTRL) = 0;
     pal(1, 255, 255, 255);
     pal(2, 220, 40, 40); pal(3, 40, 200, 60); pal(4, 50, 90, 240); pal(5, 240, 200, 40); pal(6, 200, 60, 220); pal(7, 40, 210, 210);
-    pal(8, 90, 90, 90);
     REG(V_BGCOL) = 0;
     {   uint16_t L = V_LAYER(0);
-        REG(L + 1) = 0; w16(L + 2, 0); w16(L + 4, 0); w16(L + 6, STRIDE); w32(L + 8, BUF0); w32(L + 12, 0);
-        REG(L) = 1 | (0 << 1) | (2 << 3);                               /* enable, bitmap, 4 bpp */
+        REG(L + 1) = 0; w16(L + 2, 0); w16(L + 4, 0); w16(L + 6, W); w32(L + 8, BUF0); w32(L + 12, 0);
+        REG(L) = 1 | (0 << 1) | (3 << 3);                               /* enable, bitmap, 8 bpp */
     }
-    memset((void *)TEXTMAP, ' ', 40 * 30);
-    text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: MAP window, DMA clear,");
+    dma_fill(' ', TEXTMAP, 40 * 30);
+    text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: flat stores, DMA spans,");
     text8_print(TEXTMAP, 40, 1, 1, "double buffered by one pointer write");
+    text8_print(TEXTMAP, 40, 1, 29, "any key returns to the shell");
     text8_layer(1, TEXTMAP, 40, 0);
-    dma_fill(0, BUF0, (uint32_t)STRIDE * H);
+    dma_fill(0, BUF0, (uint32_t)W * H);
     REG(V_CTRL) = 1 | 2;                                                /* display on, lowres */
     back = 1;
-    for (;;) {
-        uint32_t bp = back ? BUF1 : BUF0;
-        dma_fill(0, bp, (uint32_t)STRIDE * H);            /* clear the back buffer */
-        map_window(bp);                                                 /* and bring it to $2000 */
+    while (!key_hit()) {
+        buf = back ? BUF1 : BUF0;
+        dma_fill(0, buf, (uint32_t)W * H);
         a += 1; b += 2; c += 1;
         transform();
         if (!solid) {
@@ -142,7 +136,7 @@ void main(void)
             }
         }
         wait_vblank();
-        w32(V_LAYER(0) + 8, bp);                                        /* the flip */
+        w32(V_LAYER(0) + 8, buf);
         back ^= 1;
         if (++frame == 300) { frame = 0; solid ^= 1; }
     }

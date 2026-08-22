@@ -1,24 +1,24 @@
 /* BMC-K4510 demo: 15 bouncing balls. 128-sprite engine, 4 bpp sprites with
  * per-sprite palette offsets (one ball bitmap, 15 colour banks), sprite
  * table double-buffered by flipping SPRTAB, SHEILA sky gradient, text8
- * caption. 640x480. */
+ * caption. 640x480. Every table lives in far memory (written with the
+ * 45GS02 flat store); the program itself is 16 KB at $6000. Any key exits. */
 #include "k4510.h"
 
 #define N        15
-#define SPRTAB_A 0x1800u        /* two 128 x 16 byte tables in low RAM */
-#define SPRTAB_B 0x3400u
-#define BALLDATA 0x1200u        /* 32x32 4 bpp = 512 bytes */
-#define TEXTMAP  0x2000u        /* 80 x 60 = 4800 bytes, to $32C0 */
-#define SHEILA   0x1100u
+#define BALLDATA 0x120000UL      /* 32x32 4 bpp = 512 bytes */
+#define SPRTAB_A 0x121000UL      /* two 128 x 16 byte tables */
+#define SPRTAB_B 0x122000UL
+#define TEXTMAP  0x123000UL      /* 80 x 60 */
+#define SHEILA   0x125000UL
 #define SIZE     32
 
 static int16_t px[N], py[N], vx[N], vy[N];      /* 12.4 fixed, pixels */
-static uint8_t cur;                             /* which table is being shown */
+static uint8_t cur;
 
 static void make_ball(void)
 {
-    /* shaded sphere: index 1..15 by distance from a highlight, 0 outside */
-    uint8_t *d = (uint8_t *)BALLDATA; uint8_t x, y;
+    uint32_t d = BALLDATA; uint8_t x, y;
     for (y = 0; y < SIZE; y++) for (x = 0; x < SIZE; x += 2) {
         uint8_t v[2], k;
         for (k = 0; k < 2; k++) {
@@ -26,53 +26,58 @@ static void make_ball(void)
             uint16_t r2 = dx * dx + dy * dy;
             if (r2 > 15 * 15) v[k] = 0;
             else {
-                int16_t hx = dx + 6, hy = dy + 6;               /* highlight top-left */
-                uint16_t h = hx * hx + hy * hy;                 /* 0..~500 */
+                int16_t hx = dx + 6, hy = dy + 6;
+                uint16_t h = hx * hx + hy * hy;
                 v[k] = 15 - (h >> 5); if (v[k] < 2) v[k] = 2; if (v[k] > 15) v[k] = 15;
             }
         }
-        *d++ = (v[0] << 4) | v[1];
+        far_poke(d++, (v[0] << 4) | v[1]);
     }
 }
 
 static void make_palette(void)
 {
-    /* bank b (1..15): 16 shades of hue b */
     static const uint8_t hue[15][3] = {
         {255,60,60},{255,150,40},{255,240,50},{120,255,60},{40,220,120},{40,230,230},{60,140,255},
         {120,80,255},{220,60,255},{255,80,180},{255,255,255},{200,160,120},{120,200,255},{255,200,120},{160,255,200} };
     uint8_t b, s;
     for (b = 0; b < N; b++) for (s = 0; s < 16; s++)
         pal((b + 1) * 16 + s, (uint8_t)(((uint16_t)hue[b][0] * s) / 15), (uint8_t)(((uint16_t)hue[b][1] * s) / 15), (uint8_t)(((uint16_t)hue[b][2] * s) / 15));
-    pal(16 * 0 + 1, 255, 255, 255);                     /* text colour: LPALOFS 0 -> index 1 */
+    pal(1, 255, 255, 255);
 }
 
 static void make_sheila(void)
 {
-    /* sky: BGCOL steps through palette 240..255 every 30 lines; a floor line */
-    uint8_t *p = (uint8_t *)SHEILA; uint8_t i;
+    uint32_t p = SHEILA; uint8_t i;
     for (i = 0; i < 16; i++) pal(240 + i, 10 + i * 2, 20 + i * 4, 60 + i * 9);
     for (i = 0; i < 16; i++) {
-        *p++ = 1; *p++ = (uint8_t)(i * 30); *p++ = (i * 30) >> 8; *p++ = 0;   /* WAIT line (4-byte ops) */
-        *p++ = 2; *p++ = 0x01; *p++ = 240 + i; *p++ = 0;                      /* MOVE BGCOL */
+        far_poke(p, 1); far_poke(p + 1, (uint8_t)(i * 30)); far_poke(p + 2, (i * 30) >> 8); far_poke(p + 3, 0); p += 4;   /* WAIT */
+        far_poke(p, 2); far_poke(p + 1, 0x01); far_poke(p + 2, 240 + i); far_poke(p + 3, 0); p += 4;                     /* MOVE BGCOL */
     }
-    *p++ = 1; *p++ = (uint8_t)466; *p++ = 466 >> 8; *p++ = 0;
-    *p++ = 2; *p++ = 0x01; *p++ = 0x0B; *p++ = 0;                             /* floor: dark grey */
-    *p++ = 0; *p++ = 0; *p++ = 0; *p++ = 0;
+    far_poke(p, 1); far_poke(p + 1, (uint8_t)466); far_poke(p + 2, 466 >> 8); far_poke(p + 3, 0); p += 4;
+    far_poke(p, 2); far_poke(p + 1, 0x01); far_poke(p + 2, 0x0B); far_poke(p + 3, 0); p += 4;                            /* floor */
+    far_poke(p, 0);
     w32(V_SHEILA, SHEILA); REG(V_SHEILACTL) = 1;
 }
 
-static void write_table(uint16_t tab)
+static void write_table(uint32_t tab)
 {
-    uint8_t *e = (uint8_t *)tab; uint8_t i;
-    for (i = 0; i < N; i++) {
-        int16_t x = px[i] >> 4, y = py[i] >> 4;
-        e[0] = x; e[1] = x >> 8; e[2] = y; e[3] = y >> 8;
-        e[4] = (uint8_t)BALLDATA; e[5] = BALLDATA >> 8; e[6] = 0; e[7] = 0;
-        e[8] = 1;                               /* enable, 4 bpp, Z 0 */
-        e[9] = 2 | (2 << 2);                    /* 32 x 32 */
-        e[10] = i + 1;                          /* palette bank */
-        e += 16;
+    uint8_t i;
+    for (i = 0; i < N; i++, tab += 16) {
+        far_poke16(tab, (uint16_t)(px[i] >> 4));
+        far_poke16(tab + 2, (uint16_t)(py[i] >> 4));
+    }
+}
+
+static void init_table(uint32_t tab)
+{
+    uint8_t i;
+    dma_fill(0, tab, 2048);
+    for (i = 0; i < N; i++, tab += 16) {
+        far_poke16(tab + 4, (uint16_t)BALLDATA); far_poke16(tab + 6, (uint16_t)(BALLDATA >> 16));
+        far_poke(tab + 8, 1);                    /* enable, 4 bpp, Z 0 */
+        far_poke(tab + 9, 2 | (2 << 2));         /* 32 x 32 */
+        far_poke(tab + 10, i + 1);               /* palette bank */
     }
 }
 
@@ -88,16 +93,17 @@ void main(void)
         vx[i] = (int16_t)((seed >> 4) % 100) - 50;
         vy[i] = 0;
     }
-    memset((void *)TEXTMAP, ' ', 80 * 60);
+    dma_fill(' ', TEXTMAP, 80 * 60);
     text8_print(TEXTMAP, 80, 1, 0, "BMC-K4510  VICKe: 15 x 32x32 4bpp sprites, 15 palette banks, SHEILA sky");
+    text8_print(TEXTMAP, 80, 1, 59, "any key returns to the shell");
     text8_layer(0, TEXTMAP, 80, 0);
-    memset((void *)SPRTAB_A, 0, 2048); memset((void *)SPRTAB_B, 0, 2048);
+    init_table(SPRTAB_A); init_table(SPRTAB_B);
     write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1;
-    for (;;) {
-        uint16_t back = cur ? SPRTAB_A : SPRTAB_B;
+    while (!key_hit()) {
+        uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
         for (i = 0; i < N; i++) {
-            vy[i] += 3;                                    /* gravity */
+            vy[i] += 3;
             px[i] += vx[i]; py[i] += vy[i];
             if (px[i] < 0)            { px[i] = 0;            vx[i] = -vx[i]; }
             if (px[i] > (608 << 4))   { px[i] = 608 << 4;     vx[i] = -vx[i]; }
@@ -106,6 +112,6 @@ void main(void)
         }
         write_table(back);
         wait_vblank();
-        w32(V_SPRTAB, back); cur ^= 1;                      /* the flip: one pointer */
+        w32(V_SPRTAB, back); cur ^= 1;
     }
 }

@@ -18,13 +18,14 @@ author's server and are not part of this repo.
     core/        shim header, memory system, VICKe
     sdl/         desktop frontend
     rom/         ROM sources: wozmon.a, demo.a (ACME); kernal.c (cc65, 24 KB at $A000)
-    demo/        demo ROMs in C (cc65): balls, cube, mandel  -- make demos
+    demo/        demo programs in C (cc65) -> fs/*.prg; RUN balls.prg from the shell
+    fs/          the host filesystem the machine sees at $D300
     test/        tests; capture = headless screenshots
 
 ## Targets
 
-- Desktop: SDL2, Linux. `make && ./sdl/k4510` (system ROM), or
-  `./sdl/k4510 rom/balls.bin` / `rom/cube.bin` / `rom/mandel.bin`.
+- Desktop: SDL2, Linux. `make && ./sdl/k4510`, then at the prompt:
+  `DIR`, `RUN balls.prg`, `RUN cube.prg`, `RUN mandel.prg` (any key returns).
 - Raspberry Pi 3B+ bare metal: the same frontend built against
   [circle-libsdl2](https://github.com/Xalior/circle-libsdl2) (planned,
   Phase 6).
