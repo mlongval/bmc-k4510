@@ -4,8 +4,9 @@ A fantasy 8/16-bit computer — 45GS02 CPU, 256 MB, its own video chip
 (VICKe), four SIDs + OPL2 — running bare metal on a Raspberry Pi 3B+
 via BMC64's Circle layer, and on the desktop via SDL2.
 
-Design documents live in the sibling folder on ubuntu-s1
-(`~/Projects/BMC64k4502/`). This repo is the machine.
+This repo is the machine. The design documents (capability matrix,
+plan, VICKe spec, build log) live in a separate folder on the
+author's server and are not part of this repo.
 
     make test        # CPU wrapper test (no display)
     make             # everything
@@ -18,6 +19,13 @@ Design documents live in the sibling folder on ubuntu-s1
     sdl/         desktop frontend
     rom/         system ROM sources (ACME)
     test/        tests
+
+## Targets
+
+- Desktop: SDL2, Linux. `make && ./sdl/k4510`.
+- Raspberry Pi 3B+ bare metal: the same frontend built against
+  [circle-libsdl2](https://github.com/Xalior/circle-libsdl2) (planned,
+  Phase 6).
 
 ## Provenance
 

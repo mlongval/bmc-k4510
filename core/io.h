@@ -1,8 +1,7 @@
 /* K4510 I/O page: $D000-$DFFF in the unmapped CPU view.
  *
- * Layout is the PLAN-v2 proposal, PROVISIONAL until Doc signs it off;
- * every device is reached through its base constant so moving one is a
- * one-line change.
+ * This layout is the agreed K4510 I/O map (design doc, Plan §3,
+ * 2026-08-22). Every device is reached through its base constant.
  */
 #ifndef K4510_IO_H
 #define K4510_IO_H
