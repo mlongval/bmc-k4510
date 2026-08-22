@@ -50,33 +50,80 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
     const uint8_t *L = &reg[VR_LAYER(n)];
     int mode  = (L[VL_CTRL] >> 1) & 3;
     int depth = (L[VL_CTRL] >> 3) & 3;          /* 0..3 -> 1,2,4,8 bpp */
+    int csz   = (L[VL_CTRL] >> 5) & 3;          /* cell size field */
     int bpp   = 1 << depth;
-    int ppb   = 8 / bpp;                         /* pixels per byte */
     uint8_t  palofs = L[VL_PALOFS];
     uint32_t data   = rd32(&L[VL_DATA]);
     uint32_t map    = rd32(&L[VL_MAP]);
     uint16_t stride = rd16(&L[VL_STRIDE]);
-    int sy = y + rd16(&L[VL_SCROLLY]);
+    int sy  = y + rd16(&L[VL_SCROLLY]);
     int sx0 = rd16(&L[VL_SCROLLX]);
     uint8_t mask = (uint8_t)((1 << bpp) - 1);
-    uint8_t base = (uint8_t)(palofs << bpp);     /* palette offset shifted by depth */
 
-    for (int x = 0; x < VICKE_WIDTH; x++) {
-        int sx = x + sx0;
-        uint8_t pix;
-        if (mode == VL_MODE_BITMAP) {
-            uint32_t a = data + (uint32_t)sy * stride + (sx / ppb);
-            uint8_t b = ram(a);
-            int shift = (bpp == 8) ? 0 : (8 - bpp - (sx % ppb) * bpp);    /* MSB-first packing */
-            pix = (b >> shift) & mask;
-        } else {
-            /* tile/text: 8x8 cells, 1 bpp glyphs for now; map one byte per cell */
-            int cx = sx >> 3, cy = sy >> 3;
-            uint8_t cell = ram(map + (uint32_t)cy * stride + cx);
-            uint8_t row  = ram(data + (uint32_t)cell * 8 + (sy & 7));
-            pix = (row >> (7 - (sx & 7))) & 1;
+    if (mode == VL_MODE_BITMAP) {
+        int ppb = 8 / bpp;
+        uint8_t base = (uint8_t)(palofs << bpp);
+        uint32_t row = data + (uint32_t)sy * stride;
+        for (int x = 0; x < VICKE_WIDTH; x++) {
+            int sx = x + sx0;
+            uint8_t b = ram(row + sx / ppb);
+            int shift = (bpp == 8) ? 0 : (8 - bpp - (sx % ppb) * bpp);
+            uint8_t pix = (b >> shift) & mask;
+            if (pix || opaque) line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix);
         }
-        if (pix || opaque) line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix);
+        return;
+    }
+    if (mode == VL_MODE_TILE) {
+        int size = 8 << csz;                               /* 8,16,32,64 */
+        int tbytes = size * size * bpp / 8;
+        int rowbytes = size * bpp / 8;
+        int cy = sy / size, ty = sy % size;
+        for (int x = 0; x < VICKE_WIDTH; ) {
+            int sx = x + sx0;
+            int cx = sx / size, tx0 = sx % size;
+            uint32_t e = map + ((uint32_t)cy * stride + cx) * 2;
+            uint16_t ent = ram(e) | (ram(e + 1) << 8);
+            int idx = ent & 0x3FF, hf = ent & 0x400, vf = ent & 0x800;
+            uint8_t base = (uint8_t)((ent >> 12) << bpp);
+            int ry = vf ? (size - 1 - ty) : ty;
+            uint32_t trow = data + (uint32_t)idx * tbytes + (uint32_t)ry * rowbytes;
+            for (int tx = tx0; tx < size && x < VICKE_WIDTH; tx++, x++) {
+                int px = hf ? (size - 1 - tx) : tx;
+                uint8_t b = ram(trow + px * bpp / 8);
+                int shift = (bpp == 8) ? 0 : (8 - bpp - (px % (8 / bpp)) * bpp);
+                uint8_t pix = (b >> shift) & mask;
+                if (pix || opaque) line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix);
+            }
+        }
+        return;
+    }
+    /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows */
+    int H = csz ? 16 : 8;
+    int cy = sy / H, gy = sy % H;
+    if (mode == VL_MODE_TEXT) {
+        uint8_t base = (uint8_t)(palofs << 1);
+        for (int x = 0; x < VICKE_WIDTH; ) {
+            int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
+            uint8_t cell = ram(map + (uint32_t)cy * stride + cx);
+            uint8_t row  = ram(data + (uint32_t)cell * H + gy);
+            for (int gx = gx0; gx < 8 && x < VICKE_WIDTH; gx++, x++) {
+                uint8_t pix = (row >> (7 - gx)) & 1;
+                if (pix || opaque) line[x] = (uint8_t)(base | pix);
+            }
+        }
+        return;
+    }
+    /* text32 */
+    for (int x = 0; x < VICKE_WIDTH; ) {
+        int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
+        uint32_t e = map + ((uint32_t)cy * stride + cx) * 4;
+        uint16_t g = ram(e) | ((ram(e + 1) & 0x7F) << 8);
+        int rev = ram(e + 1) & 0x80;
+        uint8_t fg = ram(e + 2), bg = ram(e + 3);
+        if (rev) { uint8_t t = fg; fg = bg; bg = t; }
+        uint8_t row = ram(data + (uint32_t)g * H + gy);
+        for (int gx = gx0; gx < 8 && x < VICKE_WIDTH; gx++, x++)
+            line[x] = ((row >> (7 - gx)) & 1) ? fg : bg;
     }
 }
 

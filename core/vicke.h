@@ -16,17 +16,28 @@
  *   $0A-$0F        reserved (sprite table ptr, copper ptr: later steps)
  *
  *   Layers 0..3 at $10 + n*$10, 16 bytes each:
- *   +0   LCTRL     bit0 enable, bits1-2 mode (0 bitmap, 1 tile, 2 text),
- *                  bits3-4 bpp (0=1, 1=2, 2=4, 3=8)
+ *   +0   LCTRL     bit0 enable, bits1-2 mode (0 bitmap, 1 tile, 2 text8,
+ *                  3 text32), bits3-4 bpp (0=1, 1=2, 2=4, 3=8),
+ *                  bits5-6 cell size (tile: 8/16/32/64 px square;
+ *                  text: 0 = 8x8, 1 = 8x16)
  *   +1   LPALOFS   palette offset for <8 bpp: index = (value << depth) | pixel
  *   +2,3 SCROLLX   16-bit, pixels
  *   +4,5 SCROLLY   16-bit, pixels
  *   +6,7 STRIDE    bitmap: bytes per row. tile/text: map entries per row.
  *   +8..+B DATA    28-bit pointer: pixels (bitmap) or glyph/tile set
- *   +C..+F MAP     28-bit pointer: tile map (one byte per cell for now)
+ *   +C..+F MAP     28-bit pointer: the map
+ *
+ * Map formats:
+ *   tile    2 bytes/cell: bits 0-9 tile index, 10 H-flip, 11 V-flip,
+ *           12-15 palette offset (used for <8 bpp). Tile pixel data at
+ *           DATA + index * (size*size*bpp/8), rows MSB-first packed.
+ *   text8   1 byte/cell: glyph index. 1 bpp 8xH glyphs at DATA + g*H.
+ *           Colours from LPALOFS: index = (LPALOFS<<1) | pixel.
+ *   text32  4 bytes/cell: glyph lo, glyph hi (16-bit index), fg, bg --
+ *           byte-wide palette indices per cell. bit7 of glyph hi = reverse.
  *
  * Layer 0 is bottom. Pixel index 0 is transparent in every layer except
- * the lowest enabled one. Text/tile cells are 8x8 at 1 bpp for now.
+ * the lowest enabled one (text32 bg is never transparent).
  */
 #ifndef K4510_VICKE_H
 #define K4510_VICKE_H
@@ -55,7 +66,8 @@
 
 #define VL_MODE_BITMAP 0
 #define VL_MODE_TILE   1
-#define VL_MODE_TEXT   2
+#define VL_MODE_TEXT   2    /* text8  */
+#define VL_MODE_TEXT32 3
 
 void     vicke_reset(void);
 uint8_t  vicke_read(uint8_t reg);

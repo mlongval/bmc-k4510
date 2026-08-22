@@ -66,6 +66,37 @@ int main(void)
     /* raster register reads back end-of-frame */
     CHECK(io_read(IO_VICKE + VR_RASTER) == (VICKE_HEIGHT & 0xFF), "raster low after frame");
 
+    /* ---- tiles: 16x16 at 4 bpp, map entry with H-flip and palette offset ---- */
+    mem_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 0);
+    uint32_t tiles = 0x300000, tmap = 0x310000;
+    /* tile 1: left half index 1, right half index 2 (4 bpp: 8 bytes per row, 16 rows) */
+    for (int r = 0; r < 16; r++) for (int b = 0; b < 8; b++) mem_poke(tiles + 128 + r * 8 + b, b < 4 ? 0x11 : 0x22);
+    for (int i = 0; i < 40 * 30 * 2; i++) mem_poke(tmap + i, 0);
+    mem_poke(tmap + 0, 1); mem_poke(tmap + 1, 0x00);          /* cell 0: tile 1, no flip, palofs 0 */
+    mem_poke(tmap + 2, 1); mem_poke(tmap + 3, 0x04 | 0x30);   /* cell 1: tile 1, H-flip, palofs 3 */
+    W32(VR_LAYER(0) + VL_DATA, tiles); W32(VR_LAYER(0) + VL_MAP, tmap); W16(VR_LAYER(0) + VL_STRIDE, 40);
+    W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TILE << 1) | (2 << 3) | (1 << 5));   /* tile, 4 bpp, 16 px */
+    vicke_render(fb, VICKE_WIDTH);
+    printf("3. tiles 16x16 4bpp: cell0 (0,5)=%d (12,5)=%d | cell1 flipped+palofs3 (16,5)=%d (28,5)=%d\n",
+           fb[5*640+0], fb[5*640+12], fb[5*640+16], fb[5*640+28]);
+    CHECK(fb[5*640+0] == 1 && fb[5*640+12] == 2, "tile halves");
+    CHECK(fb[5*640+16] == (3<<4|2) && fb[5*640+28] == (3<<4|1), "H-flip and palette offset");
+
+    /* ---- text32: per-cell fg/bg, reverse bit, 8x16 glyphs ---- */
+    uint32_t f16 = 0x320000, m32 = 0x330000;
+    for (int i = 0; i < 256 * 16; i++) mem_poke(f16 + i, 0);
+    for (int r = 0; r < 16; r++) mem_poke(f16 + 'A' * 16 + r, 0xF0);   /* left half set */
+    uint8_t cell0[4] = { 'A', 0x00, 9, 4 }, cell1[4] = { 'A', 0x80, 9, 4 };
+    mem_load(m32, cell0, 4); mem_load(m32 + 4, cell1, 4);
+    W32(VR_LAYER(1) + VL_DATA, f16); W32(VR_LAYER(1) + VL_MAP, m32); W16(VR_LAYER(1) + VL_STRIDE, 80);
+    W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));   /* text32, 8x16 */
+    vicke_render(fb, VICKE_WIDTH);
+    printf("4. text32 8x16: cell0 (1,12)=%d (6,12)=%d | reversed cell1 (9,12)=%d (14,12)=%d\n",
+           fb[12*640+1], fb[12*640+6], fb[12*640+9], fb[12*640+14]);
+    CHECK(fb[12*640+1] == 9 && fb[12*640+6] == 4, "text32 fg/bg");
+    CHECK(fb[12*640+9] == 4 && fb[12*640+14] == 9, "text32 reverse");
+    CHECK(fb[15*640+1] == 9 && fb[16*640+1] != 9, "8x16 glyph height");
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }
