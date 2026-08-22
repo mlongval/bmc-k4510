@@ -13,7 +13,22 @@
  *   $06  PALIDX    palette index for the write port
  *   $07  PALR      $08 PALG   $09 PALB  -- writing B commits the entry and
  *                  increments PALIDX
- *   $0A-$0F        reserved (sprite table ptr, copper ptr: later steps)
+ *   $0A-$0D SPRTAB 28-bit pointer to the sprite attribute table (128 x 16 B)
+ *   $0E     SPRCTL bit0 sprites enable
+ *   $0F            reserved (copper pointer: later)
+ *   $40-$4F COLSS  read: sprite-sprite collision bits, one bit per sprite
+ *                  (sprite n hit another sprite this frame). Cleared on read of $40.
+ *   $50-$5F COLSL  read: sprite-layer collision bits (sprite n over a
+ *                  non-transparent layer pixel). Cleared on read of $50.
+ *
+ *   Sprite attribute entry, 16 bytes, in main RAM:
+ *   +0,1 X (signed 16)   +2,3 Y (signed 16)   +4..7 DATA 28-bit pointer
+ *   +8   CTRL  bit0 enable, bit1 8 bpp (else 4), bit2 H-flip, bit3 V-flip,
+ *              bits4-5 Z: drawn after layer Z (0..3)
+ *   +9   SIZE  bits0-1 width 8/16/32/64, bits2-3 height 8/16/32/64
+ *   +10  PALOFS (4 bpp: index = PALOFS<<4 | pixel)
+ *   +11..15 reserved
+ *   Pixel 0 is transparent. No per-line limit. 128 sprites.
  *
  *   Layers 0..3 at $10 + n*$10, 16 bytes each:
  *   +0   LCTRL     bit0 enable, bits1-2 mode (0 bitmap, 1 tile, 2 text8,
@@ -55,6 +70,11 @@
 #define VR_PALR     0x07
 #define VR_PALG     0x08
 #define VR_PALB     0x09
+#define VR_SPRTAB   0x0A
+#define VR_SPRCTL   0x0E
+#define VR_COLSS    0x40
+#define VR_COLSL    0x50
+#define VICKE_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
 #define VL_CTRL     0
 #define VL_PALOFS   1

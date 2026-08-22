@@ -97,6 +97,36 @@ int main(void)
     CHECK(fb[12*640+9] == 4 && fb[12*640+14] == 9, "text32 reverse");
     CHECK(fb[15*640+1] == 9 && fb[16*640+1] != 9, "8x16 glyph height");
 
+    /* ---- sprites ---- */
+    mem_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 0);
+    uint32_t sdat = 0x400000, stab = 0x410000;
+    for (int i = 0; i < 16 * 16; i++) mem_poke(sdat + i, 0x33);            /* 16x16 8bpp, index 3 */
+    for (int i = 0; i < 8 * 8 / 2; i++) mem_poke(sdat + 0x100 + i, 0x55);  /* 8x8 4bpp, index 5 */
+    uint8_t s0[16] = { 100, 0, 50, 0, 0x00, 0x00, 0x40, 0x00, 0x03, 0x05, 0, 0,0,0,0,0 };  /* 8bpp 16x16 at (100,50), Z=0 */
+    uint8_t s1[16] = { 108, 0, 58, 0, 0x00, 0x01, 0x40, 0x00, 0x01, 0x00, 2, 0,0,0,0,0 };  /* 4bpp 8x8 at (108,58) palofs 2, Z=0 */
+    uint8_t s2[16] = { 0xF8, 0xFF, 10, 0, 0x00, 0x01, 0x40, 0x00, 0x01, 0x00, 1, 0,0,0,0,0 }; /* 8x8 at x=-8: fully off-screen left */
+    for (int i = 0; i < 128 * 16; i++) mem_poke(stab + i, 0);
+    mem_load(stab, s0, 16); mem_load(stab + 16, s1, 16); mem_load(stab + 32, s2, 16);
+    W32(VR_SPRTAB, stab); W(VR_SPRCTL, 1);
+    /* a layer under them: 8bpp bitmap all index 1 at y>=60 only */
+    for (int y = 0; y < 480; y++) for (int x = 0; x < 640; x++) mem_poke(bmp + y * 640 + x, y >= 60 ? 1 : 0);
+    W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
+    W(VR_LAYER(0) + VL_CTRL, 1 | (3 << 3));
+    vicke_render(fb, VICKE_WIDTH);
+    printf("5. sprites: s0(100,50)=%d  s1 over s0 (110,60)=%d  outside=%d  colSS=$%02X colSL=$%02X\n",
+           fb[50*640+100], fb[60*640+110], fb[40*640+100], io_read(IO_VICKE+VR_COLSS), io_read(IO_VICKE+VR_COLSL));
+    CHECK(fb[50*640+100] == 0x33, "sprite 0 pixel");
+    CHECK(fb[60*640+110] == (2<<4|5), "sprite 1 (4bpp, palofs) drawn over sprite 0 -- later sprite wins");
+    CHECK(fb[40*640+100] == 0, "nothing above sprite");
+    /* collisions: s0<->s1 overlap -> bits 0,1; s0 and s1 over layer (y>=60) -> bits 0,1; s2 off-screen: none */
+    mem_reset(); /* reset clears read-cleared regs; re-render to read fresh */
+    W(VR_CTRL,1); W32(VR_SPRTAB, stab); W(VR_SPRCTL,1); W32(VR_LAYER(0)+VL_DATA,bmp); W16(VR_LAYER(0)+VL_STRIDE,640); W(VR_LAYER(0)+VL_CTRL, 1|(3<<3));
+    vicke_render(fb, VICKE_WIDTH);
+    uint8_t ss = io_read(IO_VICKE + VR_COLSS), sl = io_read(IO_VICKE + VR_COLSL);
+    CHECK(ss == 0x03, "sprite-sprite collision bits (%02X)", ss);
+    CHECK(sl == 0x03, "sprite-layer collision bits (%02X)", sl);
+    CHECK(io_read(IO_VICKE + VR_COLSS) == 0, "collision cleared on read");
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }
