@@ -85,6 +85,7 @@ RESET:  cld
         sta VICKE+$01           ; initial background
         lda #1
         sta VICKE+$00           ; display on
+        jsr SOUND
         ; ---- main loop: wait vblank, move the ball ----
 LOOP:   lda VICKE+$04
         and #1
@@ -153,6 +154,20 @@ LOOP:   lda VICKE+$04
         jmp LOOP
 
 ; ---- setup helpers ----
+SID0   = $D400
+SOUND:  lda #$0F
+        sta SID0+$18            ; volume
+        lda #$09
+        sta SID0+$05            ; attack 0, decay 9
+        lda #$00
+        sta SID0+$06            ; sustain 0, release 0  -> a short pluck
+        lda #$00
+        sta SID0+$00
+        lda #$4E                ; freq hi (a low tone at this clock)
+        sta SID0+$01
+        lda #$11                ; triangle + gate
+        sta SID0+$04
+        rts
 TEXT:   ldx #0
 .t:     lda MSG1,x
         beq .t2

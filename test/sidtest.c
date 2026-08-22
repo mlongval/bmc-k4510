@@ -12,6 +12,7 @@ int main(void)
 {
     mem_init(); sid_init(40500000.0, 48000);
     static int16_t buf[48000];
+    sid_render(40500000 / 10, buf, 48000);          /* let the output filter settle after reset */
     int n = sid_render(40500000 / 10, buf, 48000);
     int lo = 32767, hi = -32768; for (int i = 0; i < n; i++) { if (buf[i] < lo) lo = buf[i]; if (buf[i] > hi) hi = buf[i]; }
     printf("1. silence: %d samples, peak-to-peak %d (6581 DC offset is normal)\n", n, hi - lo);

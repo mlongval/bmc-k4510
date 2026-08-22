@@ -12,8 +12,19 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicke.h"
+#include "../core/sid.h"
 
 #define SCALE 2
+#define AUDIO_RATE 48000
+
+/* Audio: core renders into a ring per scanline; SDL drains it in its thread. */
+static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
+#define RING_MASK ((1 << 15) - 1)
+static void audio_cb(void *ud, Uint8 *stream, int len)
+{
+    (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
+    for (int i = 0; i < n; i++) out[i] = (ring_h != ring_w) ? ring[ring_h++ & RING_MASK] : 0;
+}
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 #define CYCLES_PER_FRAME (CPU_HZ / 60)
 #define CYCLES_PER_LINE  (CYCLES_PER_FRAME / VICKE_HEIGHT)
@@ -45,7 +56,8 @@ int main(int argc, char **argv)
     }
     cpu65_reset();
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    sid_init((double)CPU_HZ, AUDIO_RATE);
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKE_WIDTH * SCALE, VICKE_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -55,6 +67,10 @@ int main(int argc, char **argv)
 
     static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
 
+    SDL_AudioSpec want = { 0 }, have;
+    want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
+    SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
     int running = 1;
     while (running) {
@@ -89,6 +105,8 @@ int main(int argc, char **argv)
             cpu65.irqLevel = vicke_irq() ? 1 : 0;
             cpu65_step(CYCLES_PER_LINE);
             vicke_line(y);
+            { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+              for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = tmp[i]; }
         }
         vicke_end_frame();
         cpu65.irqLevel = vicke_irq() ? 1 : 0;
