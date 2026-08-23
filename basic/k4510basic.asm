@@ -93,5 +93,7 @@ k4510_load
 k4510_save
 	RTS				; not yet
 
+	.include "k4510gfx.asm"
+
 k4510_banner
-	.byte	CR, "BMC-K4510  EhBASIC 2.22  (RUN/STOP: back to the shell)", CR, 0
+	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS PLOT LINE TRI PALETTE GCLS  (RUN/STOP: shell)", CR, 0

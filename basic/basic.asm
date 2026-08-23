@@ -336,10 +336,16 @@ TK_BITSET		= TK_SWAP+1		; BITSET token
 TK_BITCLR		= TK_BITSET+1	; BITCLR token
 TK_IRQ		= TK_BITCLR+1	; IRQ token
 TK_NMI		= TK_IRQ+1		; NMI token
+TK_GRAPHICS	= TK_NMI+1		; K4510 GRAPHICS
+TK_PLOT		= TK_GRAPHICS+1	; K4510 PLOT
+TK_LINE		= TK_PLOT+1		; K4510 LINE
+TK_TRI		= TK_LINE+1		; K4510 TRI
+TK_PALETTE	= TK_TRI+1		; K4510 PALETTE
+TK_GCLS		= TK_PALETTE+1	; K4510 GCLS
 
 ; secondary command tokens, can't start a statement
 
-TK_TAB		= TK_NMI+1		; TAB token
+TK_TAB		= TK_GCLS+1		; TAB token
 TK_ELSE		= TK_TAB+1		; ELSE token
 TK_TO			= TK_ELSE+1		; TO token
 TK_FN			= TK_TO+1		; FN token
@@ -7967,6 +7973,12 @@ LAB_CTBL
 	.word	LAB_BITCLR-1	; BITCLR		new command
 	.word	LAB_IRQ-1		; IRQ			new command
 	.word	LAB_NMI-1		; NMI			new command
+	.word	K_GRAPHICS-1	; GRAPHICS	K4510
+	.word	K_PLOT-1		; PLOT		K4510
+	.word	K_LINE-1		; LINE		K4510
+	.word	K_TRI-1		; TRI		K4510
+	.word	K_PALETTE-1	; PALETTE	K4510
+	.word	K_GCLS-1		; GCLS		K4510
 
 ; function pre process routine table
 
@@ -8244,12 +8256,16 @@ LBB_FRE
 	.byte	"RE(",TK_FRE	; FRE(
 	.byte	$00
 TAB_ASCG
+LBB_GCLS
+	.byte	"CLS",TK_GCLS	; GCLS
 LBB_GET
 	.byte	"ET",TK_GET		; GET
 LBB_GOSUB
 	.byte	"OSUB",TK_GOSUB	; GOSUB
 LBB_GOTO
 	.byte	"OTO",TK_GOTO	; GOTO
+LBB_GRAPHICS
+	.byte	"RAPHICS",TK_GRAPHICS	; GRAPHICS
 	.byte	$00
 TAB_ASCH
 LBB_HEXS
@@ -8277,6 +8293,8 @@ LBB_LEN
 	.byte	"EN(",TK_LEN	; LEN(
 LBB_LET
 	.byte	"ET",TK_LET		; LET
+LBB_LINE
+	.byte	"INE",TK_LINE	; LINE
 LBB_LIST
 	.byte	"IST",TK_LIST	; LIST
 LBB_LOAD
@@ -8315,10 +8333,14 @@ LBB_OR
 	.byte	"R",TK_OR		; OR
 	.byte	$00
 TAB_ASCP
+LBB_PALETTE
+	.byte	"ALETTE",TK_PALETTE	; PALETTE
 LBB_PEEK
 	.byte	"EEK(",TK_PEEK	; PEEK(
 LBB_PI
 	.byte	"I",TK_PI		; PI
+LBB_PLOT
+	.byte	"LOT",TK_PLOT	; PLOT
 LBB_POKE
 	.byte	"OKE",TK_POKE	; POKE
 LBB_POS
@@ -8379,6 +8401,8 @@ LBB_THEN
 	.byte	"HEN",TK_THEN	; THEN
 LBB_TO
 	.byte	"O",TK_TO		; TO
+LBB_TRI
+	.byte	"RI",TK_TRI		; TRI
 LBB_TWOPI
 	.byte	"WOPI",TK_TWOPI	; TWOPI
 	.byte	$00
@@ -8502,6 +8526,18 @@ LAB_KEYT
 	.word	LBB_IRQ		; IRQ
 	.byte	3,'N'
 	.word	LBB_NMI		; NMI
+	.byte	8,'G'
+	.word	LBB_GRAPHICS	; GRAPHICS
+	.byte	4,'P'
+	.word	LBB_PLOT		; PLOT
+	.byte	4,'L'
+	.word	LBB_LINE		; LINE
+	.byte	3,'T'
+	.word	LBB_TRI		; TRI
+	.byte	7,'P'
+	.word	LBB_PALETTE	; PALETTE
+	.byte	4,'G'
+	.word	LBB_GCLS		; GCLS
 
 ; secondary commands (can't start a statement)
 
