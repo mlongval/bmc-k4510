@@ -350,6 +350,7 @@ static uint16_t dbg_pcs[DBG_PCS]; static uint32_t dbg_pci;
 static uint8_t dbg_keys[DBG_KEYS]; static uint32_t dbg_keyi;
 static char dbg_log[DBG_LOG]; static uint32_t dbg_logi;
 void dbg_pc(uint16_t pc) { dbg_pcs[dbg_pci++ & (DBG_PCS - 1)] = pc; }
+extern int dbg_rec;
 static void dbg_key(uint8_t k) { dbg_keys[dbg_keyi++ & (DBG_KEYS - 1)] = k; }
 static void dbg_logc(uint8_t c) { dbg_log[dbg_logi++ & (DBG_LOG - 1)] = (char)c; }
 extern uint8_t vicke_read(uint8_t r);
@@ -405,9 +406,10 @@ void io_reset(void)
 {
     sys_frames = 0;
 #ifdef K4510_PI
-    dbg_auto = 0;                                        /* the desktop emulator only (Doc): no SD wear on the Pi */
+    dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
+                                                            costs a store per instruction the Pi cannot spare (DUMP ON arms it) */
 #else
-    dbg_auto = 1; dbg_auto_next = 900;                   /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
+    dbg_auto = 1; dbg_auto_next = 900; dbg_rec = 1;      /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
 #endif
     memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
     kbd_head = kbd_tail = 0; kbd_last = 0;
@@ -478,9 +480,9 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_MATH:
         math_write(addr & 0xFF, v); return;
     case IO_SYS:
-        if ((addr & 0xFF) == 0xF0) dbg_dump("DUMP register");
+        if ((addr & 0xFF) == 0xF0) { dbg_rec = 1; dbg_dump("DUMP register"); }
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
-        if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_auto_next = sys_frames + 900; }
+        if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
         if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
         return;
     case IO_BANK: {

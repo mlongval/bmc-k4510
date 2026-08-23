@@ -166,17 +166,22 @@ static uint8_t far_gate(uint16_t addr)
  * shows RAM); the I/O page $D000-$DFFF and the stub page $FF00-$FFFF are
  * always what they are, whatever is mapped (K-05: so block 6 can be RAM). */
 
+int dbg_rec;                             /* the PC recorder costs a store per instruction: armed by DUMP */
 Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
-    if (XEMU_UNLIKELY(addr == cpu65.old_pc)) dbg_pc(addr);       /* opcode fetch: the debug recorder */
-    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {        /* the I/O page is always I/O, whatever is banked (like the stub page) */
-        if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
-        return io_read(addr);
-    }
-    if (XEMU_LIKELY(base == UNMAPPED)) {
+    if (XEMU_UNLIKELY(dbg_rec && addr == cpu65.old_pc)) dbg_pc(addr);   /* opcode fetch: the debug recorder */
+    if (XEMU_LIKELY(base == UNMAPPED)) {                          /* the fast path: one compare for I/O, one for ROM */
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
+            if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
+            return io_read(addr);
+        }
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return k4510_ram[K4510_ROM_PHYS + addr];
         return k4510_ram[addr];
+    }
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {        /* banked view: the I/O page still wins */
+        if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);
+        return io_read(addr);
     }
     return k4510_ram[cpu_to_phys(addr)];
 }
@@ -184,12 +189,13 @@ Uint8 cpu65_read_callback(Uint16 addr)
 void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
     uint32_t base = block_base[addr >> 13];
-    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
     if (XEMU_LIKELY(base == UNMAPPED)) {
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return;               /* ROM (I/O page wins: the hole in a big ROM) */
         k4510_ram[addr] = data;
         return;
     }
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }   /* banked view: I/O still wins */
     if (XEMU_UNLIKELY(addr >= 0xFF00)) return;                         /* the stub page: ROM even when banked */
     k4510_ram[cpu_to_phys(addr)] = data;
 }
