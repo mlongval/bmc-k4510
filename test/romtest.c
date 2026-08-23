@@ -23,22 +23,22 @@ int main(void)
     char r[81]; row(0, r); printf("banner: %s\n", r);
     CHECK(findsub("BMC-K4510") >= 0, "banner");
     CHECK(findsub("/]") >= 0, "prompt");
-    type("E000.E00F\n");
+    type("mon E000.E00F\n");
     CHECK(find("0000E000: 78 D8 A2 FF 9A") >= 0, "examine ROM (cc65 crt0: SEI CLD LDX TXS)");
     type("load hello.txt 6000\n");
     CHECK(find("loaded 31 bytes at 00006000") >= 0, "LOAD message");
     CHECK(memcmp(&k4510_ram[0x6000], "hello from", 10) == 0, "file landed in RAM");
-    type("6000.6009\n");
+    type("mon 6000.6009\n");
     CHECK(find("00006000: 68 65 6C 6C 6F") >= 0, "examine loaded bytes");
     /* user program: LDA #$42 ; STA $5F00 ; RTS  at $3000, run with 3000R */
-    type("3000:A9 42 8D 00 5F 60\n");
-    type("3000R\n");
+    type("mon 3000:A9 42 8D 00 5F 60\n");
+    type("mon 3000R\n");
     CHECK(mem_peek(0x5F00) == 0x42, "3000R ran user code and returned to the shell");
     type("fill 1000000.100000F AA\n");
     CHECK(mem_peek(0x1000000) == 0xAA && mem_peek(0x100000F) == 0xAA && mem_peek(0x1000010) != 0xAA, "FILL at 16 MB through DMA");
-    type("1000000.1000003\n");
+    type("mon 1000000.1000003\n");
     CHECK(find("01000000: AA AA AA AA") >= 0, "examine beyond 64 KB");
-    type("1000004:55\n");
+    type("mon 1000004:55\n");
     CHECK(mem_peek(0x1000004) == 0x55, "store beyond 64 KB");
     type("type hello.txt\n");
     CHECK(find("hello from") >= 0, "TYPE prints the file");

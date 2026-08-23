@@ -572,6 +572,7 @@ static void cmd_info(const char *p)
 }
 
 uint8_t k_shell(const char *p);
+static void cmd_mon(const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
 static void cmd_dump(const char *p)
@@ -588,7 +589,7 @@ static void cmd_dump(const char *p)
 static void cmd_help(void)
 {
     uint8_t o = fg;
-    fg = C_HI; puts_("Wozmon:  "); fg = o; puts_("addr   addr.addr   addr:b b b   addrR      (28-bit hex; DMA beyond 64K)"); newline();
+    fg = C_HI; puts_("monitor: "); fg = o; puts_("MON [line]   then  addr   addr.addr   addr:b b b   addrR   X"); newline();
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
     pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
@@ -621,7 +622,14 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
-    /* Wozmon grammar */
+    if (is_cmd(&p, "MON"))   { cmd_mon(p); return; }
+    error("? (HELP lists the commands; MON is the monitor)");
+}
+
+/* the Wozmon grammar: addr  addr.addr  addr:b b b  addrR */
+static void mon_line(const char *p)
+{
+    uint8_t d; uint32_t v;
     mode = 0;
     for (;;) {
         skipsp(&p);
@@ -634,6 +642,24 @@ static void shell_line(const char *p)
         if (mode == 1) { poke(xam++, (uint8_t)v); continue; }
         if (mode == 2) { dump(xam, v); xam = v + 1; mode = 0; continue; }
         xam = v; dump(v, v);
+    }
+}
+
+/* MON: the machine monitor, Wozmon's grammar at a * prompt; X leaves (back to
+ * the shell, or to BASIC when entered with @MON). Shell commands work too. */
+static void cmd_mon(const char *p)
+{
+
+    if (*p) { mon_line(p); return; }                     /* MON E000.E00F : one line, no prompt */
+    { uint8_t o = fg; fg = C_DIM; puts_("monitor: addr  addr.addr  addr:b b b  addrR  (28-bit hex)   X leaves"); newline(); fg = o; }
+    for (;;) {
+        const char *q;
+        puts_("*");
+        readline(line, sizeof line);   /* the shell line buffer: its previous contents were consumed above */
+        q = line; skipsp(&q);
+        if (!*q) continue;
+        if (is_cmd(&q, "X") || is_cmd(&q, "EXIT") || is_cmd(&q, "Q")) return;
+        if (ishex(*q) || *q == ':' || *q == '.') mon_line(q); else shell_line(q);
     }
 }
 
@@ -681,44 +707,31 @@ static void row_open(void) { k_chrout(B_V); k_chrout(' '); }
 static void row_close(uint8_t w) { pad(w + 1); k_chrout(B_V); newline(); }
 static void field(const char *name, const char *text) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; puts_(text); }
 
-/* two rows of the 16 colours: solid blocks, then the same colours as upper
- * half-blocks on the background -- the inverse of the row above */
-static void colour_bar(uint8_t w)
-{
-    uint8_t c, i, iw = w - 1, bw = iw / 16, extra = iw - bw * 16, ofg = fg, obg = bg;   /* iw: the content width between the verticals */
-    row_open();
-    for (c = 0; c < 16; c++) { bg = c; fg = c; for (i = 0; i < bw + (c < extra); i++) k_chrout(' '); }
-    bg = obg; fg = ofg; row_close(w);
-    row_open();
-    for (c = 0; c < 16; c++) { fg = c; for (i = 0; i < bw + (c < extra); i++) k_chrout(0xDF); }
-    fg = ofg; row_close(w);
-}
-static void blank_boxrow(uint8_t w) { row_open(); row_close(w); }
-
+/* the logo: an hourglass of colour blocks, left-aligned, five rows; the
+ * machine's name, speed and memory on its right. Everything else is INFO. */
 static void banner(void)
 {
-    uint8_t w = COLS - 2, o, c2 = COLS / 2 + 2;                /* inner width, second column */
+    static const uint8_t width[5] = { 12, 8, 4, 8, 12 };
+    static const uint8_t colour[5] = { 2, 8, 7, 5, 14 };      /* red, orange, yellow, green, light blue */
+    uint8_t r, i, obg = bg, ofg = fg;
     cls();
-    o = fg; fg = C_HI;
-    hline(B_TL, B_TR, w);
-    row_open(); fg = C_HI; puts_("BMC-K4510"); fg = C_FG; puts_("   a fantasy 8/16-bit computer");
-    pad(w - 22); fg = C_DIM; puts_("system ROM " ROM_VERSION); fg = C_HI; row_close(w);
-    colour_bar(w);
-    fg = C_HI; hline(B_LT, B_RT, w);
-    fg = C_FG;
-    row_open(); field("CPU     ", "45GS02 at 40.5 MHz"); pad(c2); field("MEMORY  ", "256 MB, 28-bit flat"); row_close(w);
-    row_open(); field("VIDEO   ", "VICKe "); puts_(vmode == 2 ? "320x240" : vmode == 1 ? "640x240" : "640x480"); puts_(", "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text");
-    pad(c2); field("SOUND   ", "4 x SID 6581"); row_close(w);
-    row_open(); field("FILES   ", "host filesystem, "); put_cwd(); pad(c2); field("BASIC   ", "RUN EHBASIC.PRG"); row_close(w);
-    { volatile uint8_t d = REG(SYS + 4); (void)d; }
-    row_open(); field("TIME    ", ""); putdec(r16(SYS + 0x0A)); k_chrout('-'); putdec2(REG(SYS + 9)); k_chrout('-'); putdec2(REG(SYS + 8));
-    k_chrout(' '); putdec2(REG(SYS + 7)); k_chrout(':'); putdec2(REG(SYS + 6)); k_chrout(' '); puts_(daynames[REG(SYS + 12) % 7]);
-    pad(c2); field("ALSO    ", "DMA, MATH unit, SHEILA"); row_close(w);
-    blank_boxrow(w);
-    row_open(); fg = C_DIM; puts_("HELP lists the commands, INFO describes the machine, DIR shows the files."); fg = C_FG; row_close(w);
-    fg = C_HI; hline(B_BL, B_BR, w); fg = C_FG;
     newline();
-    fg = o;
+    for (r = 0; r < 5; r++) {
+        k_chrout(' '); k_chrout(' ');
+        bg = colour[r]; fg = colour[r];
+        for (i = 0; i < width[r]; i++) k_chrout(' ');
+        bg = obg;
+        pad(18);
+        switch (r) {
+        case 0: fg = C_HI;  puts_("BMC-K4510"); break;
+        case 1: fg = C_DIM; puts_("a fantasy 8/16-bit computer"); break;
+        case 3: fg = C_FG;  puts_("45GS02 at 40.5 MHz"); break;
+        case 4: fg = C_FG;  puts_("256 MB"); break;
+        }
+        fg = ofg;
+        newline();
+    }
+    newline();
 }
 
 int main(void)
