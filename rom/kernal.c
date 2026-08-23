@@ -18,9 +18,9 @@
 #define SID0   0xD400u
 #define SYS    0xD500u
 
-#define SCREEN   0x0800u              /* text32: 80x60 cells x 4 bytes = 19200 -> $0800-$5300 */
+#define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
 #define FONT     0x010000UL           /* placed by the loader */
-#define USER     0x6000u              /* free RAM for programs: $6000-$9FFF */
+#define USER     0x0800u              /* free RAM for programs: $0800-$9FFF (38 KB); .prg files say where they load */
 #define USER_END 0xA000u
 #define MAXCOLS 80
 #define MAXROWS 60
@@ -36,43 +36,46 @@ static uint8_t COLS = 80, ROWS = 60, vmode;   /* MODE 0: 80x60 (640x480)  1: 80x
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
-extern uint8_t *cursor_cell;                     /* crt0.s, zero page */
-#pragma zpsym("cursor_cell")
+extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
 uint16_t speed_loop(void);                       /* crt0.s */
+void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS02 flat store */
+void __fastcall__ call_prog(unsigned addr);                     /* crt0.s: JSR with the ROM zero page saved around it */
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
 static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
 static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1) << 8) | ((uint32_t)REG(r + 2) << 16) | ((uint32_t)REG(r + 3) << 24); }
 static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1) << 8); }
 
-static uint8_t *cell(uint8_t x, uint8_t y) { return (uint8_t *)(SCREEN + ((uint16_t)y * COLS + x) * 4); }
+static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)y * COLS + x) * 4; }
+static uint8_t rowbuf[MAXCOLS * 4];               /* one text row, built here and DMA'd into place */
+static void blank_row(uint8_t y)
+{
+    uint8_t *c = rowbuf; uint8_t i;
+    for (i = 0; i < COLS; i++) { c[0] = ' '; c[1] = 0; c[2] = fg; c[3] = bg; c += 4; }
+    w32(DMA + 0, (uint16_t)rowbuf); w32(DMA + 4, cell(0, y)); w32(DMA + 8, COLS * 4); REG(DMA + 12) = 1;
+}
 
 static void draw_cursor(uint8_t on)
 {
-    uint8_t *c = cell(cx, cy);
+    uint32_t c = cell(cx, cy) + 1;
     cursor_vis = 0;
-    c[1] = on ? 0x80 : 0x00;                 /* reverse bit = cursor; IRQ blinks it */
-    cursor_cell = c + 1;
+    far_poke(c, on ? 0x80 : 0x00);           /* reverse bit = cursor; IRQ blinks it */
+    cursor_far = c;
     cursor_vis = on;
 }
 
 static void cls(void)
 {
-    /* DMA fill is byte-wide; seed row 0 with the 4-byte cell, DMA-copy it to each row */
-    uint8_t *c = (uint8_t *)SCREEN; uint8_t i;
-    for (i = 0; i < COLS; i++) { c[0] = ' '; c[1] = 0; c[2] = fg; c[3] = bg; c += 4; }
-    w32(DMA + 0, SCREEN); w32(DMA + 8, COLS * 4);
-    for (i = 1; i < ROWS; i++) { w32(DMA + 4, SCREEN + (uint16_t)i * COLS * 4); REG(DMA + 12) = 1; }
+    uint8_t i;
+    for (i = 0; i < ROWS; i++) blank_row(i);
     cx = cy = 0;
 }
 
 static void scroll(void)
 {
-    uint8_t *c; uint8_t i;
     w32(DMA + 0, SCREEN + COLS * 4); w32(DMA + 4, SCREEN); w32(DMA + 8, (uint32_t)(ROWS - 1) * COLS * 4);
     REG(DMA + 12) = 1;
-    c = cell(0, ROWS - 1);
-    for (i = 0; i < COLS; i++) { c[0] = ' '; c[1] = 0; c[2] = fg; c[3] = bg; c += 4; }
+    blank_row(ROWS - 1);
 }
 
 static void newline(void)
@@ -83,14 +86,14 @@ static void newline(void)
 
 void __fastcall__ k_chrout(uint8_t ch)
 {
-    uint8_t *c;
+    uint32_t c;
     draw_cursor(0);
     if (ch == '\r' || ch == '\n') { newline(); return; }
-    if (ch == 8) { if (cx) { cx--; c = cell(cx, cy); c[0] = ' '; c[1] = 0; } return; }
+    if (ch == 8) { if (cx) { cx--; c = cell(cx, cy); far_poke(c, ' '); far_poke(c + 1, 0); } return; }
     if (ch == 12) { cls(); return; }
     if (ch == 9) { do { k_chrout(' '); } while (cx & 7); return; }
     if (ch < 0x20) return;
-    c = cell(cx, cy); c[0] = ch; c[1] = 0; c[2] = fg; c[3] = bg;
+    c = cell(cx, cy); far_poke(c, ch); far_poke(c + 1, 0); far_poke(c + 2, fg); far_poke(c + 3, bg);
     if (++cx >= COLS) newline();
 }
 
@@ -131,7 +134,8 @@ static uint8_t readline(char *buf, uint8_t max)
 static uint8_t fs_cmd(uint8_t cmd) { REG(FS) = cmd; return REG(FS + 1); }
 static void fs_name(const char *name) { w32(FS + 4, (uint16_t)name); }
 
-/* jump-table entry points use zero page $F0.. as the parameter block */
+/* jump-table entry points (crt0.s saves and restores the ROM's zero page around
+ * each, so a program may own $00-$FF) use $F0.. as the parameter block */
 #define P_NAME  (*(volatile uint16_t *)0xF0)
 #define P_ADDR  (*(volatile uint32_t *)0xF2)
 #define P_LEN   (*(volatile uint32_t *)0xF6)
@@ -287,7 +291,7 @@ typedef void (*fn_t)(void);
 static void video_init(void);
 static void run_at(uint16_t a)
 {
-    ((fn_t)a)();
+    call_prog(a);
     video_init();                    /* the program may have reconfigured VICKe */
     cls();
 }
@@ -376,7 +380,7 @@ static void info_mem(void)
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
     pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  system $0200-$07FF"); newline();
-    pad(8); puts_("screen $0800-$52FF  free $5300-$5FFF  user $6000-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB free)"); newline();
+    pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); the text screen is at $030000 (far)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();
     if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); if (last_run) { puts_(", run $"); puthex16(last_run); } newline(); }
@@ -504,7 +508,7 @@ static void shell_line(const char *p)
         if (!*p) return;
         if (*p == ':') { mode = 1; p++; continue; }
         if (*p == '.') { mode = 2; p++; continue; }
-        if (*p == 'R' || *p == 'r') { if (xam < 0x10000UL) ((fn_t)(uint16_t)xam)(); else error("run: 16-bit address"); cursor_vis = 0; return; }
+        if (*p == 'R' || *p == 'r') { if (xam < 0x10000UL) run_at((uint16_t)xam); else error("run: 16-bit address"); return; }
         v = parsehex(&p, &d);
         if (!d) { error("?"); return; }
         if (mode == 1) { poke(xam++, (uint8_t)v); continue; }

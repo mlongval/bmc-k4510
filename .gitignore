@@ -18,3 +18,4 @@ fs/out.bin
 demo/*.o
 demo/*.s
 demo/*.map
+basic/*.o
