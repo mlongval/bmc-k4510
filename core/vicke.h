@@ -25,9 +25,15 @@
  *   $78,79  BLTW    width px   $7A,7B  BLTH   height px
  *   $7C,7D  BLTSS   source stride (bytes)   $7E,7F BLTDS dest stride
  *   $80     BLTOP   0 copy, 1 keyed copy (src 0 skipped), 2 fill (value =
- *                   BLTSRC byte 0), 3 AND, 4 OR, 5 XOR
+ *                   BLTSRC byte 0), 3 AND, 4 OR, 5 XOR,
+ *                   6 LINE: from (LX0,LY0) to (LX1,LY1), colour = BLTSRC
+ *                   byte 0, into the BLTDST surface of stride BLTDS, clipped
+ *                   to 0..BLTW-1 x 0..BLTH-1
+ *                   7 TRIANGLE: filled (LX0,LY0)-(LX1,LY1)-(LX2,LY2), same
+ *                   colour, surface and clip as LINE
  *   $81     BLTFLG  bit0 H-flip, bit1 V-flip
  *   $82     BLTCMD  write anything: go. Instant. Reads 0.
+ *   $84,85  LX0   $86,87 LY0   $88,89 LX1   $8A,8B LY1   $8C,8D LX2   $8E,8F LY2  (signed 16-bit)
  *   Blits are 8 bpp (one byte per pixel) in this version.
  *   $90-$9F COLSS  read: sprite-sprite collision bits, one bit per sprite
  *                  (sprite n hit another sprite this frame). Cleared on read of $40.
@@ -117,6 +123,12 @@
 #define VR_BLTOP    0x80
 #define VR_BLTFLG   0x81
 #define VR_BLTCMD   0x82
+#define VR_LX0      0x84
+#define VR_LY0      0x86
+#define VR_LX1      0x88
+#define VR_LY1      0x8A
+#define VR_LX2      0x8C
+#define VR_LY2      0x8E
 #define VICKE_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
 #define VL_CTRL     0

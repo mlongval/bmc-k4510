@@ -196,6 +196,22 @@ int main(void)
     CHECK(mem_peek(bd+1) == 4 && mem_peek(bd+2) == 9 && mem_peek(bd+3) == 2 && mem_peek(bd+4) == 1, "keyed H-flip row 0");
     CHECK(mem_peek(bd+7) == 8 && mem_peek(bd+8) == 7 && mem_peek(bd+9) == 9 && mem_peek(bd+10) == 5, "keyed H-flip row 1");
     W(VR_BLTOP, 5); W(VR_BLTFLG, 0); W(VR_BLTCMD, 1);      /* XOR same block unflipped at (1,0) */
+    /* line op: 8x8 surface at bd+64, diagonal (0,0)-(7,7) colour 3, and one that leaves the clip box */
+    { uint32_t ls = bd + 64; int i, diag = 1, off = 0, clipped = 1;
+      for (i = 0; i < 64; i++) mem_poke(ls + i, 0);
+      W32(VR_BLTSRC, 3); W32(VR_BLTDST, ls); W16(VR_BLTW, 8); W16(VR_BLTH, 8); W16(VR_BLTDS, 8);
+      W16(VR_LX0, 0); W16(VR_LY0, 0); W16(VR_LX1, 7); W16(VR_LY1, 7); W(VR_BLTOP, 6); W(VR_BLTCMD, 1);
+      for (i = 0; i < 8; i++) { if (mem_peek(ls + i * 8 + i) != 3) diag = 0; if (mem_peek(ls + i * 8 + (7 - i)) != 0 && i != 3 && i != 4) off = 1; }
+      W16(VR_LX0, 4); W16(VR_LY0, 4); W16(VR_LX1, 40); W16(VR_LY1, 4); W(VR_BLTCMD, 1);     /* runs off the right edge */
+      for (i = 64; i < 72; i++) if (mem_peek(ls + i) != 0) clipped = 0;
+      CHECK(diag && !off, "blitter LINE draws the diagonal");
+      CHECK(mem_peek(ls + 4 * 8 + 7) == 3 && clipped, "blitter LINE clips to BLTW x BLTH");
+      /* triangle (0,0) (7,0) (0,7): upper-left half of the 8x8 filled with 5 */
+      for (i = 0; i < 64; i++) mem_poke(ls + i, 0);
+      W32(VR_BLTSRC, 5); W16(VR_LX0, 0); W16(VR_LY0, 0); W16(VR_LX1, 7); W16(VR_LY1, 0); W16(VR_LX2, 0); W16(VR_LY2, 7); W(VR_BLTOP, 7); W(VR_BLTCMD, 1);
+      { int in = 1, out = 1; for (i = 0; i < 8; i++) { if (mem_peek(ls + i * 8 + 0) != 5) in = 0; if (mem_peek(ls + i * 8 + 7) != (i == 0 ? 5 : 0)) out = 0; }
+        CHECK(in && out && mem_peek(ls + 7 * 8 + 1) == 0, "blitter TRIANGLE fills the half square"); }
+    }
     CHECK(mem_peek(bd+1) == (4 ^ 1) && mem_peek(bd+2) == (9 ^ 2), "XOR");
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);

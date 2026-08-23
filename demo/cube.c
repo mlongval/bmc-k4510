@@ -30,56 +30,31 @@ static const uint8_t facecol[6] = { 2, 3, 4, 5, 6, 7 };
 #define R 56
 
 static int16_t sx[8], sy[8];
-static int16_t xl[H], xr[H];
 static uint8_t a, b, c, back;
 static uint32_t buf;
 
-static void plot(int16_t x, int16_t y, uint8_t col)
-{
-    if (x < 0 || x >= W || y < 0 || y >= H) return;
-    far_poke(buf + (uint32_t)y * W + x, col);
-}
-
+/* the blitter's LINE op: VICKe draws it, clipped to the W x H surface */
 static void line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t col)
 {
-    int16_t dx = x1 > x0 ? x1 - x0 : x0 - x1, dy = y1 > y0 ? y1 - y0 : y0 - y1;
-    int16_t sxs = x0 < x1 ? 1 : -1, sys = y0 < y1 ? 1 : -1, err = dx - dy, e2;
-    for (;;) {
-        plot(x0, y0, col);
-        if (x0 == x1 && y0 == y1) break;
-        e2 = err << 1;
-        if (e2 > -dy) { err -= dy; x0 += sxs; }
-        if (e2 <  dx) { err += dx; y0 += sys; }
-    }
+    REG(0xD070u) = col;                                      /* BLTSRC byte 0 = colour */
+    w32(0xD074u, buf); w16(0xD078u, W); w16(0xD07Au, H); w16(0xD07Eu, W);
+    w16(0xD084u, (uint16_t)x0); w16(0xD086u, (uint16_t)y0); w16(0xD088u, (uint16_t)x1); w16(0xD08Au, (uint16_t)y1);
+    REG(0xD080u) = 6; REG(0xD082u) = 1;
 }
 
-static void span(int16_t y, int16_t x0, int16_t x1, uint8_t col)
+/* the blitter's TRIANGLE op; a quad is two of them */
+static void tri(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t col)
 {
-    if (x0 > x1 || y < 0 || y >= H) return;
-    if (x0 < 0) x0 = 0; if (x1 >= W) x1 = W - 1;
-    dma_fill(col, buf + (uint32_t)y * W + x0, (uint16_t)(x1 - x0 + 1));
+    REG(0xD070u) = col;
+    w32(0xD074u, buf); w16(0xD078u, W); w16(0xD07Au, H); w16(0xD07Eu, W);
+    w16(0xD084u, (uint16_t)x0); w16(0xD086u, (uint16_t)y0); w16(0xD088u, (uint16_t)x1); w16(0xD08Au, (uint16_t)y1);
+    w16(0xD08Cu, (uint16_t)x2); w16(0xD08Eu, (uint16_t)y2);
+    REG(0xD080u) = 7; REG(0xD082u) = 1;
 }
-
-static void edge_walk(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
-{
-    long xa; long step; int16_t y, t;
-    if (y0 > y1) { t = x0; x0 = x1; x1 = t; t = y0; y0 = y1; y1 = t; }
-    if (y0 == y1) { if (x0 < xl[y0]) xl[y0] = x0; if (x1 > xr[y0]) xr[y0] = x1; if (x1 < xl[y0]) xl[y0] = x1; if (x0 > xr[y0]) xr[y0] = x0; return; }
-    xa = (long)x0 << 8; step = ((long)(x1 - x0) << 8) / (y1 - y0);
-    for (y = y0; y <= y1; y++, xa += step) {
-        int16_t x = (int16_t)(xa >> 8);
-        if (x < xl[y]) xl[y] = x;
-        if (x > xr[y]) xr[y] = x;
-    }
-}
-
 static void fill_quad(const uint8_t *f, uint8_t col)
 {
-    int16_t ymin = H, ymax = -1, y; uint8_t i;
-    for (i = 0; i < 4; i++) { if (sy[f[i]] < ymin) ymin = sy[f[i]]; if (sy[f[i]] > ymax) ymax = sy[f[i]]; }
-    for (y = ymin; y <= ymax; y++) { xl[y] = W; xr[y] = -1; }
-    for (i = 0; i < 4; i++) edge_walk(sx[f[i]], sy[f[i]], sx[f[(i + 1) & 3]], sy[f[(i + 1) & 3]]);
-    for (y = ymin; y <= ymax; y++) span(y, xl[y], xr[y], col);
+    tri(sx[f[0]], sy[f[0]], sx[f[1]], sy[f[1]], sx[f[2]], sy[f[2]], col);
+    tri(sx[f[0]], sy[f[0]], sx[f[2]], sy[f[2]], sx[f[3]], sy[f[3]], col);
 }
 
 static void transform(void)
@@ -115,7 +90,7 @@ void main(void)
         REG(L) = 1 | (0 << 1) | (3 << 3);                               /* enable, bitmap, 8 bpp */
     }
     dma_fill(' ', TEXTMAP, 40 * 30);
-    text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: flat stores, DMA spans,");
+    text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: blitter LINE + TRIANGLE,");
     text8_print(TEXTMAP, 40, 1, 1, "double buffered by one pointer write");
     text8_print(TEXTMAP, 40, 1, 29, "D: buffering   key: exit   FPS ");
     text8_print(TEXTMAP, 40, 1, 28, "double buffered");

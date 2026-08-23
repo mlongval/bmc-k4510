@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "io.h"
 #include <string.h>
+#include <stdlib.h>
 
 static uint8_t  reg[256];
 static uint32_t pal[256];
@@ -210,6 +211,40 @@ static void blit(void)
     int ss = rd16(&reg[VR_BLTSS]), ds = rd16(&reg[VR_BLTDS]);
     int op = reg[VR_BLTOP], hf = reg[VR_BLTFLG] & 1, vf = reg[VR_BLTFLG] & 2;
     uint8_t fill = reg[VR_BLTSRC];
+    if (op == 6) {                                     /* LINE, Bresenham, clipped to w x h */
+        int x0 = (int16_t)rd16(&reg[VR_LX0]), y0 = (int16_t)rd16(&reg[VR_LY0]);
+        int x1 = (int16_t)rd16(&reg[VR_LX1]), y1 = (int16_t)rd16(&reg[VR_LY1]);
+        int dx = abs(x1 - x0), dy = abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx - dy;
+        for (;;) {
+            if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) ram_ptr(dst + (uint32_t)y0 * ds + x0) = fill;
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = err * 2;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            if (e2 <  dx) { err += dx; y0 += sy; }
+        }
+        return;
+    }
+    if (op == 7) {                                     /* TRIANGLE: scanline fill, clipped to w x h */
+        int px[3] = { (int16_t)rd16(&reg[VR_LX0]), (int16_t)rd16(&reg[VR_LX1]), (int16_t)rd16(&reg[VR_LX2]) };
+        int py[3] = { (int16_t)rd16(&reg[VR_LY0]), (int16_t)rd16(&reg[VR_LY1]), (int16_t)rd16(&reg[VR_LY2]) };
+        int ymin = py[0], ymax = py[0];
+        for (int i = 1; i < 3; i++) { if (py[i] < ymin) ymin = py[i]; if (py[i] > ymax) ymax = py[i]; }
+        if (ymin < 0) ymin = 0; if (ymax >= h) ymax = h - 1;
+        for (int y = ymin; y <= ymax; y++) {
+            int xl = 0x7FFFFFFF, xr = -0x7FFFFFFF;
+            for (int i = 0; i < 3; i++) {                  /* intersect the scanline with each edge */
+                int j = (i + 1) % 3, ya = py[i], yb = py[j], xa = px[i], xb = px[j];
+                if (ya == yb) { if (y == ya) { if (xa < xl) xl = xa; if (xb < xl) xl = xb; if (xa > xr) xr = xa; if (xb > xr) xr = xb; } continue; }
+                if (y < (ya < yb ? ya : yb) || y > (ya < yb ? yb : ya)) continue;
+                int x = xa + (int)((long)(xb - xa) * (y - ya) / (yb - ya));
+                if (x < xl) xl = x; if (x > xr) xr = x;
+            }
+            if (xl > xr) continue;
+            if (xl < 0) xl = 0; if (xr >= w) xr = w - 1;
+            if (xl <= xr) memset(&ram_ptr(dst + (uint32_t)y * ds + xl), fill, xr - xl + 1);
+        }
+        return;
+    }
     for (int y = 0; y < h; y++) {
         int sy = vf ? (h - 1 - y) : y;
         uint32_t srow = src + (uint32_t)sy * ss, drow = dst + (uint32_t)y * ds;
