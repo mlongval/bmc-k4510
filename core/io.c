@@ -5,6 +5,7 @@
 static void dbg_key(uint8_t k);
 static uint32_t sys_frames;
 static int dbg_num;
+static int dbg_auto; static uint32_t dbg_auto_next;
 #include "vicke.h"
 #include "sid.h"
 
@@ -315,7 +316,7 @@ extern uint32_t mem_rom_base;
 static uint8_t  sys_reg[0x10];
 static uint8_t  sid_shadow[4][32];
 static const char sys_version[16] = "k4510 0.3";
-void io_frame_tick(void) { sys_frames++; }
+void io_frame_tick(void) { sys_frames++; if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -335,6 +336,7 @@ static uint8_t sys_read(uint8_t r)
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0xF0) return (uint8_t)dbg_num;
+    if (r == 0xF2) return (uint8_t)dbg_auto;
     return 0xFF;
 }
 
@@ -420,7 +422,7 @@ uint8_t io_read(uint16_t addr)
         return math_read(addr & 0xFF);
     case IO_BANK: {
         uint8_t r = addr & 0xFF;
-        if (r < 0x20) { uint32_t v = mem_bank_get(r >> 2); return (uint8_t)(v >> (8 * (r & 3))); }
+        if (r < 0x20) { uint32_t v = mem_bank_get(r >> 2) == BANK_OFF ? (mem_bank_base(r >> 2) | 0xFF000000u) : mem_bank_base(r >> 2); return (uint8_t)(v >> (8 * (r & 3))); }   /* off: base with byte 3 = $FF */
         if (r == 0x20) return mem_bank_mask();
         if (r == 0x21) return mem_map_state()->mask;
         return 0xFF;
@@ -461,13 +463,14 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_SYS:
         if ((addr & 0xFF) == 0xF0) dbg_dump("DUMP register");
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
+        if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_auto_next = sys_frames + 900; }
         return;
     case IO_BANK: {
         uint8_t r = addr & 0xFF, b = r >> 2, i = r & 3;
         if (r >= 0x20) return;
-        if (i == 3 && (v & 0x80)) { mem_bank_off(b); return; }
-        { uint32_t cur = mem_bank_get(b); if (cur == BANK_OFF) cur = 0;
-          cur = (cur & ~(0xFFu << (8 * i))) | ((uint32_t)v << (8 * i)); mem_bank_set(b, cur); }
+        { uint32_t cur = (mem_bank_base(b) & ~(0xFFu << (8 * i))) | ((uint32_t)v << (8 * i));
+          if (i == 3) { if (v & 0x80) { mem_bank_setbase(b, cur); mem_bank_off(b); } else mem_bank_set(b, cur); }   /* byte 3 decides on/off */
+          else mem_bank_setbase(b, cur); }                                                                           /* bytes 0-2: the base only */
         return;
     }
     case IO_FAR: {

@@ -19,10 +19,11 @@
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.
- *   bytes 0-3  28-bit physical base, little-endian; every byte write takes
- *              effect at once (STQ works). Writing byte 3 with bit 7 set
- *              (e.g. $FF) turns the block off. Reads give the base, or
- *              $FFFFFFFF when the block is not banked.
+ *   bytes 0-2  physical base bits 0-23 (little-endian); they only set the base
+ *   byte 3     bits 24-27 of the base, and bit 7 = OFF. Writing byte 3 switches
+ *              the block: bit 7 clear = on, set = off. (So STQ works, and a
+ *              byte-wise save/restore never switches a block on by accident.)
+ *              Reads give the base; byte 3 reads $FF while the block is off.
  *   $D620  read: bit n = block n banked     $D621  read: MAP mask (bit n = MAPped)
  * A banked block resolves phys = base + (cpu & $1FFF). MAP rewrites all
  * eight blocks, so the ROM's "MAP off" at program exit clears the banks too.
@@ -110,6 +111,7 @@
  *   $F0     write: DUMP -- the host writes dumps/dump-NNN.txt (machine state, screen,
  *           PC history, keys, the shell log); read: the number of the last dump
  *   $F1     write: append a byte to the shell log (the ROM logs command lines and DUMP notes)
+ *   $F2     write 1/0: automatic dump every 900 frames (15 s) on/off; read: the setting
  * SID registers $00-$18 read back the last value written (a shadow; real
  * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
 

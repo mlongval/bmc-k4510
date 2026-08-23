@@ -21,6 +21,12 @@ extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed *
 
 /* ---- spike I/O and ROM, in the CPU's unmapped 64 KB view ------------- */
 #define K4510_ROM_MAX    0x8000u     /* up to 32 KB ROM, write-protected; files load top-aligned at $10000 */
+/* The ROM image lives in the top 64 KB of physical memory and is seen in the
+ * unmapped CPU view from mem_rom_base up; the physical RAM at $A000-$FFFF is
+ * "RAM under the ROM", revealed by banking blocks 5/7 onto $A000/$E000
+ * (K-05). The page $FF00-$FFFF always reads the ROM, whatever is banked:
+ * the system-call stub and the vectors live there. */
+#define K4510_ROM_PHYS   0x0FFF0000u
 extern uint32_t mem_rom_base;        /* first ROM address in the CPU view; set by mem_load_rom */
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
 
@@ -51,6 +57,8 @@ const k4510_map_t *mem_map_state(void);
 void     mem_bank_set(uint8_t block, uint32_t phys);    /* block 0-7 */
 void     mem_bank_off(uint8_t block);
 uint32_t mem_bank_get(uint8_t block);                   /* BANK_OFF if not banked */
+uint32_t mem_bank_base(uint8_t block);                  /* the stored base even when off */
+void     mem_bank_setbase(uint8_t block, uint32_t phys);/* change the base; on/off unchanged */
 uint8_t  mem_bank_mask(void);                           /* bit n: block n banked */
 /* Far-call gate: JSR $DF00+4n banks descriptor n in and jumps to it; the
  * callee's RTS lands on the return gate, which restores the bank. */

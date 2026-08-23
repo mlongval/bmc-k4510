@@ -11,7 +11,7 @@ static void boot(const uint8_t *prog, size_t len, int cycles)
 {
     mem_reset();
     mem_load(0xC000, prog, len);
-    mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0xC0);
+    mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0xC0);
     cpu65_reset();
     cpu65_step(cycles);
 }
@@ -35,7 +35,7 @@ int main(void)
     cpu65_write_callback(0x4024, 0xA5);
     CHECK(mem_peek(0x00100124) == 0xA5, "CPU writes through the bank");
     io_write(IO_BANK + 8 + 3, 0xFF);
-    CHECK(mem_cpu_to_phys(0x4000) == 0x4000 && r32(IO_BANK + 8) == 0xFFFFFFFF, "off via byte 3 bit 7");
+    CHECK(mem_cpu_to_phys(0x4000) == 0x4000 && (r32(IO_BANK + 8) >> 24) == 0xFF && (r32(IO_BANK + 8) & 0xFFFFFF) == 0x100100, "off via byte 3 bit 7 (base kept, byte 3 = FF): %08X", r32(IO_BANK + 8));
     printf("1. bank register set/read/off: ok\n");
 
     /* 2. from the CPU: STA to the register bytes, then read the banked memory; MAP clears it */
@@ -106,6 +106,22 @@ int main(void)
         CHECK(mem_peek(0x400) == 2, "underflow error %d", mem_peek(0x400));
         printf("4. underflow handled: ok\n");
     }
+
+    /* 5. RAM under the ROM (K-05): bank 7 -> $E000 reveals RAM; $FF00-$FFFF stays the ROM; writes there are dropped */
+    mem_reset();
+    mem_poke(K4510_ROM_PHYS + 0xE123, 0xAA); mem_poke(0xE123, 0x55); mem_poke(K4510_ROM_PHYS + 0xFF80, 0x4C); mem_poke(0xFF80, 0x99);
+    mem_rom_base = 0xA000;
+    CHECK(cpu65_read_callback(0xE123) == 0xAA, "ROM in: $E123 is the ROM copy");
+    w32(IO_BANK + 4 * 7, 0xE000);
+    CHECK(cpu65_read_callback(0xE123) == 0x55, "ROM out: $E123 is the RAM under it (%02X)", cpu65_read_callback(0xE123));
+    CHECK(cpu65_read_callback(0xFF80) == 0x4C, "the stub page still reads the ROM (%02X)", cpu65_read_callback(0xFF80));
+    cpu65_write_callback(0xFF81, 0x77); cpu65_write_callback(0xE124, 0x66);
+    CHECK(mem_peek(K4510_ROM_PHYS + 0xFF81) != 0x77 && mem_peek(0xFF81) != 0x77, "writes to the stub page are dropped");
+    CHECK(mem_peek(0xE124) == 0x66, "writes under the ROM land in RAM");
+    io_write(IO_BANK + 4 * 7 + 3, 0xFF);
+    CHECK(cpu65_read_callback(0xE123) == 0xAA, "ROM back");
+    mem_rom_base = 0xE000;
+    printf("5. RAM under the ROM, stub page fixed: ok\n");
 
     printf(fails ? "%d FAILED\n" : "ALL OK\n", fails);
     return fails != 0;

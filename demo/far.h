@@ -51,6 +51,11 @@ static void bank_set(uint8_t block, uint32_t phys) { far_w32(FAR_BANK + 4 * bloc
 static void bank_off(uint8_t block) { FAR_REG(FAR_BANK + 4 * block + 3) = 0xFF; }
 static uint32_t bank_get(uint8_t block) { return far_r32(FAR_BANK + 4 * block); }   /* 0xFFFFFFFF = off */
 #define BANK_WINDOW(block) ((uint8_t *)((uint16_t)(block) << 13))               /* the CPU address of block n */
+/* RAM under the ROM (K-05): bank blocks 5 and 7 onto the physical RAM at
+ * $A000/$E000; the ROM stays reachable through the stub page $FF00, so every
+ * ROM call keeps working. $C000-$CFFF stays ROM (next to I/O). */
+static void rom_out(void) { bank_set(5, 0xA000UL); bank_set(7, 0xE000UL); }
+static void rom_in(void)  { bank_off(5); bank_off(7); }
 
 /* far calls (K-02) */
 static void far_table(const far_desc_t *tab) { far_w32(FAR_TAB, (uint16_t)tab); }

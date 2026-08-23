@@ -25,7 +25,7 @@ static void boot(const uint8_t *prog, size_t len, int cycles)
 {
     mem_reset();
     mem_load(0xC000, prog, len);                 /* block 6: safe from low-half MAPs */
-    mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0xC0);
+    mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0xC0);
     cpu65_reset();
     cpu65_step(cycles);
 }

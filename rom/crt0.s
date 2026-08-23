@@ -74,8 +74,7 @@ irq:    pha
 @ack:   pla
         sta $D004               ; acknowledge what we saw
         pla
-        rti
-nmi:    rti
+        rts                     ; back to the stub (s_irq), which banks the ROM out again and RTIs
 
 ; unsigned speed_loop(void): iterations of a fixed loop during one frame.
 ; 18 cycles per iteration on the 40.5 MHz timing table (see INFO -c)
@@ -187,17 +186,123 @@ w_video:  jsr zp_in
         jsr _k_video
         jmp zp_out
 
+; ---- the stub page $FF00-$FFFF: always the ROM, whatever is banked (K-05) ----
+; A program may bank blocks 5 and 7 ($A000-$BFFF, $E000-$FEFF) onto the RAM
+; under the ROM (far.h: rom_out()). Every system call and interrupt passes
+; through here: the stub saves bank registers 5-7 ($D614-$D61F, 12 bytes) on
+; the stack, banks the ROM in, calls, restores. Stack-based, so calls nest;
+; the IRQ path uses no temporaries, so it may land anywhere in a call.
+; ~80 cycles per call. (Block 6 holds the I/O page: a program that banks it
+; away has no way back -- the stub cannot reach the registers either.)
+        .segment "STUB"
+s_chrout: jsr rom_push
+        jsr w_chrout
+        jmp rom_pop
+s_chrin:  jsr rom_push
+        jsr w_chrin
+        jmp rom_pop
+s_getin:  jsr rom_push
+        jsr w_getin
+        jmp rom_pop
+s_load:   jsr rom_push
+        jsr w_load
+        jmp rom_pop
+s_save:   jsr rom_push
+        jsr w_save
+        jmp rom_pop
+s_shell:  jsr rom_push
+        jsr w_shell
+        jmp rom_pop
+s_video:  jsr rom_push
+        jsr w_video
+        jmp rom_pop
+s_irq:  pha
+        phx
+        ldx #11
+@i:     lda $D614,x             ; banks 5-7 onto the stack
+        pha
+        dex
+        bpl @i
+        lda #$FF
+        sta $D617               ; ROM in
+        sta $D61F
+        jsr irq
+        ldx #0
+@o:     pla                     ; and back, byte 3 of each register last
+        sta $D614,x
+        inx
+        cpx #12
+        bne @o
+        plx
+        pla
+        rti
+s_nmi:  rti
+s_reset: ldx #28                ; a reset clears every bank (F12 does not reset the MMU), then the ROM boots
+        lda #$FF
+@c:     sta $D603,x             ; byte 3 of bank registers 7..0
+        dex
+        dex
+        dex
+        dex
+        bpl @c
+        jmp reset
+
 ; ---- jump table at $FF80: the system call interface ----
         .segment "JUMPTAB"
-        jmp w_chrout            ; $FF80  CHROUT  A = char
-        jmp w_chrin             ; $FF83  CHRIN   -> A, blocks
-        jmp w_getin             ; $FF86  GETIN   -> A, 0 if none
-        jmp w_load              ; $FF89  LOAD    name ptr in $F0/$F1, dest in $F2..$F5 -> A status, size in $F6..$F9
-        jmp w_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
-        jmp w_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
-        jmp w_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
+        jmp s_chrout            ; $FF80  CHROUT  A = char
+        jmp s_chrin             ; $FF83  CHRIN   -> A, blocks
+        jmp s_getin             ; $FF86  GETIN   -> A, 0 if none
+        jmp s_load              ; $FF89  LOAD    name ptr in $F0/$F1, dest in $F2..$F5 -> A status, size in $F6..$F9
+        jmp s_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
+        jmp s_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
+        jmp s_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
+
+        .segment "STUB2"
+; rom_push: called by JSR from an s_ entry. Moves its own return address
+; aside, pushes the 12 bank bytes, banks the ROM in, returns with A and X
+; intact. The stack then holds [program's return][12 bytes].
+; rom_pop: jumped to after the call, A/X carrying the result; pulls the 12
+; bytes back (byte 3 of each register last) and returns to the program.
+; The temporaries are safe: only system calls use them, and a call inside a
+; call (SHELL -> RUN) is past its own rom_push before it can start another.
+rom_push: sta stub_a
+        stx stub_x
+        pla
+        sta stub_r
+        pla
+        sta stub_r+1
+        ldx #11
+@p:     lda $D614,x
+        pha
+        dex
+        bpl @p
+        lda #$FF
+        sta $D617
+        sta $D61F
+        lda stub_r+1
+        pha
+        lda stub_r
+        pha
+        lda stub_a
+        ldx stub_x
+        rts
+rom_pop: sta stub_a
+        stx stub_x
+        ldx #0
+@q:     pla
+        sta $D614,x
+        inx
+        cpx #12
+        bne @q
+        lda stub_a
+        ldx stub_x
+        rts
+        .bss
+stub_a:  .res 1
+stub_x:  .res 1
+stub_r:  .res 2
 
         .segment "VECTORS"
-        .word nmi
-        .word reset
-        .word irq
+        .word s_nmi
+        .word s_reset
+        .word s_irq

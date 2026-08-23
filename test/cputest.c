@@ -20,7 +20,7 @@ static void run(const uint8_t *prog, size_t len, int cycles)
 {
     mem_init();
     mem_load(0x1000, prog, len);
-    mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0x10);   /* reset vector -> $1000 */
+    mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0x10);   /* reset vector -> $1000 */
     cpu65_reset();
     cpu65_step(cycles);
 }
@@ -83,7 +83,7 @@ int main(void)
         mem_load(0x1000, p, sizeof p);
         static const uint8_t d[] = { 0x11, 0x22, 0x33, 0x44 };
         mem_load(0x3000, d, sizeof d);
-        mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0x10);
+        mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0x10);
         cpu65_reset();
         cpu65_step(400);
         printf("3. 45GS02 flat:    [$20],Z=0 -> $%02X   [$20],Z=2 -> $%02X\n", mem_peek(0x400), mem_peek(0x401));

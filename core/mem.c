@@ -87,7 +87,7 @@ int mem_load_rom(const char *path)
     uint8_t buf[K4510_ROM_MAX];
     size_t n = fread(buf, 1, sizeof buf, f);
     fclose(f);
-    memcpy(&k4510_ram[0x10000 - n], buf, n);
+    memcpy(&k4510_ram[K4510_ROM_PHYS + 0x10000 - n], buf, n);
     mem_rom_base = 0x10000 - n;
     return (int)n;
 }
@@ -99,7 +99,8 @@ const k4510_map_t *mem_map_state(void) { return &map; }
 static XEMU_INLINE uint32_t cpu_to_phys(uint16_t a)
 {
     uint32_t base = block_base[a >> 13];
-    if (base == UNMAPPED) return a;
+    if (base == UNMAPPED) return a >= mem_rom_base ? K4510_ROM_PHYS + a : a;
+    if (a >= 0xFF00) return K4510_ROM_PHYS + a;                      /* the stub page is always the ROM */
     if (bank_on[a >> 13]) return (base + (a & 0x1FFF)) & K4510_PHYS_MASK;
     /* within the mapped block the 20-bit add can wrap at the megabyte: redo it exactly */
     uint32_t off = (a < 0x8000) ? map.offset_low : map.offset_high;
@@ -112,8 +113,10 @@ uint32_t mem_cpu_to_phys(uint16_t a) { return cpu_to_phys(a); }
 
 /* ---- bank registers (K-01) -------------------------------------------- */
 void mem_bank_set(uint8_t b, uint32_t phys) { b &= 7; bank_reg[b] = phys & K4510_PHYS_MASK; bank_on[b] = 1; map_apply(); }
-void mem_bank_off(uint8_t b)                { b &= 7; bank_reg[b] = BANK_OFF; bank_on[b] = 0; map_apply(); }
+void mem_bank_off(uint8_t b)                { b &= 7; bank_on[b] = 0; map_apply(); }   /* the base stays, for a byte-wise restore */
 uint32_t mem_bank_get(uint8_t b)            { b &= 7; return bank_on[b] ? bank_reg[b] : BANK_OFF; }
+uint32_t mem_bank_base(uint8_t b)           { b &= 7; return bank_reg[b] == BANK_OFF ? 0 : bank_reg[b]; }
+void mem_bank_setbase(uint8_t b, uint32_t p){ b &= 7; bank_reg[b] = p & K4510_PHYS_MASK; map_apply(); }
 uint8_t mem_bank_mask(void)                 { uint8_t m = 0; for (int b = 0; b < 8; b++) if (bank_on[b]) m |= 1u << b; return m; }
 
 /* ---- far-call gate (K-02) --------------------------------------------- */
@@ -171,6 +174,7 @@ Uint8 cpu65_read_callback(Uint16 addr)
             if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
             return io_read(addr);
         }
+        if (XEMU_UNLIKELY(addr >= mem_rom_base)) return k4510_ram[K4510_ROM_PHYS + addr];
         return k4510_ram[addr];
     }
     return k4510_ram[cpu_to_phys(addr)];
@@ -185,6 +189,7 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
         k4510_ram[addr] = data;
         return;
     }
+    if (XEMU_UNLIKELY(addr >= 0xFF00)) return;                         /* the stub page: ROM even when banked */
     k4510_ram[cpu_to_phys(addr)] = data;
 }
 

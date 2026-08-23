@@ -15,7 +15,7 @@ static void boot(const uint8_t *prog, size_t len, int cycles)
 {
     mem_reset();
     mem_load(0xC000, prog, len);
-    mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0xC0);
+    mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0xC0);
     cpu65_reset();
     cpu65_step(cycles);
 }
@@ -79,7 +79,7 @@ int main(void)
             LDA_IMM(1), STA_ABS(IO_DMA_CMD),
             0x4C, 0x44, 0xC0,
         };
-        mem_load(0xC000, p, sizeof p); mem_poke(0xFFFC, 0x00); mem_poke(0xFFFD, 0xC0); cpu65_reset(); cpu65_step(2000);
+        mem_load(0xC000, p, sizeof p); mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0xC0); cpu65_reset(); cpu65_step(2000);
         printf("3. overlapping scroll:  row0 now=%d row58 now=%d row59 untouched=%d\n", mem_peek(0x800), mem_peek(0x800+58*80), mem_peek(0x800+59*80));
         CHECK(mem_peek(0x800) == 1 && mem_peek(0x800 + 58 * 80) == 59 && mem_peek(0x800 + 59 * 80) == 59, "scroll");
     }

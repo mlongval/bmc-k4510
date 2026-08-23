@@ -472,7 +472,9 @@ static void info_mem(void)
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
     pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  ROM data $0200-$02FF, $0440-$07FF"); newline();
-    pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); the text screen is at $030000 (far)"); newline();
+    pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); ROM out: $0800-$BFFF + $E000-$FEFF (54 KB)"); newline();
+    pad(8); puts_("(banks 5->$A000 7->$E000; ROM keeps $C000-$CFFF, $FF00 page)"); newline();
+    pad(8); puts_("text screen at $030000 (far)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();
     { uint8_t b, any = 0;
@@ -575,6 +577,8 @@ uint8_t k_shell(const char *p);
 static void cmd_dump(const char *p)
 {
     uint8_t n;
+    if (is_cmd(&p, "ON"))  { REG(SYS + 0xF2) = 1; puts_("auto dump on: every 15 s of run time"); newline(); return; }
+    if (is_cmd(&p, "OFF")) { REG(SYS + 0xF2) = 0; puts_("auto dump off"); newline(); return; }
     REG(SYS + 0xF1) = '#'; while (*p) REG(SYS + 0xF1) = *p++; REG(SYS + 0xF1) = '\n';
     REG(SYS + 0xF0) = 1;
     n = REG(SYS + 0xF0);
@@ -588,7 +592,7 @@ static void cmd_help(void)
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
     pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note]"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note|ON|OFF]"); newline();
 }
 
 static void shell_line(const char *p)
