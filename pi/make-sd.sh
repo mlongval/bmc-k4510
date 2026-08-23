@@ -11,6 +11,6 @@ cp "$HERE/kernel8.img" "$M/kernel8.img"
 mkdir -p "$M/k4510/rom" "$M/k4510/data" "$M/k4510/fs"
 cp "$REPO/rom/kernal.bin" "$REPO/rom/wozmon.bin" "$REPO/rom/demo.bin" "$M/k4510/rom/"
 cp "$REPO/data/font8.bin" "$M/k4510/data/"
-cp "$REPO"/fs/* "$M/k4510/fs/"
+cp -r "$REPO"/fs/* "$M/k4510/fs/"
 sync
 echo "card ready:"; ls -R "$M" | head -40

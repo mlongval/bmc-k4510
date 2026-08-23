@@ -25,11 +25,14 @@
 #define USER_END 0xA000u
 #define MAXCOLS 80
 #define MAXROWS 60
-static uint8_t COLS = 80, ROWS = 60, vmode;   /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240) */
-#define ROM_VERSION "stage 3"
+static uint8_t COLS = 80, ROWS = 60, vmode, margin;   /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240) */
+static uint8_t PCOLS = 80, PROWS = 60;               /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
+#define OX margin
+#define OY margin
+#define ROM_VERSION "stage 4"
 
 #define C_BG   0x06   /* VIC-II blue     */
-#define C_FG   0x0E   /* light blue      */
+#define C_FG   0x07   /* yellow          */
 #define C_HI   0x01   /* white           */
 #define C_ERR  0x0A   /* light red       */
 #define C_DIM  0x0C   /* grey            */
@@ -47,19 +50,20 @@ static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
 static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1) << 8) | ((uint32_t)REG(r + 2) << 16) | ((uint32_t)REG(r + 3) << 24); }
 static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1) << 8); }
 
-static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)y * COLS + x) * 4; }
+static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)(y + OY) * PCOLS + x + OX) * 4; }
 #define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
 static uint8_t tpl_fg, tpl_bg, tpl_cols, cellbuf[4];
 static void blank_row(uint8_t y)
 {
-    if (tpl_fg != fg || tpl_bg != bg || tpl_cols != COLS) {      /* (re)build the template: one cell, copied across */
+    if (tpl_fg != fg || tpl_bg != bg || tpl_cols != PCOLS) {     /* (re)build the template: one cell, copied across */
         uint8_t i;
         cellbuf[0] = ' '; cellbuf[1] = 0; cellbuf[2] = fg; cellbuf[3] = bg;
         w32(DMA + 0, (uint16_t)cellbuf); w32(DMA + 8, 4);
-        for (i = 0; i < COLS; i++) { w32(DMA + 4, ROWTPL + (uint16_t)i * 4); REG(DMA + 12) = 1; }
-        tpl_fg = fg; tpl_bg = bg; tpl_cols = COLS;
+        for (i = 0; i < PCOLS; i++) { w32(DMA + 4, ROWTPL + (uint16_t)i * 4); REG(DMA + 12) = 1; }
+        tpl_fg = fg; tpl_bg = bg; tpl_cols = PCOLS;
     }
-    w32(DMA + 0, ROWTPL); w32(DMA + 4, cell(0, y)); w32(DMA + 8, COLS * 4); REG(DMA + 12) = 1;
+    /* a whole physical row (the margin column stays blank because every row is blanked whole) */
+    w32(DMA + 0, ROWTPL); w32(DMA + 4, SCREEN + (uint32_t)(y + OY) * PCOLS * 4); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
 }
 
 static void draw_cursor(uint8_t on)
@@ -74,13 +78,14 @@ static void draw_cursor(uint8_t on)
 static void cls(void)
 {
     uint8_t i;
-    for (i = 0; i < ROWS; i++) blank_row(i);
+    for (i = 0; i < PROWS; i++) blank_row(i - OY);       /* every physical row, margins included */
     cx = cy = 0;
 }
 
 static void scroll(void)
 {
-    w32(DMA + 0, SCREEN + COLS * 4); w32(DMA + 4, SCREEN); w32(DMA + 8, (uint32_t)(ROWS - 1) * COLS * 4);
+    w32(DMA + 0, SCREEN + (uint32_t)(OY + 1) * PCOLS * 4); w32(DMA + 4, SCREEN + (uint32_t)OY * PCOLS * 4);
+    w32(DMA + 8, (uint32_t)(ROWS - 1) * PCOLS * 4);
     REG(DMA + 12) = 1;
     blank_row(ROWS - 1);
 }
@@ -217,19 +222,59 @@ static void dump(uint32_t from, uint32_t to)
 }
 
 static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; }
+static void put_cwd(void);
 
 static void cmd_dir(void)
 {
     char name[64]; uint16_t count = 0; uint32_t total = 0, sz;
     if (fs_cmd(6)) { error("dir: no device"); return; }
+    { uint8_t o = fg; fg = C_HI; puts_("directory of "); put_cwd(); fg = o; newline(); }
     for (;;) {
+        uint8_t col = cx;
         w32(FS + 8, (uint16_t)name);
         if (fs_cmd(7)) break;
         sz = r32(FS + 16);
-        puts_(name); pad(26); putdec(sz); newline(); count++; total += sz;
+        if (sz == 0xFFFFFFFFUL) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; pad(col + 20); puts_("<DIR>"); }
+        else { puts_(name); pad(col + 20); putdec(sz); count++; total += sz; }
+        if (COLS >= 78 && col == 0) pad(COLS / 2); else newline();
     }
+    if (cx) newline();
     putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
 }
+
+static void cmd_cd(const char *p)
+{
+    char name[64];
+    if (!getname(&p, name)) strcpy(name, "/");
+    fs_name(name);
+    if (fs_cmd(11)) { error("cd: no such directory"); return; }
+}
+static void cmd_mkdir(const char *p)
+{
+    char name[64];
+    if (!getname(&p, name)) { error("mkdir: name?"); return; }
+    fs_name(name);
+    if (fs_cmd(12)) { error("mkdir: failed"); return; }
+}
+static void cmd_rm(const char *p)
+{
+    char name[64]; uint8_t st;
+    if (!getname(&p, name)) { error("rm: name?"); return; }
+    fs_name(name);
+    st = fs_cmd(13);
+    if (st == 1) { error("rm: not found"); return; }
+    if (st) { error("rm: not a file"); return; }
+}
+static void cmd_rmdir(const char *p)
+{
+    char name[64]; uint8_t st;
+    if (!getname(&p, name)) { error("rmdir: name?"); return; }
+    fs_name(name);
+    st = fs_cmd(14);
+    if (st == 1) { error("rmdir: not found"); return; }
+    if (st) { error("rmdir: not a directory, or not empty"); return; }
+}
+static void put_cwd(void) { char cwd[64]; w32(FS + 8, (uint16_t)cwd); fs_cmd(15); puts_(cwd); }
 
 static uint8_t is_prg(const char *name)
 {
@@ -383,9 +428,11 @@ static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
     if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : "320x240"); puts_(" pixels   (MODE 0|1|2)"); newline(); return; }
-    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
-    vmode = (uint8_t)m; video_init(); cls();
+               puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : "320x240"); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0|1|2 [0|1])"); newline(); return; }
+    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)  [0|1: margin]"); return; }
+    vmode = (uint8_t)m; skipsp(&p);
+    if (*p) { m = parsehex(&p, &d); if (!d || m > 1) { error("mode: second value 0 = full screen, 1 = one-cell margin"); return; } margin = (uint8_t)m; }
+    video_init(); cls();
 }
 
 static void cmd_color(const char *p)
@@ -401,6 +448,7 @@ static void cmd_color(const char *p)
 static const char *const daynames[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
 
+#pragma code-name (push, "CODE2")      /* INFO, HELP and the banner live in the $E000 half of the ROM */
 static void info_version(void)
 {
     uint8_t i;
@@ -521,13 +569,15 @@ static void cmd_info(const char *p)
     if (flags & 64) info_time();
 }
 
+uint8_t k_shell(const char *p);
 static void cmd_help(void)
 {
     uint8_t o = fg;
     fg = C_HI; puts_("Wozmon:  "); fg = o; puts_("addr   addr.addr   addr:b b b   addrR      (28-bit hex; DMA beyond 64K)"); newline();
-    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR   LOAD name [addr]   SAVE name from.to   TYPE name   RUN [name.prg|addr]"); newline();
+    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
+    pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2]  COLOR fg [bg]  ECHO text  CLS  RESET  HELP"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1 margin]  COLOR fg [bg]  ECHO  CLS  RESET"); newline();
 }
 
 static void shell_line(const char *p)
@@ -536,6 +586,10 @@ static void shell_line(const char *p)
     skipsp(&p);
     if (!*p) return;
     if (is_cmd(&p, "DIR"))   { cmd_dir(); return; }
+    if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
+    if (is_cmd(&p, "MKDIR")) { cmd_mkdir(p); return; }
+    if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
+    if (is_cmd(&p, "RMDIR")) { cmd_rmdir(p); return; }
     if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
     if (is_cmd(&p, "SAVE"))  { cmd_save(p); return; }
     if (is_cmd(&p, "TYPE"))  { cmd_type(p); return; }
@@ -573,12 +627,13 @@ static const uint8_t c64pal[16][3] = {
 static void video_init(void)
 {
     uint8_t i;
-    COLS = vmode == 2 ? 40 : 80; ROWS = vmode == 0 ? 60 : 30;
+    PCOLS = vmode == 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : 30;
+    COLS = PCOLS - margin; ROWS = PROWS - margin;
     REG(VICKE + 0) = 0;
     REG(VICKE + 1) = C_BG;
     for (i = 0; i < 16; i++) { REG(VICKE + 6) = i; REG(VICKE + 7) = c64pal[i][0]; REG(VICKE + 8) = c64pal[i][1]; REG(VICKE + 9) = c64pal[i][2]; }
     /* layer 0: text32, 8x8, map SCREEN, glyphs FONT, 80 cells/row */
-    w16(VICKE + 0x16, COLS);
+    w16(VICKE + 0x16, PCOLS);
     w32(VICKE + 0x1C, SCREEN);
     w32(VICKE + 0x18, FONT);
     w16(VICKE + 0x12, 0); w16(VICKE + 0x14, 0);
@@ -590,17 +645,57 @@ static void video_init(void)
     REG(VICKE + 0) = (uint8_t)(1 | (vmode == 2 ? 2 : vmode == 1 ? 4 : 0));
 }
 
+/* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
+uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
+
+/* box-drawing glyphs of the CP437 font */
+#define B_H 0xC4
+#define B_V 0xB3
+#define B_TL 0xDA
+#define B_TR 0xBF
+#define B_BL 0xC0
+#define B_BR 0xD9
+#define B_LT 0xC3
+#define B_RT 0xB4
+static void hline(uint8_t l, uint8_t r, uint8_t w) { uint8_t i; k_chrout(l); for (i = 0; i < w; i++) k_chrout(B_H); k_chrout(r); newline(); }
+static void row_open(void) { k_chrout(B_V); k_chrout(' '); }
+static void row_close(uint8_t w) { pad(w + 1); k_chrout(B_V); newline(); }
+static void field(const char *name, const char *text) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; puts_(text); }
+
+static void banner(void)
+{
+    uint8_t w = COLS - 2, o, c1 = 2, c2 = COLS / 2 + 2;          /* inner width, two columns */
+    cls();
+    o = fg; fg = C_HI;
+    hline(B_TL, B_TR, w);
+    row_open(); fg = C_HI; puts_("BMC-K4510"); fg = C_FG; puts_("   a fantasy 8/16-bit computer");
+    pad(w - 22); fg = C_DIM; puts_("system ROM " ROM_VERSION); fg = C_HI; row_close(w);
+    hline(B_LT, B_RT, w);
+    fg = C_FG;
+    row_open(); field("CPU     ", "45GS02 at 40.5 MHz"); pad(c2); field("MEMORY  ", "256 MB, 28-bit flat"); row_close(w);
+    row_open(); field("VIDEO   ", "VICKe "); puts_(vmode == 2 ? "320x240" : vmode == 1 ? "640x240" : "640x480"); puts_(", "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text");
+    pad(c2); field("SOUND   ", "4 x SID 6581"); row_close(w);
+    row_open(); field("FILES   ", "host filesystem, "); put_cwd(); pad(c2); field("BASIC   ", "RUN EHBASIC.PRG"); row_close(w);
+    { volatile uint8_t d = REG(SYS + 4); (void)d; }
+    row_open(); field("TIME    ", ""); putdec(r16(SYS + 0x0A)); k_chrout('-'); putdec2(REG(SYS + 9)); k_chrout('-'); putdec2(REG(SYS + 8));
+    k_chrout(' '); putdec2(REG(SYS + 7)); k_chrout(':'); putdec2(REG(SYS + 6)); k_chrout(' '); puts_(daynames[REG(SYS + 12) % 7]);
+    pad(c2); field("ALSO    ", "DMA, MATH unit, SHEILA"); row_close(w);
+    fg = C_HI; hline(B_BL, B_BR, w); fg = C_FG;
+    newline();
+    fg = C_DIM; puts_("  HELP lists the commands, INFO describes the machine, DIR shows the files."); newline();
+    fg = o; newline();
+    (void)c1;
+}
+
+#pragma code-name (pop)
 int main(void)
 {
+    vmode = 1; margin = 1;                   /* MODE 1 1: 640x240, 79x29 with a one-cell margin */
     video_init();
-    cls();
-    fg = C_HI; puts_("BMC-K4510   system ROM " ROM_VERSION "   45GS02 / VICKe / SHEILA"); newline();
-    fg = C_DIM; puts_("256 MB   4 x SID   host filesystem at $D300   type HELP or INFO"); newline();
-    info_time();
-    newline();
     fg = C_FG;
+    banner();
     for (;;) {
-        puts_("] ");
+        put_cwd(); puts_("] ");
         readline(line, sizeof line);
         shell_line(line);
     }

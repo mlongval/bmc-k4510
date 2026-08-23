@@ -19,6 +19,10 @@ savedin	= $0404			; saved input vector while feeding a file
 savedout= $0406			; saved output vector while muted / capturing
 savecnt	= $0408			; bytes captured by SAVE, 32-bit
 ffirst	= $040C			; 1 until the first feed byte: a CR that EhBASIC's Ctrl-C check swallows
+chain	= $040D			; 1: LOAD was executed by a running program -> RUN the new program (CHAIN)
+cidx	= $040E			; index into k_chainstr while chaining
+; $040F is free for programs: the DEMOS/BENCH menus use PEEK(1039) as "return to the menu" flag
+ROM_SHELL	= $FF8F
 
 ; get the string argument into fname (upper-cased: the file system is case-sensitive)
 k_getname
@@ -72,10 +76,39 @@ k_setname
 	STZ	fptr+3
 	RTS
 
+; ---- @command: the rest of the statement goes to the ROM shell ----------
+; The cruncher left the text verbatim after the @, terminated by the [EOL] 0.
+K_AT
+	LDY	#1
+	LDA	Bpntrl			; A/X = pointer past the @
+	CLC
+	ADC	#1
+	TAY
+	LDA	Bpntrh
+	ADC	#0
+	TAX
+	TYA
+	JSR	ROM_SHELL		; run it (prints through the ROM)
+K_AT_skip
+	JSR	LAB_IGBY		; advance to the [EOL]
+	BNE	K_AT_skip
+	RTS
+
 ; ---- LOAD ----
+; In immediate mode: load and stop at Ready. From a running program: load
+; and RUN the new program (CHAIN, as on the C64). Variables do not survive.
 k4510_load
 	JSR	k_getname
 	JSR	k_setname
+	STZ	chain
+	STZ	cidx
+	LDA	#1
+	STA	ccflag			; no Ctrl-C sampling while the file feeds (it would eat bytes)
+	LDA	Clineh
+	CMP	#$FF			; $FF = immediate mode
+	BEQ	k_ld_imm
+	INC	chain
+k_ld_imm
 	JSR	ROM_LOAD		; A = status
 	CMP	#0
 	BEQ	k_ld_ok
@@ -106,12 +139,14 @@ k_ld_ok
 	STA	VEC_OUT
 	LDA	#>k_nullout
 	STA	VEC_OUT+1
-	JMP	LAB_1463		; NEW: clear the program; back to the immediate loop, which now reads the file
+	JSR	LAB_1463		; NEW: clear the program and flush the stack (it returns to the top frame --
+	JMP	LAB_127D		; inside IF..THEN that is the IF tail, so go to the immediate loop explicitly)
 
 k_nullout
 	RTS
 
-; input vector while a file is being fed: next byte, or end the feed
+; input vector while a file is being fed: next byte, or end the feed.
+; X and Y must survive (the line editor keeps its index in X).
 k_filein
 	LDA	ffirst
 	BEQ	k_fi_go
@@ -150,6 +185,22 @@ k_fi_5
 	SEC
 	RTS
 k_fi_end
+	LDA	chain
+	BEQ	k_fi_restore
+	PHX
+	LDX	cidx
+	LDA	k_chainstr,X		; R U N; the final CR below runs it
+	PLX
+	CMP	#0			; (PLX changed the flags)
+	BEQ	k_fi_restore
+	INC	cidx
+	SEC
+	RTS
+k_chainstr
+	.byte	"RUN", 0
+k_fi_restore
+	STZ	chain
+	STZ	ccflag			; Ctrl-C works again
 	LDA	savedin			; restore keyboard input and the screen
 	STA	VEC_IN
 	LDA	savedin+1

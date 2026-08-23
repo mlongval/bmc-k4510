@@ -13,7 +13,7 @@ static void frames(int n) { for (; n; n--) { vicke_begin_frame(fb, 640); for (in
 static void type(const char *s) { for (; *s; s++) { kbd_push(*s == '\n' ? 0x0D : (uint8_t)*s); frames(1); } frames(3); }
 static void row(int r, char *out) { for (int c = 0; c < 80; c++) { uint8_t ch = mem_peek(0x30000 + (r * 80 + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : '.'; } out[80] = 0; for (int i = 79; i >= 0 && out[i] == ' '; i--) out[i] = 0; }
 static int findsub(const char *sub) { char r[81]; for (int i = 0; i < 60; i++) { row(i, r); if (strstr(r, sub)) return i; } return -1; }
-static int find(const char *pre) { char r[81]; for (int i = 0; i < 60; i++) { row(i, r); if (!strncmp(r, pre, strlen(pre))) return i; } return -1; }
+static int find(const char *pre) { char r[81]; for (int i = 0; i < 60; i++) { const char *q; row(i, r); q = r; while (*q == ' ') q++; if (!strncmp(q, pre, strlen(pre))) return i; } return -1; }   /* skips the margin */
 int main(void)
 {
     uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
@@ -21,8 +21,8 @@ int main(void)
     CHECK(mem_load_rom("rom/kernal.bin") == 24576, "rom");
     cpu65_reset(); frames(5);
     char r[81]; row(0, r); printf("banner: %s\n", r);
-    CHECK(find("BMC-K4510") == 0, "banner");
-    CHECK(find("]") >= 0, "prompt");
+    CHECK(findsub("BMC-K4510") >= 0, "banner");
+    CHECK(findsub("/]") >= 0, "prompt");
     type("E000.E00F\n");
     CHECK(find("0000E000: 78 D8 A2 FF 9A") >= 0, "examine ROM (cc65 crt0: SEI CLD LDX TXS)");
     type("load hello.txt 6000\n");
@@ -55,10 +55,10 @@ int main(void)
     CHECK((io_read(IO_VICKE + 0x0E) & 1) == 1, "balls.prg is running (sprites on)");
     type("x\n");
     frames(10);
-    CHECK((io_read(IO_VICKE + 0x0E) & 1) == 0 && find("]") >= 0, "a key returns to the shell and video is restored");
+    CHECK((io_read(IO_VICKE + 0x0E) & 1) == 0 && findsub("/]") >= 0, "a key returns to the shell and video is restored");
     type("dir\n");
-    CHECK(find("hello.txt") >= 0, "DIR lists hello.txt");
-    CHECK(find("]") >= 0, "prompt after commands");
+    CHECK(findsub("hello.txt") >= 0, "DIR lists hello.txt");
+    CHECK(findsub("/]") >= 0, "prompt after commands");
     printf("screen:\n"); for (int i = 0; i < 60; i++) { row(i, r); if (*r) printf("  |%s\n", r); }
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

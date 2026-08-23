@@ -135,7 +135,7 @@
 /* --- storage ($D300): the host filesystem, sandboxed to one directory --- */
 /* Names are NUL-terminated, at NAMEPTR. Transfers go straight to RAM. */
 #define IO_FS_CMD      (IO_STORAGE + 0x00) /* write: command; read: 0 idle */
-#define IO_FS_STATUS   (IO_STORAGE + 0x01) /* 0 ok, 1 not found, 2 io error, 3 bad cmd, 4 end of dir, 5 name too long */
+#define IO_FS_STATUS   (IO_STORAGE + 0x01) /* 0 ok, 1 not found, 2 io error / not a dir / not empty, 3 bad cmd, 4 end of dir, 5 name too long */
 #define IO_FS_NAMEPTR  (IO_STORAGE + 0x04) /* 28-bit */
 #define IO_FS_ADDR     (IO_STORAGE + 0x08) /* 28-bit RAM address for READ/WRITE/DIRNEXT */
 #define IO_FS_LEN      (IO_STORAGE + 0x0C) /* 32-bit: bytes requested; updated to bytes done */
@@ -150,6 +150,16 @@
 #define FS_STAT        8   /* SIZE = size of NAMEPTR, status 1 if absent */
 #define FS_LOAD        9   /* convenience: OPEN_READ + read whole file to ADDR + CLOSE; LEN = size */
 #define FS_SAVE       10   /* convenience: OPEN_WRITE + write LEN bytes from ADDR + CLOSE */
+#define FS_CHDIR      11   /* change the current directory to NAMEPTR (status 1 if absent) */
+#define FS_MKDIR      12   /* create directory NAMEPTR */
+#define FS_RM         13   /* delete file NAMEPTR (1 absent, 2 is a directory / failed) */
+#define FS_RMDIR      14   /* delete directory NAMEPTR (must be empty) */
+#define FS_GETCWD     15   /* write the current directory ("/..." NUL-terminated) to ADDR; SIZE = length */
+/* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
+ * work, ".." never leaves the root. Lookups are case-insensitive when the
+ * exact name is absent. Reads (OPEN_READ, STAT, LOAD) of a bare name not
+ * found in the current directory also try /PRG and /BASIC. DIR_NEXT lists
+ * sorted, directories with SIZE = $FFFFFFFF. */
 
 void    fs_set_root(const char *dir);
 

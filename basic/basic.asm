@@ -1034,6 +1034,12 @@ LAB_13AC
 	LDA	Ibuffs,X		; get byte from input buffer
 	BEQ	LAB_13EC		; if null save byte then exit
 
+	CMP	#'@'			; K4510: "@command" hands the rest of the line to the ROM shell,
+	BNE	K_NOTAT			; so keep it uncrunched (like REM)
+	STZ	Asrch			; search for [EOL]
+	JMP	LAB_1410		; save the @ and copy the rest
+K_NOTAT
+
 	CMP	#'_'			; compare with "_"
 	BCS	LAB_13EC		; if >= go save byte then continue crunching
 
@@ -1561,6 +1567,10 @@ LAB_15FC
 
 LAB_15FF
 	BEQ	LAB_1628		; exit if zero [EOL]
+
+	CMP	#'@'			; K4510: @ statement -> the ROM shell
+	BNE	LAB_1602
+	JMP	K_AT
 
 LAB_1602
 	ASL				; *2 bytes per vector and normalise token

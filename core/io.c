@@ -34,30 +34,115 @@ static uint8_t kbd_read(void)
 #include <dirent.h>
 #include <sys/stat.h>
 static char fs_root[512] = "fs";
+static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trailing slash; "" = root */
 static uint8_t fs_reg[0x14];
-static FILE *fs_file; static DIR *fs_dir;
-void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); }
+static FILE *fs_file;
+void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
 static uint32_t fs_rd32(int off) { return rd32(&fs_reg[off]); }
 static void fs_wr32(int off, uint32_t v) { for (int i = 0; i < 4; i++) fs_reg[off + i] = (v >> (8 * i)) & 0xFF; }
-static int fs_path(char *out, size_t max)
+#include <strings.h>
+#include <stdlib.h>
+#include <unistd.h>
+/* Resolve a guest name against the cwd inside the sandbox: "/" is the root,
+ * "." and ".." work, ".." never climbs above the root. rel gets the
+ * root-relative path ("" for the root), out the host path. */
+static int fs_resolve(const char *name, char *rel, size_t relmax, char *out, size_t outmax)
 {
-    uint32_t p = fs_rd32(4) & K4510_PHYS_MASK; char name[128]; size_t n = 0;
-    for (; n < sizeof name - 1; n++) { name[n] = k4510_ram[(p + n) & K4510_PHYS_MASK]; if (!name[n]) break; }
-    if (n >= sizeof name - 1) return 5;
-    name[n] = 0;
-    for (size_t i = 0; i < n; i++) if (name[i] == '/' || name[i] == '\\') name[i] = '_';   /* sandbox: flat names */
-    if (name[0] == '.' ) return 1;
-    snprintf(out, max, "%s/%s", fs_root, name);
+    char buf[512]; size_t n = 0;
+    if (name[0] == '/' || name[0] == '\\') { buf[0] = 0; name++; } else snprintf(buf, sizeof buf, "%s", fs_cwd);
+    n = strlen(buf);
+    while (*name) {
+        const char *e = name; size_t l;
+        while (*e && *e != '/' && *e != '\\') e++;
+        l = (size_t)(e - name);
+        if (l == 0 || (l == 1 && name[0] == '.')) { /* skip */ }
+        else if (l == 2 && name[0] == '.' && name[1] == '.') { while (n && buf[n - 1] != '/') n--; if (n) n--; buf[n] = 0; }
+        else { if (n + l + 2 >= sizeof buf) return 5; if (n) buf[n++] = '/'; memcpy(buf + n, name, l); n += l; buf[n] = 0; }
+        name = *e ? e + 1 : e;
+    }
+    snprintf(rel, relmax, "%s", buf);
+    if (n) snprintf(out, outmax, "%s/%s", fs_root, buf); else snprintf(out, outmax, "%s", fs_root);
     return 0;
 }
+/* If the host path does not exist, look for a case-insensitive match of its
+ * last component in its directory (the guest upper-cases names). */
+static void fs_casefix(char *path, size_t max)
+{
+    struct stat sb; char dir[768], *base; DIR *d; struct dirent *e;
+    if (!stat(path, &sb)) return;
+    snprintf(dir, sizeof dir, "%s", path); base = strrchr(dir, '/'); if (!base) return;
+    *base++ = 0;
+    if (!(d = opendir(dir))) return;
+    while ((e = readdir(d))) if (!strcasecmp(e->d_name, base)) { snprintf(path, max, "%s/%s", dir, e->d_name); break; }
+    closedir(d);
+}
+static int fs_guest_name(char *name, size_t max)
+{
+    uint32_t p = fs_rd32(4) & K4510_PHYS_MASK; size_t n = 0;
+    for (; n < max - 1; n++) { name[n] = k4510_ram[(p + n) & K4510_PHYS_MASK]; if (!name[n]) break; }
+    if (n >= max - 1) return 5;
+    name[n] = 0;
+    return 0;
+}
+/* host path for NAMEPTR; for reads, fall back to /PRG and /BASIC when the
+ * name has no directory part and is not found where we are */
+static int fs_path(char *out, size_t max, int search)
+{
+    char name[128], rel[256]; struct stat sb; int st;
+    if ((st = fs_guest_name(name, sizeof name))) return st;
+    if ((st = fs_resolve(name, rel, sizeof rel, out, max))) return st;
+    fs_casefix(out, max);
+    if (search && stat(out, &sb) && !strchr(name, '/') && !strchr(name, '\\')) {
+        static const char *dirs[] = { "PRG", "BASIC" };
+        for (int i = 0; i < 2; i++) {
+            char alt[128]; snprintf(alt, sizeof alt, "/%s/%s", dirs[i], name);
+            if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
+            fs_casefix(out, max);
+            if (!stat(out, &sb)) return 0;
+        }
+        fs_resolve(name, rel, sizeof rel, out, max); fs_casefix(out, max);   /* not found: the plain path, for the error */
+    }
+    return 0;
+}
+/* directory listing: read, sort, serve */
+static char (*fs_list)[64]; static uint32_t *fs_list_size; static int fs_list_n, fs_list_i;
+static int fs_cmp(const void *a, const void *b) { return strcasecmp((const char *)a, (const char *)b); }
+static int fs_dir_first(void)
+{
+    char path[768], rel[256]; DIR *d; struct dirent *e; int n = 0, cap = 64;
+    fs_resolve("", rel, sizeof rel, path, sizeof path);
+    if (!(d = opendir(path))) return 2;
+    free(fs_list); free(fs_list_size); fs_list = malloc(cap * sizeof *fs_list); fs_list_size = malloc(cap * sizeof *fs_list_size);
+    while ((e = readdir(d))) {
+        char full[1024]; struct stat sb;
+        if (e->d_name[0] == '.') continue;
+        if (n == cap) { cap *= 2; fs_list = realloc(fs_list, cap * sizeof *fs_list); fs_list_size = realloc(fs_list_size, cap * sizeof *fs_list_size); }
+        snprintf(fs_list[n], 64, "%s", e->d_name);
+        snprintf(full, sizeof full, "%s/%s", path, e->d_name);
+        fs_list_size[n] = stat(full, &sb) ? 0 : S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size;
+        n++;
+    }
+    closedir(d);
+    /* sort names and sizes together: sort an index */
+    { int *idx = malloc(n * sizeof *idx); for (int i = 0; i < n; i++) idx[i] = i;
+      for (int i = 1; i < n; i++) { int k = idx[i], j = i; while (j > 0 && strcasecmp(fs_list[idx[j - 1]], fs_list[k]) > 0) { idx[j] = idx[j - 1]; j--; } idx[j] = k; }
+      char (*nl)[64] = malloc(n * sizeof *nl); uint32_t *ns = malloc(n * sizeof *ns);
+      for (int i = 0; i < n; i++) { memcpy(nl[i], fs_list[idx[i]], 64); ns[i] = fs_list_size[idx[i]]; }
+      free(fs_list); free(fs_list_size); fs_list = nl; fs_list_size = ns; free(idx); }
+    (void)fs_cmp;
+    fs_list_n = n; fs_list_i = 0;
+    return 0;
+}
+#include <stdlib.h>
 static void fs_run(uint8_t cmd)
 {
     char path[768]; int st = 0;
     uint32_t addr = fs_rd32(8) & K4510_PHYS_MASK, len = fs_rd32(12);
     switch (cmd) {
     case FS_OPEN_READ: case FS_OPEN_WRITE: case FS_STAT: case FS_LOAD: case FS_SAVE: {
-        if ((st = fs_path(path, sizeof path))) break;
-        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, (uint32_t)sb.st_size); break; }
+        int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
+        if ((st = fs_path(path, sizeof path, rd))) break;
+        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
         if (fs_file) { fclose(fs_file); fs_file = NULL; }
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
         if (!fs_file) { st = 1; break; }
@@ -68,17 +153,35 @@ static void fs_run(uint8_t cmd)
     case FS_READ: { if (!fs_file) { st = 2; break; } uint32_t done = 0; int c; while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
     case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } break;
-    case FS_DIR_FIRST: if (fs_dir) closedir(fs_dir); fs_dir = opendir(fs_root); if (!fs_dir) st = 2; break;
+    case FS_DIR_FIRST: st = fs_dir_first(); break;
     case FS_DIR_NEXT: {
-        if (!fs_dir) { st = 2; break; }
-        struct dirent *e; struct stat sb;
-        while ((e = readdir(fs_dir)) && e->d_name[0] == '.') ;
-        if (!e) { st = 4; closedir(fs_dir); fs_dir = NULL; break; }
-        size_t i = 0; for (; e->d_name[i] && i < 63; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)e->d_name[i];
+        if (!fs_list) { st = 2; break; }
+        if (fs_list_i >= fs_list_n) { st = 4; break; }
+        size_t i = 0; const char *nm = fs_list[fs_list_i];
+        for (; nm[i] && i < 63; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)nm[i];
         k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0;
-        snprintf(path, sizeof path, "%s/%s", fs_root, e->d_name);
-        fs_wr32(0x10, stat(path, &sb) ? 0 : (uint32_t)sb.st_size);
+        fs_wr32(0x10, fs_list_size[fs_list_i]);
+        fs_list_i++;
         break; }
+    case FS_CHDIR: {
+        char name[128], rel[256]; struct stat sb;
+        if ((st = fs_guest_name(name, sizeof name))) break;
+        if ((st = fs_resolve(name, rel, sizeof rel, path, sizeof path))) break;
+        fs_casefix(path, sizeof path);
+        if (stat(path, &sb) || !S_ISDIR(sb.st_mode)) { st = 1; break; }
+        /* keep the host's spelling of the directory in the cwd */
+        snprintf(fs_cwd, sizeof fs_cwd, "%s", strlen(path) > strlen(fs_root) ? path + strlen(fs_root) + 1 : "");
+        break; }
+    case FS_MKDIR: if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
+    case FS_RM:    { struct stat sb; if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
+    case FS_RMDIR: { struct stat sb; if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
+#ifdef K4510_PI
+        st = 2;                       /* circle-syscallwrap has no rmdir yet */
+#else
+        if (!S_ISDIR(sb.st_mode) || rmdir(path)) st = 2;
+#endif
+        break; }
+    case FS_GETCWD: { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
     default: st = 3;
     }
     fs_reg[1] = (uint8_t)st; fs_reg[0] = 0;

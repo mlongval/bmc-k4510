@@ -8,6 +8,14 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 - **CPU:** 45GS02 — the MEGA65's 6502 descendant (4510 + Q register +
   32-bit flat addressing + 28-bit MAP), at 40.5 MHz. The core is Xemu's,
   byte for byte; everything around it is ours.
+- **System ROM:** a shell with Wozmon's grammar plus `DIR CD MKDIR RM RMDIR TYPE
+  LOAD SAVE RUN INFO MODE COLOR`; files live in a host directory (`fs/`) with
+  `/PRG` for programs and `/BASIC` for BASIC text; bare names are searched
+  there too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
+- **EhBASIC 2.22** with graphics, the MATH unit, an expression compiler,
+  `LOAD`/`SAVE` of text files, `@command` (any shell command, e.g. `@DIR`,
+  `@CD BASIC`), and `LOAD` from a running program chains into the loaded
+  program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
 - **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms;
   byte-pokeable **bank registers** ($D600) and a **far-call gate** ($DF00)
   so programs bigger than the 64 KB window are overlays, not a puzzle;
