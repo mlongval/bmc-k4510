@@ -1,5 +1,7 @@
 # BMC-K4510
 
+**This is release number alpha-0.1 titled 'Proof-of-concept'.**
+
 A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 **bare metal on a Raspberry Pi 3B+** (and on a Linux desktop under SDL2).
 
@@ -46,9 +48,9 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
     rom/         system ROM (cc65), Wozmon and a demo (ACME)
-    demo/        programs in C -> fs/*.prg  (balls, cube, mandel, sids, keytest)
+    demo/        programs in C -> fs/*.prg  (balls, cube, mandel, sids, keytest, sieve, chrout)
     basic/       EhBASIC 2.22 + K4510 glue -> fs/ehbasic.prg
-    fs/          the machine's filesystem (programs, BASIC text files)
+    fs/          the machine's filesystem (programs, BASIC text files; RF1-8/AHL/SIEVE.BAS are the classic benchmarks)
     test/        tests, headless screenshot and benchmark tools
     data/        the text font (from the Linux kernel's font_8x8, GPL-2.0)
 

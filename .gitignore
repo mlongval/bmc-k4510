@@ -19,3 +19,4 @@ demo/*.o
 demo/*.s
 demo/*.map
 basic/*.o
+test/headless
