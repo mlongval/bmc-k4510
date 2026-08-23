@@ -1,0 +1,46 @@
+\chapter{The Shell}\label{cha:shell}
+
+The shell is what the machine boots into. It is a file manager, a program
+launcher and a front door to the monitor, and every command here also works
+from BASIC with an \verb|@| in front.
+
+\section{Files and directories}
+Files live on the host (the \texttt{fs/} directory on the desktop, the
+\texttt{k4510/fs/} folder of the SD card on the Pi). Programs are kept in
+\texttt{/PRG}, BASIC text in \texttt{/BASIC}, music in \texttt{/SID} --- and a
+bare name is searched there too, so you rarely need a path.
+
+\begin{type}
+DIR              CD BASIC         CD ..
+MKDIR MYDIR      RM OLD.TXT       RMDIR MYDIR
+TYPE README.BAS  LOAD name [addr] SAVE name from.to
+\end{type}
+
+\screen{shots/dir.png}{\texttt{DIR}: directories first in white, then files
+with their sizes, two columns.}
+
+\section{Running things}
+\verb|RUN balls.prg| runs a program; so does \verb|RUN balls|, and so does
+plain \verb|BALLS| --- an unknown word is tried as a program name before the
+shell gives up. Try \verb|SIDPLAY|, the SID jukebox, or \verb|RUN ehbasic|
+for BASIC.
+
+\section{The monitor}
+\verb|MON| opens the machine monitor at a \verb|*| prompt; its grammar is
+Wozmon's, with 28-bit addresses:
+
+\begin{type}
+*E000.E00F           examine a range
+*0300:A9 41 60       store bytes
+*0300R               run from $0300
+*X                   leave
+\end{type}
+
+\screen{shots/mon.png}{The monitor examining the ROM. \texttt{MON E000.E00F}
+runs one line without entering the prompt.}
+
+\section{When something goes wrong}
+\verb|DUMP a note| writes the whole machine state --- registers, screen, the
+last 4096 instructions, your last keystrokes --- to a numbered file on the
+host, for a human (or their AI) to read later. \verb|DUMP ON| does it
+automatically every fifteen seconds.

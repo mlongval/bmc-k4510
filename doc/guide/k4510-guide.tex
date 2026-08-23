@@ -1,0 +1,33 @@
+% The BMC-K4510 User's and Programmer's Guide.
+% Build: ./make-guide.sh   (captures every screenshot from the running machine
+% first -- a picture that cannot be produced fails the build, as in the
+% Neo6502 handbook this book is modelled on).
+\documentclass[a5paper,11pt,openany]{book}
+\usepackage[a5paper,nomarginpar,bottom=2cm,top=1.4cm,inner=1.6cm,outer=1.0cm,footskip=1cm]{geometry}
+\usepackage{style/k4510}
+\usepackage{booktabs}
+\title{The BMC-K4510 User's and Programmer's Guide}
+\author{}\date{}
+\begin{document}
+\begin{titlepage}
+\pagecolor{kblue}\color{kwhite}
+\vspace*{2cm}\raggedleft
+{\fontsize{40}{44}\selectfont\bfseries BMC-K4510\par}
+\vspace{4mm}{\color{kyellow}\rule{\linewidth}{1.4pt}}
+\vspace{6mm}{\Large USER'S AND PROGRAMMER'S GUIDE\par}
+\vspace{3mm}{\large\color{kyellow} a fantasy 8/16-bit computer\par}
+\vfill
+{\small\color{kyellow} Draft --- 45GS10 \(\cdot\) VICKe \(\cdot\) 4 SIDs \(\cdot\) 256\,MB\par}
+\end{titlepage}
+\nopagecolor
+\frontmatter
+\tableofcontents
+\mainmatter
+\part{User's Guide}
+\input{chapters/01-machine}
+\input{chapters/02-shell}
+\input{chapters/03-basic}
+\part{Programmer's Guide}
+\input{chapters/10-memory}
+\input{chapters/11-io}
+\end{document}

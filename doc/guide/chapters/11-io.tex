@@ -1,0 +1,22 @@
+\chapter{The I/O Page}\label{cha:io}
+
+One page, \texttt{\$D000-\$DFFF}, always visible. The authoritative
+register-level reference is \texttt{core/io.h} in the source tree; this
+chapter will be generated from it, the way the Neo6502 handbook generates
+its keyword reference from the firmware source. Until then, the map:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\texttt{\$D000} & VICKe   & video: layers, palette, blitter, sprites, SHEILA\\
+\texttt{\$D100} & input   & keyboard FIFO, status, peek, break-pending\\
+\texttt{\$D200} & DMA     & copy / fill / swap / line / triangle\\
+\texttt{\$D300} & storage & the host filesystem: open, read, dir, chdir\ldots\\
+\texttt{\$D400} & SID 0-3 & four chips, 32 bytes apart\\
+\texttt{\$D500} & system  & clock, RTC, frame counter, DUMP, SID crystal\\
+\texttt{\$D600} & banks   & the eight bank registers, masks at \texttt{\$D620}\\
+\texttt{\$D700} & MATH    & IEEE floats, transcendentals, math lists, mul/div\\
+\texttt{\$DF00} & far gate& call slots, descriptor table pointer, depth\\
+\bottomrule
+\end{tabular}
+\end{center}

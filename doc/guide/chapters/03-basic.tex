@@ -1,0 +1,43 @@
+\chapter{BASIC}\label{cha:basic}
+
+The machine speaks EhBASIC~2.22 --- Lee Davison's Enhanced BASIC --- with
+this machine's additions: graphics statements that ride the blitter, sound
+on four SIDs, floating point on the MATH unit, and an escape hatch to the
+shell.
+
+\begin{type}
+RUN EHBASIC
+\end{type}
+
+Press \texttt{RETURN} at \verb|Memory size ?| and you have 25\,599 bytes
+free and a \verb|Ready| prompt.
+
+\section{Ten minutes of it}
+\begin{type}
+RUN "DEMOS.BAS"
+\end{type}
+
+\screen{shots/demos.png}{The demo menu. A key picks an entry; each demo
+returns here when it ends.}
+
+The menu chains: \verb|RUN "name"| (or \verb|LOAD| inside a running
+program) loads another BASIC program and runs it --- that is how one BASIC
+program hands over to another, exactly as on a C64.
+
+\section{The machine's own statements}
+\begin{type}
+GRAPHICS 2          640x480 bitmap over the text
+PLOT X,Y,C          LINE X1,Y1,X2,Y2,C
+TRI X1,Y1,X2,Y2,X3,Y3,C
+PALETTE I,R,G,B     GCLS            GRAPHICS 0
+\end{type}
+
+Colours 0--15 belong to the text screen; demos use 16 and up. \verb|GRAPHICS 0|
+puts the text mode and its palette back, whatever the program changed.
+
+\section{The @ escape}
+Any shell command works from BASIC with \verb|@| in front --- \verb|@DIR|,
+\verb|@CD BASIC|, \verb|@MON|, \verb|@DUMP a note| --- and \verb|@BYE|
+leaves BASIC for the shell. Escape or Ctrl-C stops a running program (and
+silences the SIDs); the program's variables survive for \verb|PRINT|-style
+post-mortems.

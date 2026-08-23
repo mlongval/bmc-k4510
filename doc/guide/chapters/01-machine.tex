@@ -1,0 +1,40 @@
+\chapter{The Machine}\label{cha:machine}
+
+The BMC-K4510 is a fantasy computer: a machine that never existed, built the
+way 1985 might have built it with no budget committee in the room. It is not
+an emulation of any real computer. Its CPU, video chip, sound, and operating
+software are its own; the parts it borrows --- a 6502-family instruction set,
+the SID sound chip --- it borrows openly and then outgrows.
+
+\section{What is in the box}
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
+  4510 with the Q pseudo-register and 32-bit flat addressing) plus this
+  machine's own memory management: bank registers, a far-call gate, and RAM
+  under the ROM. It runs at 40.5\,MHz.
+\item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
+  everything else is one instruction away.
+\item \textbf{Video: VICKe} --- 640$\times$480, 256 colours from a 24-bit
+  palette, four layers, 128 sprites, a blitter that draws lines and filled
+  triangles, and a display-list coprocessor named SHEILA.
+\item \textbf{Sound: four SID chips} (reSID 6581) and a floating-point MATH
+  unit the BASIC leans on.
+\item \textbf{A system ROM}: a shell with directories, a Wozmon-style
+  monitor, and EhBASIC~2.22 extended with graphics and sound.
+\end{itemize}
+
+\section{First boot}
+Switch it on (on the desktop: \verb|./sdl/k4510|; on the Raspberry Pi 3B+:
+insert the card and power up). The machine greets you in yellow on blue:
+
+\screen{shots/boot.png}{The boot screen: the hourglass, the name, the speed,
+the memory. Everything else is one \texttt{INFO} away.}
+
+The \verb|/]| at the bottom is the shell prompt --- the \verb|/| is the
+directory you are in. Type \verb|HELP| for the commands, \verb|INFO| for the
+machine's full self-description, and \verb|DIR| to see your files.
+
+\begin{aside}
+\textbf{Keys on the desktop:} Escape is RUN/STOP (stops a BASIC program),
+Ctrl-C is STOP, F12 resets the machine, Shift+Escape quits the emulator.
+\end{aside}

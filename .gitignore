@@ -27,3 +27,9 @@ test/woztest
 dumps/
 !demo/sidplay0.s
 !demo/sidplay-header.s
+doc/guide/shots/
+doc/guide/*.aux
+doc/guide/*.log
+doc/guide/*.out
+doc/guide/*.toc
+doc/guide/*.pdf

@@ -1,0 +1,59 @@
+% k4510.sty -- visual language for the BMC-K4510 User's and Programmer's Guide.
+% The colours are the machine's own boot palette (the C64 palette VICKe loads
+% at reset; see rom/kernal.c c64pal[]): blue ground, yellow ink, white titles.
+% Layout follows the Neo6502 handbook, which follows the MEGA65 User's Guide.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{style/k4510}[2026/08/24 BMC-K4510 guide style]
+\RequirePackage{fontspec}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{tcolorbox}
+\RequirePackage{enumitem}
+\RequirePackage{titlesec}
+\RequirePackage{fancyhdr}
+\RequirePackage{microtype}
+\RequirePackage{caption}
+\RequirePackage{fancyvrb}
+\RequirePackage[hidelinks]{hyperref}
+\tcbuselibrary{skins,breakable}
+\captionsetup{font=small, labelfont=bf, justification=raggedright,
+              singlelinecheck=false, skip=4pt}
+% The machine's palette (rom/kernal.c)
+\definecolor{kblue}    {HTML}{0000AA}
+\definecolor{kyellow}  {HTML}{EEEE77}
+\definecolor{kwhite}   {HTML}{FFFFFF}
+\definecolor{klblue}   {HTML}{0088FF}
+\definecolor{kgrey}    {HTML}{777777}
+\definecolor{kred}     {HTML}{880000}
+\definecolor{kgreen}   {HTML}{00CC55}
+\definecolor{korange}  {HTML}{DD8855}
+\colorlet{kheading}{kblue}
+\colorlet{krule}{kgrey}
+\setmainfont{Clear Sans}[
+  BoldFont       = Clear Sans Bold,
+  ItalicFont     = Clear Sans Italic,
+  BoldItalicFont = Clear Sans Bold Italic ]
+\setmonofont{Iosevka NFM}[Scale=0.92]
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\small\thepage}
+\fancyhead[RE,LO]{\small\itshape\nouppercase{\leftmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+\titleformat{\chapter}[display]
+  {\raggedright\color{kheading}\bfseries}
+  {\Large Chapter \thechapter}{4pt}{\huge}
+\titlespacing*{\chapter}{0pt}{0pt}{18pt}
+% a screenshot of the machine, full measure, thin rule around it
+\newcommand{\screen}[2]{%
+  \begin{center}
+  \fbox{\includegraphics[width=0.95\linewidth]{#1}}\\[2pt]
+  {\small #2}
+  \end{center}}
+% what you type, machine-style
+\newenvironment{type}
+  {\VerbatimEnvironment\begin{tcolorbox}[colback=kblue,colframe=kblue,boxrule=0pt,
+     left=6pt,top=4pt,bottom=4pt]\color{kyellow}\begin{Verbatim}[fontsize=\small]}
+  {\end{Verbatim}\end{tcolorbox}}
+% an aside
+\newtcolorbox{aside}{colback=kyellow!18!white,colframe=korange,boxrule=0.8pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,breakable}

@@ -1,0 +1,43 @@
+\chapter{Memory}\label{cha:memory}
+
+\section{The 64\,KB view and the 256\,MB behind it}
+The 45GS10's program counter is 16 bits: code executes inside a 64\,KB
+window. The 256\,MB of physical memory is reached three ways:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Flat pointers}: \verb|LDA [ptr],Z| and the Q forms read and
+  write any byte of the 256\,MB directly. Data never needs banking.
+\item \textbf{Bank registers} (\verb|$D600|, one per 8\,KB block): write a
+  28-bit base and that block of the window shows that memory. Bytes 0--2 set
+  the base; byte 3 switches (bit 7 = off).
+\item \textbf{DMA} (\verb|$D200|): copy, fill, swap, line, triangle ---
+  instant, physical addresses.
+\end{itemize}
+
+\section{The CPU view, unmapped}
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\texttt{\$0000-\$03FF} & system & zero page, stack, vectors, low system state\\
+\texttt{\$0800-\$9FFF} & user   & 38\,KB for programs (\texttt{.prg} files load here)\\
+\texttt{\$A000-\$CFFF} & ROM    & \emph{RAM underneath, bankable}\\
+\texttt{\$D000-\$DFFF} & I/O    & always I/O, whatever is banked\\
+\texttt{\$E000-\$FEFF} & ROM    & \emph{RAM underneath, bankable}\\
+\texttt{\$FF00-\$FFFF} & stub   & always ROM: system-call stub and vectors\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{RAM under the ROM}
+\verb|rom_out()| (or three pokes to the bank registers) banks blocks 5--7
+onto the RAM beneath the ROM: a program then owns
+\texttt{\$0800-\$CFFF} + \texttt{\$E000-\$FEFF} = 57\,KB. Every system call
+still works --- calls go through the \texttt{\$FF00} stub page, which banks
+the ROM in and out around them. \verb|RUN romout| demonstrates the whole
+mechanism on screen.
+
+\section{Programs bigger than the window}
+The \texttt{K4SG} executable format loads segments to any physical address
+and the far-call gate (\verb|$DF00|) calls between them: a plain \verb|JSR|
+into slot $n$ banks descriptor $n$'s code in, and the callee's \verb|RTS|
+banks it back out. \verb|RUN segdemo| shows two overlays sharing one
+address.
