@@ -2,7 +2,7 @@
  * per-sprite palette offsets (one ball bitmap, 15 colour banks), sprite
  * table double-buffered by flipping SPRTAB, SHEILA sky gradient, text8
  * caption. 640x480. Every table lives in far memory (written with the
- * 45GS02 flat store); the program itself is 16 KB at $6000. Any key exits. */
+ * 45GS10 flat store); the program itself is 16 KB at $6000. Any key exits. */
 #include "k4510.h"
 
 #define N        15

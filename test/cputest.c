@@ -1,9 +1,9 @@
-/* Step 1 of the spike: does the 45GS02 core run inside our wrapper?
+/* Step 1 of the spike: does the 45GS10 core run inside our wrapper?
  *
  * Three hand-assembled programs, no assembler needed yet:
  *   1. 6502 subset: count 0..255 into $0200, then loop forever.
  *   2. 65CE02: Z register, 16-bit stack pointer, INW/DEW.
- *   3. 45GS02: a 32-bit pointer in base page, LDA [$nn],Z, and Q ops.
+ *   3. 45GS10: a 32-bit pointer in base page, LDA [$nn],Z, and Q ops.
  * Each checks registers/memory after a fixed number of steps.
  */
 #include <stdio.h>
@@ -27,7 +27,7 @@ static void run(const uint8_t *prog, size_t len, int cycles)
 
 int main(void)
 {
-    printf("K4510 spike step 1: cpu65 (45GS02) in our wrapper\n");
+    printf("K4510 spike step 1: cpu65 (45GS10) in our wrapper\n");
 
     /* --- 1. plain 6502 ------------------------------------------------ */
     {
@@ -60,7 +60,7 @@ int main(void)
         CHECK(w == 0x0100,     "INW failed (%04X)", w);
     }
 
-    /* --- 3. 45GS02: 32-bit flat pointer + Q register --------------------- */
+    /* --- 3. 45GS10: 32-bit flat pointer + Q register --------------------- */
     {
         static const uint8_t p[] = {
             /* pointer at $20..$23 = $00003000 ; data at $3000 = $11 $22 $33 $44 */
@@ -86,8 +86,8 @@ int main(void)
         mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0x10);
         cpu65_reset();
         cpu65_step(400);
-        printf("3. 45GS02 flat:    [$20],Z=0 -> $%02X   [$20],Z=2 -> $%02X\n", mem_peek(0x400), mem_peek(0x401));
-        printf("   45GS02 Q:       LDQ $3000 -> A=%02X X=%02X Y=%02X Z=%02X ; STQ $0500 -> %02X %02X %02X %02X\n",
+        printf("3. 45GS10 flat:    [$20],Z=0 -> $%02X   [$20],Z=2 -> $%02X\n", mem_peek(0x400), mem_peek(0x401));
+        printf("   45GS10 Q:       LDQ $3000 -> A=%02X X=%02X Y=%02X Z=%02X ; STQ $0500 -> %02X %02X %02X %02X\n",
                cpu65.a, cpu65.x, cpu65.y, cpu65.z,
                mem_peek(0x500), mem_peek(0x501), mem_peek(0x502), mem_peek(0x503));
         CHECK(mem_peek(0x400) == 0x11, "flat LDA [$20],Z (Z=0)");

@@ -3,7 +3,7 @@
 ; own $0400-$CFFF. Exit goes through a trampoline in low RAM: the banks must
 ; be cleared by code that is not itself banked away.
         .export   __STARTUP__ : absolute = 1
-        .export   _exit, _far_poke, _far_peek, _far_poke16, _map_window
+        .export   _exit, _far_poke, _far_peek
         .export   _tune_call
         .import   _main, zerobss, initlib, incsp4
         .import   __PRG_START__, __PRG_SIZE__
@@ -64,7 +64,7 @@ _tune_call:
         rts
 dojsr:  jmp (target)
 
-        .bss
+        .segment "LOWBSS"
 _tune_a:   .res 1
 target:    .res 2
 player_zp: .res 36
@@ -72,52 +72,6 @@ tune_zp:   .res 36
 
         .segment "CODE"
 ; ---- the flat-memory helpers, copied from prg0.s (see there) ----
-; void __fastcall__ map_window(unsigned long phys)
-; MAP CPU $2000-$5FFF (blocks 1-2, 16 KB) onto phys. phys: multiple of 256,
-; >= $2000 within its megabyte, bits 16-19 not all ones.
-_map_window:
-        stx fp                  ; bits 8-15
-        lda sreg
-        sta fp+1                ; bits 16-23
-        lda sreg+1
-        asl
-        asl
-        asl
-        asl
-        sta fp+2
-        lda fp+1
-        lsr
-        lsr
-        lsr
-        lsr
-        ora fp+2
-        sta fp+2                ; megabyte
-        lda fp
-        sec
-        sbc #$20
-        sta fp                  ; offset bits 8-15
-        lda fp+1
-        and #$0F
-        sbc #0
-        and #$0F
-        sta fp+1                ; offset bits 16-19
-        lda fp+2
-        tay
-        ldx #$0F
-        .byte $A3, $0F          ; LDZ #$0F
-        .byte $5C               ; MAP: megabytes
-        lda fp+1
-        .byte $4B               ; TAZ  (high half: no blocks)
-        lda fp+1
-        ora #$60                ; low half: blocks 1,2
-        tax
-        lda fp
-        tay
-        .byte $5C               ; MAP: offsets + masks
-        .byte $EA               ; EOM
-        .byte $A3, $00          ; LDZ #0
-        rts
-
 ; void __fastcall__ far_poke(unsigned long a, unsigned char v)
 _far_poke:
         pha
@@ -138,32 +92,6 @@ _far_poke:
         sta (fp)                ; STA [fp],Z  (Z = 0)
         jmp incsp4
 
-; void __fastcall__ far_poke16(unsigned long a, unsigned int v)
-_far_poke16:
-        pha
-        phx
-        ldy #0
-        lda (sp),y
-        sta fp
-        iny
-        lda (sp),y
-        sta fp+1
-        iny
-        lda (sp),y
-        sta fp+2
-        iny
-        lda (sp),y
-        sta fp+3
-        plx
-        pla
-        .byte $EA
-        sta (fp)
-        txa
-        .byte $A3, $01          ; LDZ #1
-        .byte $EA
-        sta (fp)
-        .byte $A3, $00          ; LDZ #0
-        jmp incsp4
 
 ; unsigned char __fastcall__ far_peek(unsigned long a)
 _far_peek:

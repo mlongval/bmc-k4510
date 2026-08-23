@@ -43,11 +43,12 @@ static void textn(uint8_t x, uint8_t y, uint32_t fa, uint8_t n, uint8_t fg) { ui
 static void clear_rows(uint8_t y0, uint8_t y1) { uint8_t x, y; for (y = y0; y <= y1; y++) for (x = 0; x < COLS; x++) put(x, y, ' ', C_YEL); }
 static void dec(uint8_t x, uint8_t y, uint16_t v, uint8_t fg) { char b[6]; uint8_t i = 5; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); text(x, y, b + i, fg); }
 static void dec2(uint8_t x, uint8_t y, uint8_t v, uint8_t fg) { put(x, y, '0' + v / 10, fg); put(x + 1, y, '0' + v % 10, fg); }
+static void hex4(uint8_t x, uint8_t y, uint16_t v) { static const char h[] = "0123456789ABCDEF"; uint8_t i; for (i = 0; i < 4; i++) { put(x + 3 - i, y, h[v & 15], C_GREY); v >>= 4; } }
 
 /* ---- the file list ------------------------------------------------------ */
 static uint16_t nfiles;
-static char fsname[40];
-static char oldcwd[40];
+static char fsname[36];
+static char oldcwd[36];
 static uint8_t fs_cmd(uint8_t c) { REG(0xD300) = c; return REG(0xD301); }
 static void fs_setname(const char *n) { far_w32(0xD304, (uint16_t)n); }
 static void list_dir(void)
@@ -73,19 +74,22 @@ static uint32_t r32far(uint32_t a) { return (uint32_t)far_peek(a) | ((uint32_t)f
 
 /* ---- the chooser -------------------------------------------------------- */
 #define PAGE 24
+static void draw_row(uint16_t top, uint16_t i, uint8_t sel)
+{
+    uint8_t r = (uint8_t)(i - top), x, y;
+    if (i >= nfiles || r >= PAGE * 2) return;
+    x = (r < PAGE) ? 2 : 41; y = 2 + (r % PAGE);
+    put(x - 2, y, sel ? 0x10 : ' ', C_WHITE);
+    textn(x, y, LISTBUF + (uint32_t)i * 32, 31, sel ? C_WHITE : C_YEL);
+}
 static void draw_list(uint16_t top, uint16_t cur)
 {
-    uint16_t i; uint8_t r;
+    uint16_t i;
     clear_rows(0, ROWS - 1);
     text(0, 0, "BMC-K4510 SID player", C_WHITE); text(22, 0, "/SID", C_GREY);
     dec(30, 0, nfiles, C_GREY); text(35, 0, "tunes", C_GREY);
     text(0, ROWS - 1, "cursor keys, PgUp/PgDn, Enter plays, Esc leaves", C_GREY);
-    for (r = 0; r < PAGE * 2; r++) {
-        i = top + r; if (i >= nfiles) break;
-        { uint8_t x = (r < PAGE) ? 2 : 41, y = 2 + (r % PAGE);
-          put(x - 2, y, i == cur ? 0x10 : ' ', C_WHITE);
-          textn(x, y, LISTBUF + (uint32_t)i * 32, 31, i == cur ? C_WHITE : C_YEL); }
-    }
+    for (i = top; i < nfiles && i < top + PAGE * 2; i++) draw_row(top, i, i == cur);
 }
 
 /* ---- the tune ----------------------------------------------------------- */
@@ -135,10 +139,9 @@ static void show_info(uint16_t n)
     text(0, 2, "title   ", C_LBLUE); textn(8, 2, FILEBUF + 0x16, 32, C_WHITE);
     text(0, 3, "author  ", C_LBLUE); textn(8, 3, FILEBUF + 0x36, 32, C_YEL);
     text(0, 4, "released", C_LBLUE); textn(8, 4, FILEBUF + 0x56, 32, C_YEL);
-    text(0, 6, "load $", C_GREY); { char h[5]; uint8_t i; static const char hx[] = "0123456789ABCDEF"; uint16_t v = load_addr;
-      for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } h[4] = 0; text(6, 6, h, C_GREY);
-      v = init_addr; for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } text(11, 6, "init $", C_GREY); text(17, 6, h, C_GREY);
-      v = play_addr; for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } text(22, 6, "play $", C_GREY); text(28, 6, h, C_GREY); }
+    hex4(6, 6, load_addr); text(0, 6, "load $", C_GREY);
+    text(11, 6, "init $", C_GREY); hex4(17, 6, init_addr);
+    text(22, 6, "play $", C_GREY); hex4(28, 6, play_addr);
     dec(34, 6, rate, C_GREY); text(37, 6, "Hz", C_GREY); text(41, 6, clocksel == 2 ? "NTSC" : "PAL ", C_GREY);
     text(0, 9,  "voice 1", C_LBLUE); text(0, 11, "voice 2", C_LBLUE); text(0, 13, "voice 3", C_LBLUE);
     text(0, ROWS - 1, "+/- song   space next tune   Esc back to the list", C_GREY);
@@ -199,14 +202,17 @@ static uint8_t play_file(uint16_t n)
 
 void main(void)
 {
-    uint16_t cur = 0, top = 0; uint8_t k;
+    uint16_t cur = 0, top = 0, oldcur, oldtop; uint8_t k;
     rom_out();                                            /* $0800-$CFFF and $E000-$FEFF are ours */
     far_w32(0xD308, (uint16_t)oldcwd); fs_cmd(15);        /* remember the caller's directory */
     list_dir();
+    draw_list(top, cur);
     for (;;) {
-        draw_list(top, cur);
-        for (;;) {
-            while (!(k = key_get())) ;
+        while (!(k = key_get())) ;
+        oldcur = cur; oldtop = top;
+        /* coalesce: handle every queued key before drawing anything (holding a
+         * cursor key fills the FIFO much faster than a full redraw drains it) */
+        do {
             if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); clear_rows(0, ROWS - 1); fs_setname(oldcwd); fs_cmd(11); return; }
             if (k == KEY_DOWN && cur + 1 < nfiles) cur++;
             else if (k == KEY_UP && cur) cur--;
@@ -219,12 +225,14 @@ void main(void)
             else if (k == 0x0D && nfiles) {
                 uint8_t r;
                 do { r = play_file(cur); if (r == 1 && cur + 1 < nfiles) cur++; else if (r == 2 && cur) cur--; else if (r) r = 0; } while (r);
+                top = cur - cur % (PAGE * 2);
+                draw_list(top, cur);
+                oldcur = cur; oldtop = top;
                 break;
             }
-            else continue;
-            if (cur < top) top = cur - cur % (PAGE * 2);
-            if (cur >= top + PAGE * 2) top = cur - cur % (PAGE * 2);
-            break;
-        }
+        } while ((k = key_get()) != 0);
+        if (cur < top || cur >= top + PAGE * 2) top = cur - cur % (PAGE * 2);
+        if (top != oldtop) draw_list(top, cur);            /* a new page: full redraw */
+        else if (cur != oldcur) { draw_row(top, oldcur, 0); draw_row(top, cur, 1); }
     }
 }

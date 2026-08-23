@@ -1,6 +1,6 @@
 /* far.h -- K-04: far memory, bank registers and far calls for cc65 programs
  * on the BMC-K4510. Everything here is a thin wrapper over hardware that
- * assembly programs use directly: the 45GS02 flat forms ([ptr],Z, in
+ * assembly programs use directly: the 45GS10 flat forms ([ptr],Z, in
  * prg0.s), the DMA engine at $D200, the bank registers at $D600 (K-01) and
  * the far-call gate at $DF00 (K-02). See core/io.h for the registers.
  *
@@ -26,7 +26,7 @@
 #define FAR_DEPTH  0xDF84u
 #define FAR_ERR    0xDF85u
 
-/* prg0.s: native 45GS02 flat forms */
+/* prg0.s: native 45GS10 flat forms */
 void __fastcall__ far_poke(unsigned long a, unsigned char v);
 void __fastcall__ far_poke16(unsigned long a, unsigned int v);
 unsigned char __fastcall__ far_peek(unsigned long a);

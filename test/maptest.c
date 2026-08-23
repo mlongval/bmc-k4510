@@ -1,7 +1,7 @@
 /* Phase 3: 256 MB, MAP, flat pointers into high memory, lazy commit.
  *
  * All programs are assembled by hand; the MAP encoding is the 4510's with
- * the 45GS02 megabyte convention (X==$0F / Z==$0F).
+ * the 45GS10 megabyte convention (X==$0F / Z==$0F).
  */
 #include <stdio.h>
 #include <string.h>

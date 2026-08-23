@@ -5,9 +5,10 @@
 A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 **bare metal on a Raspberry Pi 3B+** (and on a Linux desktop under SDL2).
 
-- **CPU:** 45GS02 — the MEGA65's 6502 descendant (4510 + Q register +
-  32-bit flat addressing + 28-bit MAP), at 40.5 MHz. The core is Xemu's,
-  byte for byte; everything around it is ours.
+- **CPU:** 45GS10 — our 4510 descendant: the MEGA65's 45GS02 instruction set
+  (Q register, 32-bit flat addressing, 28-bit MAP) plus the K4510 MMU — bank
+  registers, the far-call gate, RAM under the ROM — at 40.5 MHz. The
+  instruction core is Xemu's 45GS02, byte for byte; everything around it is ours.
 - **System ROM:** a shell (`MON` is the Wozmon-style monitor, `@MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
   LOAD SAVE RUN INFO MODE COLOR`; files live in a host directory (`fs/`) with
   `/PRG` for programs and `/BASIC` for BASIC text; bare names are searched

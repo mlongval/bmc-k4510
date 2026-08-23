@@ -1,6 +1,6 @@
 /* BMC-K4510 demo: rotating cube, wireframe then solid with hidden faces
  * removed. 320x240 (VICKe lowres), 8 bpp bitmap, two frame buffers in far
- * RAM ($110000 / $130000). Pixels go out with the 45GS02 flat store,
+ * RAM ($110000 / $130000). Pixels go out with the 45GS10 flat store,
  * spans with DMA fill, the clear with DMA fill, and the flip is one write
  * to the layer's DATA pointer. Any key exits. */
 #include "k4510.h"

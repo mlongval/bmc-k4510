@@ -1,6 +1,6 @@
 /* K4510 desktop frontend -- spike version.
  *
- * SDL2 window, 60 Hz. Each frame: run the 45GS02 for a frame's worth of
+ * SDL2 window, 60 Hz. Each frame: run the 45GS10 for a frame's worth of
  * cycles, feed keys into the keyboard register, let VICKe render screen
  * RAM. The ROM (Wozmon) does everything else.
  */

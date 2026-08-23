@@ -1,4 +1,4 @@
-/* BMC-K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS02.
+/* BMC-K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS10.
  *
  * A colour text terminal on VICKe text32, a keyboard driver, the host
  * filesystem, and a shell that keeps Wozmon's syntax and adds files,
@@ -42,7 +42,7 @@ static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
 extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
 uint16_t speed_loop(void);                       /* crt0.s */
-void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS02 flat store */
+void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS10 flat store */
 void __fastcall__ call_prog(unsigned addr);                     /* crt0.s: JSR with the ROM zero page saved around it */
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
@@ -461,7 +461,7 @@ static void info_version(void)
 static void info_cpu(void)
 {
     uint16_t it; uint32_t mhz100;
-    label("CPU"); puts_("45GS02: 4510 + Q register + 32-bit flat + 28-bit MAP, "); putdec(r16(SYS)); puts_(" kHz"); newline();
+    label("CPU"); puts_("45GS10: 4510 + Q register + 32-bit flat + 28-bit MAP, "); putdec(r16(SYS)); puts_(" kHz"); newline();
     it = speed_loop();                                  /* 18 cycles per iteration, one frame */
     mhz100 = (uint32_t)it * 18UL * 60UL / 10000UL;
     pad(8); puts_("measured "); putdec(mhz100 / 100); k_chrout('.'); putdec2(mhz100 % 100); puts_(" MHz  (");
@@ -599,9 +599,10 @@ static void cmd_help(void)
 
 static void shell_line(const char *p)
 {
-    uint8_t d; uint32_t v;
+    uint8_t d; uint32_t v; const char *p0;
     skipsp(&p);
     if (!*p) return;
+    p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
     if (is_cmd(&p, "DIR"))   { cmd_dir(); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
@@ -624,6 +625,13 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
     if (is_cmd(&p, "MON"))   { cmd_mon(p); return; }
+    /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
+    { char name[64]; const char *q = p0;
+      if (getname(&q, name) && !*q) {
+          uint8_t st = do_load(name, USER, 0);
+          if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
+          if (!st && last_run) { run_at(last_run); return; }
+      } }
     error("? (HELP lists the commands; MON is the monitor)");
 }
 
@@ -726,7 +734,7 @@ static void banner(void)
         switch (r) {
         case 0: fg = C_HI;  puts_("BMC-K4510"); break;
         case 1: fg = C_DIM; puts_("a fantasy 8/16-bit computer"); break;
-        case 3: fg = C_FG;  puts_("45GS02 at 40.5 MHz"); break;
+        case 3: fg = C_FG;  puts_("45GS10 at 40.5 MHz"); break;
         case 4: fg = C_FG;  puts_("256 MB"); break;
         }
         fg = ofg;

@@ -1,7 +1,7 @@
 /* K4510 memory system.
  *
  * 256 MB physical (28-bit), reached from the CPU's 16-bit bus through the
- * 4510/45GS02 MAP mechanism, and from the 45GS02's 32-bit flat forms
+ * 4510/45GS10 MAP mechanism, and from the 45GS10's 32-bit flat forms
  * directly. The CPU never sees any of this: it only talks through the
  * callbacks in mem.c.
  *

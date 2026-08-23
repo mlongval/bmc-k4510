@@ -1,12 +1,12 @@
 /* K4510 memory system: 256 MB, 28-bit MAP, the eleven CPU callbacks.
  *
- * MAP semantics follow the 4510 as extended by the 45GS02, read from
+ * MAP semantics follow the 4510 as extended by the 45GS10, read from
  * Xemu's MEGA65 target (memory_mapper.c) rather than from a datasheet:
  *
  *   MAP with A,X,Y,Z:
- *     X == $0F : A is the megabyte for the lower 32 KB   (45GS02)
+ *     X == $0F : A is the megabyte for the lower 32 KB   (45GS10)
  *     else     : offset_low  = A<<8 | (X&15)<<16 ; mask[3:0] = X>>4
- *     Z == $0F : Y is the megabyte for the upper 32 KB   (45GS02)
+ *     Z == $0F : Y is the megabyte for the upper 32 KB   (45GS10)
  *     else     : offset_high = Y<<8 | (Z&15)<<16 ; mask[7:4] = Z>>4
  *   A mapped 8 KB block n (CPU $n000*2) resolves to
  *     phys = megabyte + ((offset + cpu_addr) & $FFFFF)
