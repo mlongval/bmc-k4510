@@ -27,8 +27,8 @@
  *   $D620  read: bit n = block n banked     $D621  read: MAP mask (bit n = MAPped)
  * A banked block resolves phys = base + (cpu & $1FFF). MAP rewrites all
  * eight blocks, so the ROM's "MAP off" at program exit clears the banks too.
- * Blocks 6 and 7 hold I/O and ROM in the unmapped view: banking them hides
- * these registers and the IRQ vectors -- legal, your problem.
+ * The I/O page $D000-$DFFF and the stub page $FF00-$FFFF stay visible whatever
+ * is banked, so banking blocks 6 and 7 reveals the RAM under the ROM only.
  * FAR gate: JSR $DF00 + 4n calls descriptor n of the table at FARTAB.
  *   $DF00-$DF7F  32 call slots      $DFF0  return gate (RTS lands here)
  *   $DF80-$DF83  FARTAB 28-bit pointer to the descriptor table (read/write)

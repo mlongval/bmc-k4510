@@ -187,13 +187,12 @@ w_video:  jsr zp_in
         jmp zp_out
 
 ; ---- the stub page $FF00-$FFFF: always the ROM, whatever is banked (K-05) ----
-; A program may bank blocks 5 and 7 ($A000-$BFFF, $E000-$FEFF) onto the RAM
-; under the ROM (far.h: rom_out()). Every system call and interrupt passes
+; A program may bank blocks 5-7 ($A000-$CFFF, $E000-$FEFF; the I/O page stays)
+; onto the RAM under the ROM (far.h: rom_out()). Every system call and interrupt passes
 ; through here: the stub saves bank registers 5-7 ($D614-$D61F, 12 bytes) on
 ; the stack, banks the ROM in, calls, restores. Stack-based, so calls nest;
 ; the IRQ path uses no temporaries, so it may land anywhere in a call.
-; ~80 cycles per call. (Block 6 holds the I/O page: a program that banks it
-; away has no way back -- the stub cannot reach the registers either.)
+; ~80 cycles per call.
         .segment "STUB"
 s_chrout: jsr rom_push
         jsr w_chrout
@@ -224,7 +223,8 @@ s_irq:  pha
         dex
         bpl @i
         lda #$FF
-        sta $D617               ; ROM in
+        sta $D617               ; ROM in (blocks 5, 6, 7)
+        sta $D61B
         sta $D61F
         jsr irq
         ldx #0
@@ -278,6 +278,7 @@ rom_push: sta stub_a
         bpl @p
         lda #$FF
         sta $D617
+        sta $D61B
         sta $D61F
         lda stub_r+1
         pha

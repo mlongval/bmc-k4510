@@ -162,18 +162,19 @@ static uint8_t far_gate(uint16_t addr)
 }
 
 /* ---- the eleven callbacks --------------------------------------------- */
-/* I/O and ROM live in the *unmapped* view only: if a block is MAPped over
- * $D000 or $F000 the CPU sees RAM there, as on the C65/MEGA65. */
+/* The ROM lives in the unmapped view only (a block MAPped or banked over it
+ * shows RAM); the I/O page $D000-$DFFF and the stub page $FF00-$FFFF are
+ * always what they are, whatever is mapped (K-05: so block 6 can be RAM). */
 
 Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_UNLIKELY(addr == cpu65.old_pc)) dbg_pc(addr);       /* opcode fetch: the debug recorder */
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {        /* the I/O page is always I/O, whatever is banked (like the stub page) */
+        if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
+        return io_read(addr);
+    }
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
-            if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
-            return io_read(addr);
-        }
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return k4510_ram[K4510_ROM_PHYS + addr];
         return k4510_ram[addr];
     }
@@ -183,8 +184,8 @@ Uint8 cpu65_read_callback(Uint16 addr)
 void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
     uint32_t base = block_base[addr >> 13];
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return;               /* ROM (I/O page wins: the hole in a big ROM) */
         k4510_ram[addr] = data;
         return;

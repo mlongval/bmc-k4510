@@ -25,3 +25,5 @@ test/banktest
 test/mathtest
 test/woztest
 dumps/
+!demo/sidplay0.s
+!demo/sidplay-header.s

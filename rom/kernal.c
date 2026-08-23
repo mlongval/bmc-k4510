@@ -473,8 +473,8 @@ static void info_mem(void)
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
     pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  ROM data $0200-$02FF, $0440-$07FF"); newline();
-    pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); ROM out: $0800-$BFFF + $E000-$FEFF (54 KB)"); newline();
-    pad(8); puts_("(banks 5->$A000 7->$E000; ROM keeps $C000-$CFFF, $FF00 page)"); newline();
+    pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); ROM out: $0800-$CFFF + $E000-$FEFF (62 KB)"); newline();
+    pad(8); puts_("(banks 5-7 -> $A000-$FEFF; I/O and the $FF00 page always stay)"); newline();
     pad(8); puts_("text screen at $030000 (far)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();

@@ -18,6 +18,10 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
 - **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
   the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.
+- **SID player:** `RUN SIDPLAY` -- a chooser over `fs/SID` (199 PSID tunes
+  included), played by their own 6502 code on SID 0 with the player hidden
+  under the ROM; +/- picks the song, Esc returns. RSID files need a real C64
+  and are shown as unsupported.
 - **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point

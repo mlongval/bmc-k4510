@@ -31,16 +31,16 @@ void main(void)
     print("ROM in:  $A000 reads $"); hex16(*(uint16_t *)0xA000); print(", $E000 reads $"); hex16(*(uint16_t *)0xE000); print(" (ROM code)"); nl();
     rom_out();
     print("ROM out: this line is printed by CHROUT with the ROM banked away"); nl();
-    bad5 = fill_check(0xA000, 0xC000, 0x11);
+    bad5 = fill_check(0xA000, 0xD000, 0x11);
     bad7 = fill_check(0xE000, 0xFF00, 0x22);
     under = *(uint8_t *)0xFF80;                    /* the stub page is still the ROM: a JMP */
-    print("  filled $A000-$BFFF and $E000-$FEFF: "); dec(bad5 + bad7); print(" bad bytes"); nl();
+    print("  filled $A000-$CFFF and $E000-$FEFF: "); dec(bad5 + bad7); print(" bad bytes"); nl();
     print("  $FF80 still reads $"); hex16(under); print(" (the jump table: the stub page never banks)"); nl();
     print("  bank 5 = $"); hex16((uint16_t)bank_get(5)); print(", bank 7 = $"); hex16((uint16_t)bank_get(7)); nl();
     rom_in();
     print("ROM in again: $A000 reads $"); hex16(*(uint16_t *)0xA000); print(" (the pattern is under it, untouched: $"); rom_out(); hex16(*(uint16_t *)0xA000); rom_in(); print(")"); nl(); nl();
-    print("a program can use $0800-$BFFF + $E000-$FEFF = "); dec((0xC000UL - 0x0800) / 1024 + (0xFF00UL - 0xE000) / 1024); print(" KB of the 64 KB view;"); nl();
-    print("the ROM keeps $C000-$CFFF, I/O keeps $D000-$DFFF, the stub keeps $FF00-$FFFF."); nl();
+    print("a program can use $0800-$CFFF + $E000-$FEFF = "); dec((0xD000UL - 0x0800) / 1024 + (0xFF00UL - 0xE000) / 1024); print(" KB of the 64 KB view;"); nl();
+    print("I/O keeps $D000-$DFFF and the stub keeps $FF00-$FFFF, whatever is banked."); nl();
     nl(); print("DONE -- press a key"); nl();
     while (rom_getin()) ; while (!rom_getin()) ;
 }
