@@ -244,17 +244,19 @@ void vicke_line(int y)
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
     uint8_t *line = frame_fb + y * frame_pitch;
-    if (reg[VR_CTRL] & 2) {                      /* lowres: 320x240, every pixel doubled */
+    if (reg[VR_CTRL] & 6) {                      /* bit1: 320x240 (both axes doubled); bit2: 640x240 (lines doubled) */
+        int half = reg[VR_CTRL] & 2;
         if (y & 1) { memcpy(line, line - frame_pitch, VICKE_WIDTH); return; }
-        memset(lowres_tmp, reg[VR_BGCOL], VICKE_WIDTH);
+        uint8_t *dst = half ? lowres_tmp : line;
+        memset(dst, reg[VR_BGCOL], VICKE_WIDTH);
         if (reg[VR_CTRL] & 1) {
             memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
             for (int n = 0; n < VICKE_LAYERS; n++) {
-                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y >> 1, lowres_tmp, 0);
-                sprites_line(n, y >> 1, lowres_tmp);
+                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y >> 1, dst, 0);
+                sprites_line(n, y >> 1, dst);
             }
         }
-        for (int x = 0; x < VICKE_WIDTH / 2; x++) line[2 * x] = line[2 * x + 1] = lowres_tmp[x];
+        if (half) for (int x = 0; x < VICKE_WIDTH / 2; x++) line[2 * x] = line[2 * x + 1] = lowres_tmp[x];
         return;
     }
     memset(line, reg[VR_BGCOL], VICKE_WIDTH);

@@ -5,8 +5,8 @@
  * memory. Rendering is per scanline into an 8-bit indexed framebuffer the
  * frontend supplies; the frontend applies vicke_palette_rgb().
  *
- *   $00  CTRL      bit0 display enable, bit1 lowres (320x240 doubled; raster
- *                  lines still 0..479)
+ *   $00  CTRL      bit0 display enable, bit1 320x240, bit2 640x240 (doubled;
+ *                  raster lines still 0..479)
  *   $01  BGCOL     background palette index (where nothing is drawn)
  *   $02  RASTER    read: current line (low 8); write: raster-compare low
  *   $03            read: line high bits;         write: compare high

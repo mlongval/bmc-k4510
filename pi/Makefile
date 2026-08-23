@@ -1,7 +1,9 @@
 #
 # BMC-K4510 on a Raspberry Pi 3B+, bare metal: Circle + circle-libsdl2.
 # The frontend is sdl/main.c, unchanged; this directory supplies the Circle
-# kernel, the host glue, and the C64 keyboard on GPIO.
+# kernel (three cores), the host glue, and the C64 keyboard on GPIO. Files
+# opened from the emulator core go through the library's I/O service
+# (circle-syscallwrap redirects the C library's open/read/opendir/...).
 #
 #   make BOARD=rpi3 SHIM=/path/to/circle-libsdl2
 #
@@ -20,6 +22,7 @@ OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o \
 STANDARD = -std=c++23 -Wno-volatile
 C_STANDARD = -std=gnu11
 
+include $(SHIM)/circle-syscallwrap/syscallwrap.mk
 include $(CIRCLEHOME)/Rules.mk
 
 INCLUDE := -I $(SHIM)/include $(CIRCLE_STDLIB_INCLUDES) $(INCLUDE) -I $(CORE)
@@ -39,3 +42,6 @@ frontend.o: ../sdl/main.c
 -include $(DEPS)
 
 include $(SHIM)/sdl-app.mk
+
+# syscallwrap.mk comes before Rules.mk and would otherwise be the default goal
+.DEFAULT_GOAL := kernel8.img

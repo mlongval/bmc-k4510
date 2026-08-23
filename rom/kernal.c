@@ -22,8 +22,9 @@
 #define FONT     0x010000UL           /* placed by the loader */
 #define USER     0x6000u              /* free RAM for programs: $6000-$9FFF */
 #define USER_END 0xA000u
-#define COLS 80
-#define ROWS 60
+#define MAXCOLS 80
+#define MAXROWS 60
+static uint8_t COLS = 80, ROWS = 60, vmode;   /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240) */
 #define ROM_VERSION "stage 3"
 
 #define C_BG   0x06   /* VIC-II blue     */
@@ -329,6 +330,16 @@ static void cmd_copy(const char *p)
     putdec(to - from + 1); puts_(" bytes copied to "); puthex28(dst); newline();
 }
 
+static void video_init(void);
+static void cmd_mode(const char *p)
+{
+    uint8_t d; uint32_t m;
+    if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
+               puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : "320x240"); puts_(" pixels   (MODE 0|1|2)"); newline(); return; }
+    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
+    vmode = (uint8_t)m; video_init(); cls();
+}
+
 static void cmd_color(const char *p)
 {
     uint8_t d; uint32_t f, b = bg;
@@ -374,7 +385,7 @@ static void info_mem(void)
 static void info_video(void)
 {
     uint8_t ctrl = REG(VICKE), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
-    label("VIDEO"); puts_("VICKe "); puts_((ctrl & 2) ? "320x240 (lowres)" : "640x480"); puts_(", display ");
+    label("VIDEO"); puts_("VICKe "); puts_((ctrl & 2) ? "320x240" : (ctrl & 4) ? "640x240" : "640x480"); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
     onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKE + 1)); puts_(", raster "); putdec(r16(VICKE + 2) & 0x1FF);
     puts_(", irq mask $"); puthex(REG(VICKE + 5)); newline();
     for (n = 0; n < 4; n++) {
@@ -463,7 +474,7 @@ static void cmd_help(void)
     fg = C_HI; puts_("Wozmon:  "); fg = o; puts_("addr   addr.addr   addr:b b b   addrR      (28-bit hex; DMA beyond 64K)"); newline();
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR   LOAD name [addr]   SAVE name from.to   TYPE name   RUN [name.prg|addr]"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]   TIME   COLOR fg [bg]   ECHO text   CLS   RESET   HELP"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2]  COLOR fg [bg]  ECHO text  CLS  RESET  HELP"); newline();
 }
 
 static void shell_line(const char *p)
@@ -481,6 +492,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "INFO"))  { cmd_info(p); return; }
     if (is_cmd(&p, "TIME"))  { info_time(); return; }
     if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { cmd_color(p); return; }
+    if (is_cmd(&p, "MODE"))  { cmd_mode(p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
@@ -508,6 +520,7 @@ static const uint8_t c64pal[16][3] = {
 static void video_init(void)
 {
     uint8_t i;
+    COLS = vmode == 2 ? 40 : 80; ROWS = vmode == 0 ? 60 : 30;
     REG(VICKE + 0) = 0;
     REG(VICKE + 1) = C_BG;
     for (i = 0; i < 16; i++) { REG(VICKE + 6) = i; REG(VICKE + 7) = c64pal[i][0]; REG(VICKE + 8) = c64pal[i][1]; REG(VICKE + 9) = c64pal[i][2]; }
@@ -521,7 +534,7 @@ static void video_init(void)
     for (i = 1; i < 4; i++) REG(VICKE + 0x10 + i * 0x10) = 0;
     REG(VICKE + 0x0E) = 0; REG(VICKE + 0x64) = 0;
     REG(VICKE + 5) = 1;                        /* IRQ on vblank */
-    REG(VICKE + 0) = 1;
+    REG(VICKE + 0) = (uint8_t)(1 | (vmode == 2 ? 2 : vmode == 1 ? 4 : 0));
 }
 
 int main(void)

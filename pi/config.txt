@@ -1,15 +1,11 @@
 # BMC-K4510 on a Raspberry Pi 3B+ (bare metal, Circle + circle-libsdl2)
-# The TV is driven at 640x480@60 and upscales itself; the emulator presents 1:1.
+# The TV is driven at 1280x720; the presentation core scales the 640x480
+# picture to 960x720 (4:3 kept, no distortion). No firmware margins: if the
+# TV crops the edges, set its picture mode to "Just Scan" / "Dot by Dot".
+# hdmi_mode=1 (640x480) also works and is lighter on the presentation core.
 hdmi_group=1
-hdmi_mode=1
-# The TV crops the edges of a 480p picture; these margins make the firmware
-# scale the 640x480 frame inward so the whole K4510 screen is visible.
-# Shrink or zero them on a display that shows the full picture.
-disable_overscan=0
-overscan_left=24
-overscan_right=24
-overscan_top=12
-overscan_bottom=12
+hdmi_mode=4
+disable_overscan=1
 
 arm_64bit=1
 kernel_address=0x80000
