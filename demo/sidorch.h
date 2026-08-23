@@ -8,8 +8,8 @@
  *   2.0-2.2 pad    the chord an octave up, triangle, slow attack   (NCHIPS 4)
  *   3.0 echo       the melody two eighths late, pulse
  *   3.1 bass 8va   sawtooth, off-beats           3.2 hi-hat     noise, 8ths
- * On screen: a row per voice with the note it holds and a level bar.
- * Any key returns to the shell. */
+ * On screen: a row per voice with the note it holds and a level bar; the
+ * key in front of a row toggles that voice. Q or Escape returns to the shell. */
 #include "k4510.h"
 #include "far.h"
 
@@ -32,7 +32,8 @@ static const uint8_t melody[64] = {
     N(5,D),N(5,Fs),N(5,A),N(5,G), N(5,Fs),N(5,D),N(5,Fs),N(5,E),  N(5,D),N(4,B),N(5,D),N(5,A), N(4,G),N(4,B),N(4,A),N(4,G),
     N(4,Fs),N(4,D),N(4,E),N(5,Cs), N(5,D),N(5,Fs),N(5,A),N(5,A),  N(4,B),N(5,G),N(5,A),N(5,Fs), N(5,A),N(5,Cs),N(5,D),0 };
 
-static uint8_t cur[NV], level[NV];
+static uint8_t cur[NV], level[NV], muted[NV];
+static const uint8_t wave_of[12] = { 0x20, 0x40, 0x40, 0x10, 0x40, 0x80, 0x10, 0x10, 0x10, 0x40, 0x20, 0x80 };
 
 static void sid_freq(uint8_t chip, uint8_t voice, uint8_t note)
 {
@@ -44,8 +45,22 @@ static void sid_freq(uint8_t chip, uint8_t voice, uint8_t note)
 static void play(uint8_t chip, uint8_t voice, uint8_t note, uint8_t wave, uint8_t lvl)
 {
     uint16_t ctl = SIDB(chip) + voice * 7 + 4;
+    if (muted[chip * 3 + voice]) { cur[chip * 3 + voice] = note; return; }     /* a muted voice still shows its note */
     sid_freq(chip, voice, note); REG(ctl) = wave; REG(ctl) = wave | 1;
     cur[chip * 3 + voice] = note; level[chip * 3 + voice] = lvl;
+}
+/* keys 1-9, 0, A, B toggle voices 1-12; returns 1 on Q or Escape */
+static uint8_t keys(void)
+{
+    uint8_t k = key_get(), v = 255;
+    if (!k) return 0;
+    if (k == 'q' || k == 'Q' || k == 0x1B) return 1;
+    if (k >= '1' && k <= '9') v = k - '1'; else if (k == '0') v = 9; else if ((k | 0x20) == 'a') v = 10; else if ((k | 0x20) == 'b') v = 11;
+    if (v < NV) {
+        muted[v] ^= 1;
+        if (muted[v]) { REG(SIDB(v / 3) + (v % 3) * 7 + 4) = wave_of[v]; level[v] = 0; }   /* gate off now */
+    }
+    return 0;
 }
 static void release(uint8_t chip, uint8_t voice, uint8_t wave) { REG(SIDB(chip) + voice * 7 + 4) = wave; }
 static void adsr(uint8_t chip, uint8_t voice, uint8_t ad, uint8_t sr, uint16_t pw)
@@ -59,7 +74,8 @@ static void show(uint8_t v)
     uint32_t p = TEXTMAP + (uint32_t)(6 + v * 2) * 80 + 32; uint8_t i, n = cur[v];
     if (n) { far_poke(p, names[n % 12][0]); far_poke(p + 1, names[n % 12][1]); far_poke(p + 2, '0' + n / 12); }
     else { far_poke(p, '-'); far_poke(p + 1, '-'); far_poke(p + 2, ' '); }
-    for (i = 0; i < 40; i++) far_poke(p + 6 + i, i < level[v] ? 0xDB : '.');
+    if (muted[v]) { far_poke(p + 6, 'o'); far_poke(p + 7, 'f'); far_poke(p + 8, 'f'); for (i = 3; i < 40; i++) far_poke(p + 6 + i, ' '); }
+    else for (i = 0; i < 40; i++) far_poke(p + 6 + i, i < level[v] ? 0xDB : '.');
 }
 
 static const char *const vname[12] = {
@@ -78,8 +94,8 @@ static void orchestra(const char *title)
     text8_layer(0, TEXTMAP, 80, 0);
     text8_print(TEXTMAP, 80, 1, 1, title);
     text8_print(TEXTMAP, 80, 1, 3, "Pachelbel in D, 8 bars at 120 bpm.  reSID 6581 x NCHIPS at 1 MHz, one channel.");
-    for (v = 0; v < NV; v++) text8_print(TEXTMAP, 80, 1, 6 + v * 2, vname[v]);
-    text8_print(TEXTMAP, 80, 1, 6 + NV * 2 + 2, "any key returns to the shell");
+    for (v = 0; v < NV; v++) { far_poke(TEXTMAP + (uint32_t)(6 + v * 2) * 80 + 1, "1234567890AB"[v]); text8_print(TEXTMAP, 80, 3, 6 + v * 2, vname[v]); }
+    text8_print(TEXTMAP, 80, 1, 6 + NV * 2 + 2, "keys 1-9, 0, A, B toggle a voice;  Q or Escape returns to the shell");
     REG(V_CTRL) = 1;
 
     for (c = 0; c < NCHIPS; c++) { uint8_t r; for (r = 0; r < 25; r++) REG(SIDB(c) + r) = 0; REG(SIDB(c) + 0x18) = 15; }
@@ -91,7 +107,7 @@ static void orchestra(const char *title)
     adsr(3, 0, 0x09, 0x37, 0x0800);  adsr(3, 1, 0x00, 0x47, 0);      adsr(3, 2, 0x00, 0x03, 0); REG(SIDB(3) + 0x18) = 10;/* echo, bass 8va, hat */
 #endif
 
-    while (!key_hit()) {
+    while (!keys()) {
         if (frame == 0) {                                          /* a new eighth */
             uint8_t n = melody[step];
             if ((step & 7) == 0) {                                 /* a new bar: bass and chord */

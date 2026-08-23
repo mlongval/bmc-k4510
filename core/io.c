@@ -355,7 +355,8 @@ int dbg_dump(const char *why)
 {
     char name[64]; FILE *f; time_t t = time(NULL); struct tm *m = localtime(&t);
     mkdir("dumps", 0777);
-    snprintf(name, sizeof name, "dumps/dump-%03d.txt", ++dbg_num);
+    if (++dbg_num > 100) dbg_num = 1;                  /* rotate: at most 100 files */
+    snprintf(name, sizeof name, "dumps/dump-%03d.txt", dbg_num);
     if (!(f = fopen(name, "w"))) { dbg_num--; return -1; }
     fprintf(f, "BMC-K4510 dump %d  %04d-%02d-%02d %02d:%02d:%02d  (%s)\n", dbg_num, m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, why);
     fprintf(f, "frame %u  cwd /%s\n\n", (unsigned)sys_frames, fs_cwd);
@@ -400,7 +401,8 @@ int dbg_dump(const char *why)
 
 void io_reset(void)
 {
-    sys_frames = 0; memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
+    sys_frames = 0; dbg_auto = 1; dbg_auto_next = 900;   /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
+    memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();

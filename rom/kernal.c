@@ -579,7 +579,7 @@ static void cmd_mon(const char *p);
 static void cmd_dump(const char *p)
 {
     uint8_t n;
-    if (is_cmd(&p, "ON"))  { REG(SYS + 0xF2) = 1; puts_("auto dump on: every 15 s of run time"); newline(); return; }
+    if (is_cmd(&p, "ON"))  { REG(SYS + 0xF2) = 1; puts_("auto dump on: every 15 s of run time (dumps/, 100 files rotating)"); newline(); return; }
     if (is_cmd(&p, "OFF")) { REG(SYS + 0xF2) = 0; puts_("auto dump off"); newline(); return; }
     REG(SYS + 0xF1) = '#'; while (*p) REG(SYS + 0xF1) = *p++; REG(SYS + 0xF1) = '\n';
     REG(SYS + 0xF0) = 1;

@@ -80,6 +80,26 @@ k_setname
 ; The cruncher left the text verbatim after the @, terminated by the [EOL] 0.
 K_AT
 	LDY	#1
+	LDA	(Bpntrl),Y		; @BYE / @EXIT / @QUIT: leave BASIC for the shell (a cold start)
+	CMP	#'B'
+	BEQ	K_AT_bye0
+	CMP	#'E'
+	BEQ	K_AT_bye0
+	CMP	#'Q'
+	BNE	K_AT_go
+K_AT_bye0
+	INY
+	LDA	(Bpntrl),Y
+	CMP	#'Y'
+	BEQ	K_AT_bye
+	CMP	#'X'
+	BEQ	K_AT_bye
+	CMP	#'U'
+	BNE	K_AT_go
+K_AT_bye
+	JSR	k4510_hush
+	JMP	k4510_quit
+K_AT_go
 	LDA	Bpntrl			; A/X = pointer past the @
 	CLC
 	ADC	#1

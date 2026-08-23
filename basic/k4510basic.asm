@@ -59,8 +59,6 @@ k4510_in
 	PLX
 	CMP	#0
 	BEQ	k4510_nokey
-	CMP	#ESC
-	BEQ	k4510_quit
 	CMP	#$61			; fold a-z to upper case: EhBASIC keywords are upper case
 	BCC	k4510_gotkey
 	CMP	#$7B
@@ -84,14 +82,31 @@ k4510_cc
 	BNE	k4510_cc_done		; checks inhibited (LOAD feeding a file)
 	LDA	$D103			; a Ctrl-C or RUN/STOP anywhere in the queue? (removed; other keys stay for GET)
 	BEQ	k4510_cc_done
-	CMP	#ESC
-	BEQ	k4510_quit		; RUN/STOP: back to the shell
+	JSR	k4510_hush		; both stop the program and silence the SIDs; @BYE leaves to the shell
+	LDA	#$03
 	STA	ccbyte
 	LDX	#$20
 	STX	ccnull
 	JMP	LAB_1636		; Ctrl-C: STOP
 k4510_cc_done
 	JMP	LAB_FBA2		; the interrupt checks, as in the stock routine
+
+; silence the four SIDs: volume 0, every gate off
+k4510_hush
+	PHA
+	PHX
+	LDX	#0
+k4510_hush1
+	STZ	$D400,X			; registers 0-24 of chip 0; the other chips are 32 bytes apart
+	STZ	$D420,X
+	STZ	$D440,X
+	STZ	$D460,X
+	INX
+	CPX	#25
+	BNE	k4510_hush1
+	PLX
+	PLA
+	RTS
 
 ; output A; EhBASIC sends CR LF and the ROM's CHROUT makes a newline of either
 k4510_out
