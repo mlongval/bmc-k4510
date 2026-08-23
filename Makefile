@@ -13,7 +13,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/balls.prg fs/cube.prg fs/mandel.prg test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/balls.prg fs/cube.prg fs/mandel.prg fs/keytest.prg test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -94,12 +94,14 @@ clean-demos:
 .PHONY: all test clean rom
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/balls.prg fs/cube.prg fs/mandel.prg
+DEMOS = fs/balls.prg fs/cube.prg fs/mandel.prg fs/keytest.prg
 demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
-fs/%.prg: demo/%.c demo/k4510.h demo/prg0.o demo/prg.cfg
+demo/romcalls.o: demo/romcalls.s
+	ca65 --cpu 65c02 -o $@ $<
+fs/%.prg: demo/%.c demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
-	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/$*.o none.lib -m demo/$*.map
+	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
 demos: $(DEMOS)
 .PHONY: demos
