@@ -392,6 +392,7 @@ static void cmd_run(const char *p)
         char name[64]; uint8_t st;
         getname(&p, name);
         st = do_load(name, USER, 0);
+        if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
         if (st == 1) { error("run: not found"); return; }
         if (st) { error("run: bad file"); return; }
         if (!last_run) { error("run: not a program"); return; }
