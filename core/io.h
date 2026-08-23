@@ -107,6 +107,9 @@
  *   $0D,0E,0F  frames since reset, 24-bit LE (vblank count)
  *   $10-$1F  version string, NUL-terminated
  *   $20     ROM base page (e.g. $A0 for a 24 KB ROM)
+ *   $F0     write: DUMP -- the host writes dumps/dump-NNN.txt (machine state, screen,
+ *           PC history, keys, the shell log); read: the number of the last dump
+ *   $F1     write: append a byte to the shell log (the ROM logs command lines and DUMP notes)
  * SID registers $00-$18 read back the last value written (a shadow; real
  * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
 
@@ -116,6 +119,7 @@
  * control keys as ASCII controls; everything else as $80+ codes. */
 #define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none */
 #define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
+#define IO_KBDPEEK     (IO_INPUT + 0x02)  /* read: the next event without popping it; 0 if none */
 #define KEY_ENTER 0x0D
 #define KEY_BS    0x08
 #define KEY_TAB   0x09
@@ -181,6 +185,8 @@ void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);
 
 void    kbd_push(uint8_t code);
+void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */
+int     dbg_dump(const char *why);           /* write a dump; returns its number, -1 on failure */
 void    kbd_modifiers(uint8_t shift, uint8_t ctrl, uint8_t alt);
 
 #endif

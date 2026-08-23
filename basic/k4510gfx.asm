@@ -12,6 +12,7 @@ DMA		= $D200
 
 gargs	= $03A0			; 8 x 16-bit argument slots (above EhBASIC's Ibuffs, which ends at $039F)
 gmode	= $03B0			; current GRAPHICS mode
+ROM_VIDEO = $FF92		; ROM: restore the text screen mode and palette
 gw	= $03B1			; width low/high
 gh	= $03B3
 
@@ -68,10 +69,11 @@ K_GRAPHICS
 	JSR	LAB_EVNM
 	JSR	LAB_F2FX
 	LDA	Itempl
-	STA	gmode
 	BNE	k_gfx_some
+	STA	gmode
 	JMP	k_gfx_off
 k_gfx_some
+	STA	gmode
 	CMP	#1
 	BEQ	k_gfx_lo
 	LDA	#<640
@@ -150,8 +152,7 @@ k_gfx_rts
 	RTS
 k_gfx_off
 	STZ	VK+$20			; layer 1 off
-	LDA	#$01
-	STA	VK+$00			; back to 640x480 for the text
+	JMP	ROM_VIDEO		; the ROM puts its mode and palette back (the demo may have changed both)
 	RTS
 
 ; PLOT x,y,c : a one-pixel LINE from (x,y) to (x,y)

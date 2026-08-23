@@ -24,3 +24,4 @@ test/banktest
 !demo/segdemo-header.s
 test/mathtest
 test/woztest
+dumps/

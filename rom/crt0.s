@@ -5,7 +5,7 @@
         .import   copydata, zerobss, initlib
         .importzp sp
         .import   incsp4
-        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell
+        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video
         .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _call_prog
 
         .zeropage
@@ -183,6 +183,9 @@ w_shell:  phx                   ; A/X = pointer to a NUL-terminated command line
         plx
         jsr _k_shell
         jmp zp_out
+w_video:  jsr zp_in
+        jsr _k_video
+        jmp zp_out
 
 ; ---- jump table at $FF80: the system call interface ----
         .segment "JUMPTAB"
@@ -192,6 +195,7 @@ w_shell:  phx                   ; A/X = pointer to a NUL-terminated command line
         jmp w_load              ; $FF89  LOAD    name ptr in $F0/$F1, dest in $F2..$F5 -> A status, size in $F6..$F9
         jmp w_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
         jmp w_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
+        jmp w_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
 
         .segment "VECTORS"
         .word nmi

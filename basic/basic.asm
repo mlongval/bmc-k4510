@@ -7760,7 +7760,7 @@ PG2_TABS
 	.byte	$00			; ctrl-c flag		-	$00 = enabled
 	.byte	$00			; ctrl-c byte		-	GET needs this
 	.byte	$00			; ctrl-c byte timeout	-	GET needs this
-	.word	CTRLC			; ctrl c check vector
+	.word	k4510_cc		; ctrl c check vector (K4510: peeks, does not eat keys)
 ;	.word	xxxx			; non halting key input	-	monitor to set this
 ;	.word	xxxx			; output vector		-	monitor to set this
 ;	.word	xxxx			; load vector		-	monitor to set this

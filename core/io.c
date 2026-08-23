@@ -1,5 +1,10 @@
 #include "io.h"
 #include "mem.h"
+#include "xemu/emutools_basicdefs.h"
+#include "xemu/cpu65.h"
+static void dbg_key(uint8_t k);
+static uint32_t sys_frames;
+static int dbg_num;
 #include "vicke.h"
 #include "sid.h"
 
@@ -14,6 +19,7 @@ static uint8_t kbd_last;
 
 void kbd_push(uint8_t ascii)
 {
+    dbg_key(ascii);
     int next = (kbd_tail + 1) & 63;
     if (next == kbd_head) return;
     kbd_fifo[kbd_tail] = ascii;
@@ -307,7 +313,6 @@ static void math_write(uint8_t r, uint8_t v)
 #include <time.h>
 extern uint32_t mem_rom_base;
 static uint8_t  sys_reg[0x10];
-static uint32_t sys_frames;
 static uint8_t  sid_shadow[4][32];
 static const char sys_version[16] = "k4510 0.3";
 void io_frame_tick(void) { sys_frames++; }
@@ -329,7 +334,66 @@ static uint8_t sys_read(uint8_t r)
     if (r < 0x10) return (uint8_t)(sys_frames >> ((r - 0x0D) * 8));
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
+    if (r == 0xF0) return (uint8_t)dbg_num;
     return 0xFF;
+}
+
+/* ---- debug recorder and DUMP ------------------------------------------- */
+#define DBG_PCS 4096
+#define DBG_KEYS 256
+#define DBG_LOG 8192
+static uint16_t dbg_pcs[DBG_PCS]; static uint32_t dbg_pci;
+static uint8_t dbg_keys[DBG_KEYS]; static uint32_t dbg_keyi;
+static char dbg_log[DBG_LOG]; static uint32_t dbg_logi;
+void dbg_pc(uint16_t pc) { dbg_pcs[dbg_pci++ & (DBG_PCS - 1)] = pc; }
+static void dbg_key(uint8_t k) { dbg_keys[dbg_keyi++ & (DBG_KEYS - 1)] = k; }
+static void dbg_logc(uint8_t c) { dbg_log[dbg_logi++ & (DBG_LOG - 1)] = (char)c; }
+extern uint8_t vicke_read(uint8_t r);
+int dbg_dump(const char *why)
+{
+    char name[64]; FILE *f; time_t t = time(NULL); struct tm *m = localtime(&t);
+    mkdir("dumps", 0777);
+    snprintf(name, sizeof name, "dumps/dump-%03d.txt", ++dbg_num);
+    if (!(f = fopen(name, "w"))) { dbg_num--; return -1; }
+    fprintf(f, "BMC-K4510 dump %d  %04d-%02d-%02d %02d:%02d:%02d  (%s)\n", dbg_num, m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, why);
+    fprintf(f, "frame %u  cwd /%s\n\n", (unsigned)sys_frames, fs_cwd);
+    { uint8_t pf = cpu65_get_pf(); char fl[8]; const char *names = "NVEBDIZC";
+      for (int b = 0; b < 8; b++) fl[b] = (pf & (0x80 >> b)) ? names[b] : '-';
+      fprintf(f, "CPU  PC=%04X A=%02X X=%02X Y=%02X Z=%02X SP=%04X  P=%02X (%.8s)  B=%04X  inhibit=%d\n",
+            cpu65.pc, cpu65.a, cpu65.x, cpu65.y, cpu65.z, cpu65.s | cpu65.sphi, pf, fl, cpu65.bphi, cpu65.cpu_inhibit_interrupts); }
+    { const k4510_map_t *mp = mem_map_state();
+      fprintf(f, "MAP  mask=%02X off_lo=%05X off_hi=%05X mb_lo=%X mb_hi=%X   BANKS mask=%02X", mp->mask, mp->offset_low, mp->offset_high, mp->mb_low >> 20, mp->mb_high >> 20, mem_bank_mask());
+      for (int b = 0; b < 8; b++) if (mem_bank_get(b) != BANK_OFF) fprintf(f, " %d=%07X", b, mem_bank_get(b));
+      fprintf(f, "   FAR table=%07X depth=%d err=%d\n", far_table, far_depth, far_err); }
+    fprintf(f, "VICKe ctrl=%02X bg=%02X irqst=%02X irqmask=%02X\n", vicke_read(0), vicke_read(1), vicke_read(4), vicke_read(5));
+    for (int n = 0; n < 4; n++) { fprintf(f, "  layer %d:", n); for (int i = 0; i < 16; i++) fprintf(f, " %02X", vicke_read(0x10 + n * 16 + i)); fprintf(f, "\n"); }
+    fprintf(f, "  sprites=%02X sheila=%02X list=", vicke_read(0x0E), vicke_read(0x64)); for (int i = 3; i >= 0; i--) fprintf(f, "%02X", vicke_read(0x60 + i)); fprintf(f, "\n");
+    for (int c = 0; c < 4; c++) { fprintf(f, "SID%d:", c); for (int i = 0; i < 25; i++) fprintf(f, " %02X", sid_shadow[c][i]); fprintf(f, "\n"); }
+    fprintf(f, "FS   reg:"); for (int i = 0; i < 0x14; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
+    fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
+    fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
+    for (int y = 0; y < 60; y++) { char r[81]; int last = -1; for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); }
+    fprintf(f, "\nSHELL LOG (command lines and DUMP notes, oldest first):\n");
+    { uint32_t n = dbg_logi < DBG_LOG ? dbg_logi : DBG_LOG, start = dbg_logi - n; for (uint32_t i = 0; i < n; i++) fputc(dbg_log[(start + i) & (DBG_LOG - 1)], f); fprintf(f, "\n"); }
+    fprintf(f, "\nKEYS (last %u, oldest first, hex):", dbg_keyi < DBG_KEYS ? dbg_keyi : DBG_KEYS);
+    { uint32_t n = dbg_keyi < DBG_KEYS ? dbg_keyi : DBG_KEYS, start = dbg_keyi - n; for (uint32_t i = 0; i < n; i++) { uint8_t k = dbg_keys[(start + i) & (DBG_KEYS - 1)]; if (k >= 0x20 && k < 0x7F) fprintf(f, " %c", k); else fprintf(f, " %02X", k); } fprintf(f, "\n"); }
+    fprintf(f, "\nPC HISTORY (last %u opcode fetches, oldest first; runs of consecutive PCs collapsed as a-b):\n", dbg_pci < DBG_PCS ? dbg_pci : DBG_PCS);
+    { uint32_t n = dbg_pci < DBG_PCS ? dbg_pci : DBG_PCS, start = dbg_pci - n; int col = 0; uint16_t run0 = 0, prev = 0; int inrun = 0;
+      for (uint32_t i = 0; i <= n; i++) {
+          uint16_t pc = i < n ? dbg_pcs[(start + i) & (DBG_PCS - 1)] : 0; int seq = i < n && inrun && pc > prev && pc - prev <= 3;
+          if (i == 0) { run0 = pc; prev = pc; inrun = 1; continue; }
+          if (seq) { prev = pc; continue; }
+          if (run0 == prev) col += fprintf(f, "%04X ", run0); else col += fprintf(f, "%04X-%04X ", run0, prev);
+          if (col > 90) { fprintf(f, "\n"); col = 0; }
+          run0 = pc; prev = pc;
+      }
+      fprintf(f, "\n"); }
+    fprintf(f, "\nZERO PAGE:\n"); for (int i = 0; i < 256; i += 32) { fprintf(f, "%02X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
+    fprintf(f, "STACK $0100-$01FF:\n"); for (int i = 0x100; i < 0x200; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
+    fprintf(f, "$0300-$04FF (EhBASIC vectors, input buffer, K4510 glue state):\n"); for (int i = 0x300; i < 0x500; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
+    fclose(f);
+    fprintf(stderr, "K4510: %s written (%s)\n", name, why);
+    return dbg_num;
 }
 
 void io_reset(void)
@@ -371,6 +435,7 @@ uint8_t io_read(uint16_t addr)
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
+        if (addr == IO_KBDST + 1) return kbd_ready() ? kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
         return 0xFF;
     case IO_STORAGE:
         if ((addr & 0xFF) < sizeof fs_reg) return fs_reg[addr & 0xFF];
@@ -393,6 +458,10 @@ void io_write(uint16_t addr, uint8_t v)
         return;
     case IO_MATH:
         math_write(addr & 0xFF, v); return;
+    case IO_SYS:
+        if ((addr & 0xFF) == 0xF0) dbg_dump("DUMP register");
+        if ((addr & 0xFF) == 0xF1) dbg_logc(v);
+        return;
     case IO_BANK: {
         uint8_t r = addr & 0xFF, b = r >> 2, i = r & 3;
         if (r >= 0x20) return;

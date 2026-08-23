@@ -165,6 +165,7 @@ static uint8_t far_gate(uint16_t addr)
 Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
+    if (XEMU_UNLIKELY(addr == cpu65.old_pc)) dbg_pc(addr);       /* opcode fetch: the debug recorder */
     if (XEMU_LIKELY(base == UNMAPPED)) {
         if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
             if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */

@@ -570,6 +570,17 @@ static void cmd_info(const char *p)
 }
 
 uint8_t k_shell(const char *p);
+/* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
+ * the screen, the PC history and the shell log; the note goes into the log */
+static void cmd_dump(const char *p)
+{
+    uint8_t n;
+    REG(SYS + 0xF1) = '#'; while (*p) REG(SYS + 0xF1) = *p++; REG(SYS + 0xF1) = '\n';
+    REG(SYS + 0xF0) = 1;
+    n = REG(SYS + 0xF0);
+    if (n) { puts_("dump "); putdec(n); puts_(" written (dumps/dump-"); if (n < 100) k_chrout('0'); if (n < 10) k_chrout('0'); putdec(n); puts_(".txt)"); newline(); }
+    else error("dump: failed");
+}
 static void cmd_help(void)
 {
     uint8_t o = fg;
@@ -577,7 +588,7 @@ static void cmd_help(void)
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
     pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1 margin]  COLOR fg [bg]  ECHO  CLS  RESET"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note]"); newline();
 }
 
 static void shell_line(const char *p)
@@ -585,6 +596,7 @@ static void shell_line(const char *p)
     uint8_t d; uint32_t v;
     skipsp(&p);
     if (!*p) return;
+    { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
     if (is_cmd(&p, "DIR"))   { cmd_dir(); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
     if (is_cmd(&p, "MKDIR")) { cmd_mkdir(p); return; }
@@ -604,6 +616,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CLS"))   { cls(); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
+    if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
     /* Wozmon grammar */
     mode = 0;
     for (;;) {
@@ -645,6 +658,8 @@ static void video_init(void)
     REG(VICKE + 0) = (uint8_t)(1 | (vmode == 2 ? 2 : vmode == 1 ? 4 : 0));
 }
 
+/* the VIDEO system call ($FF92): the text screen's mode and palette back, screen contents kept */
+void k_video(void) { video_init(); }
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
 uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
 

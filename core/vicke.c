@@ -39,6 +39,9 @@ uint8_t vicke_read(uint8_t r)
     default:
         if (r >= VR_COLSS && r < VR_COLSS + 16) { uint8_t v = reg[r]; if (r == VR_COLSS) memset(&reg[VR_COLSS], 0, 16); return v; }
         if (r >= VR_COLSL && r < VR_COLSL + 16) { uint8_t v = reg[r]; if (r == VR_COLSL) memset(&reg[VR_COLSL], 0, 16); return v; }
+        if (r == VR_PALR) return (uint8_t)(pal[reg[VR_PALIDX]] >> 16);      /* the palette reads back: entry PALIDX */
+        if (r == VR_PALG) return (uint8_t)(pal[reg[VR_PALIDX]] >> 8);
+        if (r == VR_PALB) return (uint8_t)pal[reg[VR_PALIDX]];
         return reg[r];
     }
 }

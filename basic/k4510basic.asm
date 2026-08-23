@@ -75,6 +75,28 @@ k4510_nokey
 k4510_quit
 	JMP	($FFFC)			; back to the shell, cold
 
+; Ctrl-C check, called once per statement. EhBASIC's own version pops the
+; input and keeps the byte for 32 statements, so a key typed while a program
+; is busy is usually lost. This one only peeks ($D102): a Ctrl-C or RUN/STOP
+; is taken, anything else stays in the FIFO for the next GET/INPUT.
+k4510_cc
+	LDA	ccflag
+	BNE	k4510_cc_done		; checks inhibited (LOAD feeding a file)
+	LDA	$D102			; next key, not popped
+	BEQ	k4510_cc_done
+	CMP	#$03
+	BEQ	k4510_cc_brk
+	CMP	#ESC
+	BNE	k4510_cc_done
+k4510_cc_brk
+	JSR	k4510_in		; pop it (ESC resets into the shell from there)
+	STA	ccbyte
+	LDX	#$20
+	STX	ccnull
+	JMP	LAB_1636		; Ctrl-C: STOP
+k4510_cc_done
+	JMP	LAB_FBA2		; the interrupt checks, as in the stock routine
+
 ; output A; EhBASIC sends CR LF and the ROM's CHROUT makes a newline of either
 k4510_out
 	CMP	#LF

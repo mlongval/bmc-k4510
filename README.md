@@ -16,6 +16,10 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   `LOAD`/`SAVE` of text files, `@command` (any shell command, e.g. `@DIR`,
   `@CD BASIC`), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
+- **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
+  `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
+  shell log, the last keys, the last 4096 PCs, low memory -- paste it or point
+  Claude at it.
 - **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms;
   byte-pokeable **bank registers** ($D600) and a **far-call gate** ($DF00)
   so programs bigger than the 64 KB window are overlays, not a puzzle;
