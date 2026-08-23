@@ -403,7 +403,12 @@ int dbg_dump(const char *why)
 
 void io_reset(void)
 {
-    sys_frames = 0; dbg_auto = 1; dbg_auto_next = 900;   /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
+    sys_frames = 0;
+#ifdef K4510_PI
+    dbg_auto = 0;                                        /* the desktop emulator only (Doc): no SD wear on the Pi */
+#else
+    dbg_auto = 1; dbg_auto_next = 900;                   /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
+#endif
     memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
