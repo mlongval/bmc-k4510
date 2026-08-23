@@ -89,9 +89,7 @@ k4510_out
 k4510_outdone
 	RTS
 
-k4510_load
-k4510_save
-	RTS				; not yet
+	.include "k4510file.asm"
 
 	.include "k4510gfx.asm"
 

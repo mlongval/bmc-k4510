@@ -10,10 +10,10 @@ GFX_BUF		= $200000		; the bitmap, far memory (640*480 max)
 VK		= $D000
 DMA		= $D200
 
-gargs	= $0310			; 8 x 16-bit argument slots (page 3, ours)
-gmode	= $0320			; current GRAPHICS mode
-gw	= $0321			; width low/high
-gh	= $0323
+gargs	= $03A0			; 8 x 16-bit argument slots (above EhBASIC's Ibuffs, which ends at $039F)
+gmode	= $03B0			; current GRAPHICS mode
+gw	= $03B1			; width low/high
+gh	= $03B3
 
 ; get N comma-separated integer arguments into gargs
 k_getargs				; X = count

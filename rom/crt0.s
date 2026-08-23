@@ -1,7 +1,7 @@
 ; BMC-K4510 system ROM startup for cc65. 65C02 code: a strict subset of the 45GS02.
         .export   _exit, __STARTUP__ : absolute = 1
         .import   _main, __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__, __BSS_RUN__, __BSS_SIZE__
-        .import   __RAM_START__, __RAM_SIZE__, __STACKSIZE__
+        .import   __RAM_START__, __RAM_SIZE__, __STACKSIZE__, __STK_START__, __STK_SIZE__
         .import   copydata, zerobss, initlib
         .importzp sp
         .import   incsp4
@@ -26,9 +26,9 @@ reset:  sei
         cld
         ldx #$FF
         txs
-        lda #<(__RAM_START__ + __RAM_SIZE__)      ; cc65 software stack: top of RAM area
+        lda #<(__STK_START__ + __STK_SIZE__)      ; cc65 software stack: $0800 down
         sta sp
-        lda #>(__RAM_START__ + __RAM_SIZE__)
+        lda #>(__STK_START__ + __STK_SIZE__)
         sta sp+1
         jsr copydata
         jsr zerobss

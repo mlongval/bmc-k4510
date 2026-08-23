@@ -47,12 +47,18 @@ static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1
 static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1) << 8); }
 
 static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)y * COLS + x) * 4; }
-static uint8_t rowbuf[MAXCOLS * 4];               /* one text row, built here and DMA'd into place */
+#define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
+static uint8_t tpl_fg, tpl_bg, tpl_cols, cellbuf[4];
 static void blank_row(uint8_t y)
 {
-    uint8_t *c = rowbuf; uint8_t i;
-    for (i = 0; i < COLS; i++) { c[0] = ' '; c[1] = 0; c[2] = fg; c[3] = bg; c += 4; }
-    w32(DMA + 0, (uint16_t)rowbuf); w32(DMA + 4, cell(0, y)); w32(DMA + 8, COLS * 4); REG(DMA + 12) = 1;
+    if (tpl_fg != fg || tpl_bg != bg || tpl_cols != COLS) {      /* (re)build the template: one cell, copied across */
+        uint8_t i;
+        cellbuf[0] = ' '; cellbuf[1] = 0; cellbuf[2] = fg; cellbuf[3] = bg;
+        w32(DMA + 0, (uint16_t)cellbuf); w32(DMA + 8, 4);
+        for (i = 0; i < COLS; i++) { w32(DMA + 4, ROWTPL + (uint16_t)i * 4); REG(DMA + 12) = 1; }
+        tpl_fg = fg; tpl_bg = bg; tpl_cols = COLS;
+    }
+    w32(DMA + 0, ROWTPL); w32(DMA + 4, cell(0, y)); w32(DMA + 8, COLS * 4); REG(DMA + 12) = 1;
 }
 
 static void draw_cursor(uint8_t on)
@@ -379,7 +385,7 @@ static void info_mem(void)
 {
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
-    pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  system $0200-$07FF"); newline();
+    pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  ROM data $0200-$02FF, $0440-$07FF"); newline();
     pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); the text screen is at $030000 (far)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();

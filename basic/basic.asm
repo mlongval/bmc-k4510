@@ -440,7 +440,7 @@ VEC_SV		= VEC_LD+2	; save vector
 
 Ibuffs		= IRQ_vec+$14
 					; start of input buffer after IRQ/NMI code
-Ibuffe		= Ibuffs+$47; end of input buffer
+Ibuffe		= Ibuffs+$7E; end of input buffer (K4510: 126 characters)
 
 Ram_base		= $0800	; K4510: start of user RAM
 Ram_top		= $7000	; K4510: BASIC code is at $7000
