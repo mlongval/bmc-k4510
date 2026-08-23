@@ -6,6 +6,7 @@
 #include <stdint.h>
 #define K4510_SIDS 4
 void    sid_init(double cpu_hz, int sample_rate);
+void    sid_set_clock(int sel);     /* 0 = 1 MHz (default), 1 = PAL C64 (985248), 2 = NTSC (1022730) */
 void    sid_reset(void);
 void    sid_write(int chip, uint8_t reg, uint8_t v);
 uint8_t sid_read(int chip, uint8_t reg);

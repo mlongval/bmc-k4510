@@ -6,6 +6,7 @@ static void dbg_key(uint8_t k);
 static uint32_t sys_frames;
 static int dbg_num;
 static int dbg_auto; static uint32_t dbg_auto_next;
+static uint8_t sid_clock_sel;
 #include "vicke.h"
 #include "sid.h"
 
@@ -337,6 +338,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
+    if (r == 0xF3) return sid_clock_sel;
     return 0xFF;
 }
 
@@ -406,6 +408,7 @@ void io_reset(void)
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();
+    sid_clock_sel = 0; sid_set_clock(0);
     sid_reset();
 }
 
@@ -473,6 +476,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF0) dbg_dump("DUMP register");
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_auto_next = sys_frames + 900; }
+        if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
         return;
     case IO_BANK: {
         uint8_t r = addr & 0xFF, b = r >> 2, i = r & 3;

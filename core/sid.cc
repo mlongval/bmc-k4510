@@ -9,11 +9,19 @@ static double cpu_hz = 40500000.0; static int rate = 48000;
 /* The SIDs run at SID_HZ like the real chip, whatever the CPU clock: the
  * frequency/ADSR registers keep their C64 meaning (f = reg * SID_HZ / 2^24)
  * and reSID does 1/40th of the work. sid_render receives CPU cycles. */
-static const double SID_HZ = 1000000.0;
+static double SID_HZ = 1000000.0;
+static int sid_rate_saved = 48000;
 static double sid_acc = 0;
+
+extern "C" void sid_set_clock(int sel)          /* 0 = 1 MHz, 1 = PAL C64 (985248), 2 = NTSC (1022730) */
+{
+    SID_HZ = sel == 1 ? 985248.0 : sel == 2 ? 1022730.0 : 1000000.0;
+    for (int i = 0; i < 4; i++) chips[i].set_sampling_parameters(SID_HZ, reSID::SAMPLE_FAST, sid_rate_saved);
+}
 
 extern "C" void sid_init(double hz, int sample_rate)
 {
+    sid_rate_saved = sample_rate;
     cpu_hz = hz; rate = sample_rate;
     for (int i = 0; i < K4510_SIDS; i++) {
         chips[i].set_chip_model(reSID::MOS6581);

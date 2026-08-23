@@ -89,7 +89,7 @@ static void draw_list(uint16_t top, uint16_t cur)
 }
 
 /* ---- the tune ----------------------------------------------------------- */
-static uint16_t init_addr, play_addr, load_addr, nsongs, song; static uint8_t is_rsid, rate;
+static uint16_t init_addr, play_addr, load_addr, nsongs, song, end_addr; static uint8_t is_rsid, rate, clocksel, collides;
 static uint8_t vregs[0x50];
 static void save_video(void) { uint8_t i; for (i = 0; i < 0x50; i++) vregs[i] = REG(0xD000 + i); }
 static void restore_video(void) { uint8_t i; for (i = 0x10; i < 0x50; i++) REG(0xD000 + i) = vregs[i]; REG(0xD000) = vregs[0]; REG(0xD001) = vregs[1]; }
@@ -116,7 +116,12 @@ static uint8_t load_tune(uint16_t n)
     if (size <= hdr) return 2;
     if (!song) song = 1;
     rate = ((flags >> 2) & 3) == 2 ? 60 : 50;                       /* NTSC tunes at 60, PAL at 50 */
+    clocksel = ((flags >> 2) & 3) == 2 ? 2 : 1;                      /* the SID's crystal: PAL 985248 Hz, NTSC 1022730 */
     if (speed & 1) rate = 60;                                        /* CIA-timed: ~60 Hz */
+    end_addr = load_addr + (uint16_t)(size - hdr);
+    /* the tune must fit in the C64 window the player leaves free: $0400-$CFFF */
+    collides = (load_addr < 0x0300) || (end_addr > 0xD000);
+    if (collides) return 0;                                          /* shown, not loaded */
     far_copy(load_addr, FILEBUF + hdr, size - hdr);                  /* into the C64's memory: the CPU view, ROM out */
     return 0;
 }
@@ -134,11 +139,12 @@ static void show_info(uint16_t n)
       for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } h[4] = 0; text(6, 6, h, C_GREY);
       v = init_addr; for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } text(11, 6, "init $", C_GREY); text(17, 6, h, C_GREY);
       v = play_addr; for (i = 0; i < 4; i++) { h[3 - i] = hx[v & 15]; v >>= 4; } text(22, 6, "play $", C_GREY); text(28, 6, h, C_GREY); }
-    dec(34, 6, rate, C_GREY); text(37, 6, "Hz", C_GREY);
+    dec(34, 6, rate, C_GREY); text(37, 6, "Hz", C_GREY); text(41, 6, clocksel == 2 ? "NTSC" : "PAL ", C_GREY);
     text(0, 9,  "voice 1", C_LBLUE); text(0, 11, "voice 2", C_LBLUE); text(0, 13, "voice 3", C_LBLUE);
     text(0, ROWS - 1, "+/- song   space next tune   Esc back to the list", C_GREY);
     if (is_rsid) text(0, 16, "RSID: needs a real C64 (KERNAL, CIA timers) -- not supported here", C_YEL);
     else if (!play_addr) text(0, 16, "play address 0: the tune installs its own interrupt -- not supported here", C_YEL);
+    else if (collides) text(0, 16, "this tune loads outside $0300-$CFFF: the player itself lives up there", C_YEL);
 }
 static void show_song(void) { text(0, 7, "song", C_GREY); dec(5, 7, song, C_WHITE); text(9, 7, "of", C_GREY); dec(12, 7, nsongs, C_WHITE); }
 static void show_time(uint16_t sec) { dec2(72, 7, sec / 60, C_WHITE); put(74, 7, ':', C_WHITE); dec2(75, 7, sec % 60, C_WHITE); }
@@ -169,7 +175,8 @@ static uint8_t play_file(uint16_t n)
     uint8_t acc = 0, last = 0, k; uint16_t frames = 0, sec = 0;
     if (load_tune(n)) { show_info(n); text(0, 16, "could not load or parse this file", C_YEL); while (!(k = key_get())) ; return k == ' ' ? 1 : 0; }
     show_info(n); show_song();
-    if (is_rsid || !play_addr) { while (!(k = key_get())) ; return k == ' ' ? 1 : 0; }
+    if (is_rsid || !play_addr || collides) { while (!(k = key_get())) ; return k == ' ' ? 1 : 0; }
+    REG(0xD5F3) = clocksel;                                /* the SID crystal this tune expects */
     save_video();
     start_song();
     for (;;) {
@@ -182,9 +189,9 @@ static uint8_t play_file(uint16_t n)
             show_meters();
         }
         k = key_get();
-        if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); return 0; }
-        if (k == ' ' || k == KEY_RIGHT || k == KEY_DOWN) { sid_silence(); return 1; }
-        if (k == KEY_LEFT || k == KEY_UP) { sid_silence(); return 2; }
+        if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); REG(0xD5F3) = 0; return 0; }
+        if (k == ' ' || k == KEY_RIGHT || k == KEY_DOWN) { sid_silence(); REG(0xD5F3) = 0; return 1; }
+        if (k == KEY_LEFT || k == KEY_UP) { sid_silence(); REG(0xD5F3) = 0; return 2; }
         if (k == '+' || k == '=' || k == KEY_PGDN) { if (song < nsongs) song++; else song = 1; start_song(); show_song(); sec = 0; show_time(0); }
         if (k == '-' || k == KEY_PGUP) { if (song > 1) song--; else song = nsongs; start_song(); show_song(); sec = 0; show_time(0); }
     }

@@ -112,6 +112,7 @@
  *           PC history, keys, the shell log); read: the number of the last dump
  *   $F1     write: append a byte to the shell log (the ROM logs command lines and DUMP notes)
  *   $F2     write 1/0: automatic dump every 900 frames (15 s) on/off (on at reset; 100 files, rotating); read: the setting
+ *   $F3     SID clock: 0 = 1 MHz (default), 1 = PAL C64 (985248 Hz), 2 = NTSC (1022730 Hz); read/write
  * SID registers $00-$18 read back the last value written (a shadow; real
  * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
 
