@@ -7,6 +7,7 @@
 #include <SDL.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -113,6 +114,9 @@ int k4510_frontend_main(int argc, char **argv)
             }
         }
         host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
+        { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
+          if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
+          if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }
         vicke_begin_frame(fb, VICKE_WIDTH);
         for (int y = 0; y < VICKE_HEIGHT; y++) {
             cpu65.irqLevel = vicke_irq() ? 1 : 0;

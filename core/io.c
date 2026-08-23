@@ -438,6 +438,13 @@ uint8_t io_read(uint16_t addr)
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
         if (addr == IO_KBDST + 1) return kbd_ready() ? kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
+        if (addr == IO_KBDST + 2) {                                              /* break pending: an ESC or Ctrl-C anywhere in the queue is removed and returned */
+            for (int i = kbd_head; i != kbd_tail; i = (i + 1) & 63) {
+                uint8_t k = kbd_fifo[i];
+                if (k == 0x03 || k == 0x1B) { for (int j = i; j != kbd_tail; j = (j + 1) & 63) kbd_fifo[j] = kbd_fifo[(j + 1) & 63]; kbd_tail = (kbd_tail + 63) & 63; return k; }
+            }
+            return 0;
+        }
         return 0xFF;
     case IO_STORAGE:
         if ((addr & 0xFF) < sizeof fs_reg) return fs_reg[addr & 0xFF];

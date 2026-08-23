@@ -78,18 +78,14 @@ k4510_quit
 ; Ctrl-C check, called once per statement. EhBASIC's own version pops the
 ; input and keeps the byte for 32 statements, so a key typed while a program
 ; is busy is usually lost. This one only peeks ($D102): a Ctrl-C or RUN/STOP
-; is taken, anything else stays in the FIFO for the next GET/INPUT.
+; is taken (from anywhere in the queue), anything else stays for GET/INPUT.
 k4510_cc
 	LDA	ccflag
 	BNE	k4510_cc_done		; checks inhibited (LOAD feeding a file)
-	LDA	$D102			; next key, not popped
+	LDA	$D103			; a Ctrl-C or RUN/STOP anywhere in the queue? (removed; other keys stay for GET)
 	BEQ	k4510_cc_done
-	CMP	#$03
-	BEQ	k4510_cc_brk
 	CMP	#ESC
-	BNE	k4510_cc_done
-k4510_cc_brk
-	JSR	k4510_in		; pop it (ESC resets into the shell from there)
+	BEQ	k4510_quit		; RUN/STOP: back to the shell
 	STA	ccbyte
 	LDX	#$20
 	STX	ccnull

@@ -681,15 +681,30 @@ static void row_open(void) { k_chrout(B_V); k_chrout(' '); }
 static void row_close(uint8_t w) { pad(w + 1); k_chrout(B_V); newline(); }
 static void field(const char *name, const char *text) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; puts_(text); }
 
+/* two rows of the 16 colours: solid blocks, then the same colours as upper
+ * half-blocks on the background -- the inverse of the row above */
+static void colour_bar(uint8_t w)
+{
+    uint8_t c, i, iw = w - 1, bw = iw / 16, extra = iw - bw * 16, ofg = fg, obg = bg;   /* iw: the content width between the verticals */
+    row_open();
+    for (c = 0; c < 16; c++) { bg = c; fg = c; for (i = 0; i < bw + (c < extra); i++) k_chrout(' '); }
+    bg = obg; fg = ofg; row_close(w);
+    row_open();
+    for (c = 0; c < 16; c++) { fg = c; for (i = 0; i < bw + (c < extra); i++) k_chrout(0xDF); }
+    fg = ofg; row_close(w);
+}
+static void blank_boxrow(uint8_t w) { row_open(); row_close(w); }
+
 static void banner(void)
 {
-    uint8_t w = COLS - 2, o, c1 = 2, c2 = COLS / 2 + 2;          /* inner width, two columns */
+    uint8_t w = COLS - 2, o, c2 = COLS / 2 + 2;                /* inner width, second column */
     cls();
     o = fg; fg = C_HI;
     hline(B_TL, B_TR, w);
     row_open(); fg = C_HI; puts_("BMC-K4510"); fg = C_FG; puts_("   a fantasy 8/16-bit computer");
     pad(w - 22); fg = C_DIM; puts_("system ROM " ROM_VERSION); fg = C_HI; row_close(w);
-    hline(B_LT, B_RT, w);
+    colour_bar(w);
+    fg = C_HI; hline(B_LT, B_RT, w);
     fg = C_FG;
     row_open(); field("CPU     ", "45GS02 at 40.5 MHz"); pad(c2); field("MEMORY  ", "256 MB, 28-bit flat"); row_close(w);
     row_open(); field("VIDEO   ", "VICKe "); puts_(vmode == 2 ? "320x240" : vmode == 1 ? "640x240" : "640x480"); puts_(", "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text");
@@ -699,14 +714,13 @@ static void banner(void)
     row_open(); field("TIME    ", ""); putdec(r16(SYS + 0x0A)); k_chrout('-'); putdec2(REG(SYS + 9)); k_chrout('-'); putdec2(REG(SYS + 8));
     k_chrout(' '); putdec2(REG(SYS + 7)); k_chrout(':'); putdec2(REG(SYS + 6)); k_chrout(' '); puts_(daynames[REG(SYS + 12) % 7]);
     pad(c2); field("ALSO    ", "DMA, MATH unit, SHEILA"); row_close(w);
+    blank_boxrow(w);
+    row_open(); fg = C_DIM; puts_("HELP lists the commands, INFO describes the machine, DIR shows the files."); fg = C_FG; row_close(w);
     fg = C_HI; hline(B_BL, B_BR, w); fg = C_FG;
     newline();
-    fg = C_DIM; puts_("  HELP lists the commands, INFO describes the machine, DIR shows the files."); newline();
-    fg = o; newline();
-    (void)c1;
+    fg = o;
 }
 
-#pragma code-name (pop)
 int main(void)
 {
     vmode = 1; margin = 1;                   /* MODE 1 1: 640x240, 79x29 with a one-cell margin */

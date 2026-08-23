@@ -16,6 +16,8 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   `LOAD`/`SAVE` of text files, `@command` (any shell command, e.g. `@DIR`,
   `@CD BASIC`), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
+- **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
+  the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.
 - **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point

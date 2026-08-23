@@ -122,6 +122,7 @@
 #define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none */
 #define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
 #define IO_KBDPEEK     (IO_INPUT + 0x02)  /* read: the next event without popping it; 0 if none */
+#define IO_KBDBREAK    (IO_INPUT + 0x03)  /* read: an ESC ($1B) or Ctrl-C ($03) waiting anywhere in the queue is removed and returned; 0 if none */
 #define KEY_ENTER 0x0D
 #define KEY_BS    0x08
 #define KEY_TAB   0x09
