@@ -342,10 +342,13 @@ TK_LINE		= TK_PLOT+1		; K4510 LINE
 TK_TRI		= TK_LINE+1		; K4510 TRI
 TK_PALETTE	= TK_TRI+1		; K4510 PALETTE
 TK_GCLS		= TK_PALETTE+1	; K4510 GCLS
+TK_SPRITE	= TK_GCLS+1	; K4510 SPRITE
+TK_SPRDEF	= TK_SPRITE+1	; K4510 SPRDEF
+TK_SPROFF	= TK_SPRDEF+1	; K4510 SPROFF
 
 ; secondary command tokens, can't start a statement
 
-TK_TAB		= TK_GCLS+1		; TAB token
+TK_TAB		= TK_SPROFF+1	; TAB token
 TK_ELSE		= TK_TAB+1		; ELSE token
 TK_TO			= TK_ELSE+1		; TO token
 TK_FN			= TK_TO+1		; FN token
@@ -7998,6 +8001,9 @@ LAB_CTBL
 	.word	K_TRI-1		; TRI		K4510
 	.word	K_PALETTE-1	; PALETTE	K4510
 	.word	K_GCLS-1		; GCLS		K4510
+	.word	K_SPRITE-1	; SPRITE	K4510
+	.word	K_SPRDEF-1	; SPRDEF	K4510
+	.word	K_SPROFF-1	; SPROFF	K4510
 
 ; function pre process routine table
 
@@ -8390,6 +8396,12 @@ LBB_RUN
 	.byte	"UN",TK_RUN		; RUN
 	.byte	$00
 TAB_ASCS
+LBB_SPRDEF
+	.byte	"PRDEF",TK_SPRDEF	; SPRDEF
+LBB_SPRITE
+	.byte	"PRITE",TK_SPRITE	; SPRITE
+LBB_SPROFF
+	.byte	"PROFF",TK_SPROFF	; SPROFF
 LBB_SADD
 	.byte	"ADD(",TK_SADD	; SADD(
 LBB_SAVE
@@ -8557,6 +8569,12 @@ LAB_KEYT
 	.word	LBB_PALETTE	; PALETTE
 	.byte	4,'G'
 	.word	LBB_GCLS		; GCLS
+	.byte	6,'S'
+	.word	LBB_SPRITE	; SPRITE
+	.byte	6,'S'
+	.word	LBB_SPRDEF	; SPRDEF
+	.byte	6,'S'
+	.word	LBB_SPROFF	; SPROFF
 
 ; secondary commands (can't start a statement)
 

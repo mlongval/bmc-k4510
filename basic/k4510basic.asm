@@ -24,6 +24,7 @@ ESC		= $1B
 
 k4510_start
 	CLD
+	STZ	$03B2			; the sprite table wants clearing again (gsprinit)
 	LDA	#<k4510_in
 	STA	VEC_IN
 	LDA	#>k4510_in
@@ -129,4 +130,4 @@ k4510_outdone
 	.include "k4510gfx.asm"
 
 k4510_banner
-	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS PLOT LINE TRI PALETTE GCLS  (RUN/STOP: shell)", CR, 0
+	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS SPRITES PLOT LINE TRI  (RUN/STOP: shell)", CR, 0
