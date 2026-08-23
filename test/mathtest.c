@@ -29,5 +29,21 @@ int main(void)
     w32(IO_MATH + 0x24, (uint32_t)-1234); fop(MATH_ITOF, 6, 0); CHECK(fget(6) == -1234.0f, "ITOF");
     fset(7, 3.99f); fop(MATH_FTOI, 0, 7); CHECK((int32_t)r32(IO_MATH + 0x24) == 3, "FTOI truncates 3.99 -> 3");
     fset(1, 0.0f); fop(MATH_DIV, 0, 1); CHECK(io_read(IO_MATH + 0x22) & 4, "x/0 flags inf");
+    /* math list: F0 = 1.5; loop 10 times: F0 = F0 * 2, stop when F0 >= 1000 (via FTOI + STOPFIGE... too big for a byte:
+       use CMP against F1 = 1000 and STOPPOS instead); count how many doublings it took */
+    { uint8_t list[] = { ML_LDF, 0x00, 0,0,0xC0,0x3F,          /* F0 = 1.5 */
+                         ML_LDF, 0x10, 0,0,0x7A,0x44,          /* F1 = 1000.0 */
+                         MATH_ADD, 0x00,                       /* loop: F0 += F0 */
+                         MATH_CMP, 0x01, ML_STOPPOS, 0,        /* stop if F0 - F1 >= 0 */
+                         ML_DJNZ, (uint8_t)-4,                 /* back 4 ops (from the op after DJNZ) to the ADD */
+                         ML_END, 0 };
+      for (unsigned i = 0; i < sizeof list; i++) mem_poke(0x3000 + i, list[i]);
+      w32(IO_MATH + 0x28, 0x3000); io_write(IO_MATH + 0x2E, 20); io_write(IO_MATH + 0x2F, 0);
+      io_write(IO_MATH + 0x2C, 1);
+      CHECK(io_read(IO_MATH + 0x2D) == 1, "math list: stopped by STOPPOS");
+      CHECK(fget(0) == 1536.0f, "math list: 1.5 doubled until >= 1000 is 1536");
+      CHECK(io_read(IO_MATH + 0x2E) == 20 - 9, "math list: DJNZ ran 9 times before the stop on the 10th doubling");
+      io_write(IO_MATH + 0x2E, 3); io_write(IO_MATH + 0x2C, 1);
+      CHECK(io_read(IO_MATH + 0x2D) == 0 && fget(0) == 12.0f, "math list: runs out of count -> END, F0 = 1.5 * 8"); }
     printf(fails ? "\n%d FAILED\n" : "ALL OK\n", fails); return fails != 0;
 }

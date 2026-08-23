@@ -37,6 +37,14 @@
 #define MATH_CMP 18
 #define MATH_ITOF 19
 #define MATH_FTOI 20
+#define ML_END 0x80
+#define ML_STOPNEG 0x81
+#define ML_STOPPOS 0x82
+#define ML_JUMP 0x85
+#define ML_DJNZ 0x86
+#define ML_STOPFIGE 0x87
+#define ML_LDF 0x88
+#define ML_LDI 0x89
 #define WINDOW   ((uint8_t *)0x2000) /* the MAP window, 16 KB, see prg0.s */
 
 void __fastcall__ map_window(unsigned long phys);

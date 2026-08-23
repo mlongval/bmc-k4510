@@ -2,8 +2,9 @@
  * 8 bpp bitmap at $200000, drawn row by row through a RAM buffer and DMA.
  * Every number is an IEEE single in one of the unit's eight registers at
  * $D700; an operation is two byte writes (FARG, FOP) and works in place,
- * so the inner loop is eleven register ops and one byte read. No table,
- * no fixed point, and the precision reaches eight zoom levels. Any key exits. */
+ * and the whole iteration is a *math list* the unit runs by itself: per
+ * pixel the CPU writes one byte and reads two. No table, no fixed point,
+ * eight zoom levels. Any key exits. */
 #include "k4510.h"
 
 #define W 320
@@ -21,43 +22,24 @@
 static uint8_t row[W];
 static uint32_t cx0_bits;           /* cx at the left edge, saved as raw bits to reload F2 per row */
 
+/* The iteration as a math list: the unit runs it, the CPU writes one byte
+ * per pixel and reads back how many passes it took. F2/F3 hold c. */
+static uint8_t mlist[] = {
+    MATH_MOV, 0x02, MATH_MOV, 0x13,                         /* z = c */
+    MATH_MOV, 0x40, MATH_MUL, 0x40,                         /* loop: F4 = x^2 */
+    MATH_MOV, 0x51, MATH_MUL, 0x51,                         /* F5 = y^2 */
+    MATH_MOV, 0x64, MATH_ADD, 0x65, MATH_FTOI, 0x06,        /* FI = int(|z|^2) */
+    ML_STOPFIGE, 4,                                         /* escaped? */
+    MATH_MUL, 0x10, MATH_ADD, 0x11, MATH_ADD, 0x13,         /* y = 2xy + cy */
+    MATH_MOV, 0x04, MATH_SUB, 0x05, MATH_ADD, 0x02,         /* x = x^2 - y^2 + cx */
+    ML_DJNZ, (uint8_t)-15,                                  /* 15 ops back (from the op after DJNZ) to the loop */
+    ML_END, 0 };
+
 static uint8_t iterate(void)
 {
-    uint8_t i;
-    /* interior shortcuts: main cardioid and the period-2 bulb, in F0/F1/F4/F5/F6 */
-    FI_SET(1); FOP(MATH_ITOF, 6, 0);                  /* F6 = 1 */
-    FOP(MATH_MOV, 4, 2); FOP(MATH_ADD, 4, 6);         /* F4 = cx + 1 */
-    FOP(MATH_MUL, 4, 4);                              /* (cx+1)^2 */
-    FOP(MATH_MOV, 5, 3); FOP(MATH_MUL, 5, 5);         /* F5 = cy^2 */
-    FOP(MATH_ADD, 4, 5);                              /* F4 = (cx+1)^2 + cy^2 */
-    FI_SET(16); FOP(MATH_ITOF, 6, 0); FOP(MATH_MUL, 4, 6);   /* x16: bulb if < 1 */
-    FI_SET(1); FOP(MATH_ITOF, 6, 0); FOP(MATH_CMP, 4, 6);    /* F4 - 1 */
-    if (REG(0xD722u) & 2) return 0;
-    FI_SET(4); FOP(MATH_ITOF, 6, 0);                  /* F6 = 4 */
-    FOP(MATH_MOV, 4, 2); FOP(MATH_MUL, 4, 6);         /* F4 = 4cx */
-    FI_SET(1); FOP(MATH_ITOF, 0, 0); FOP(MATH_SUB, 4, 0);   /* 4cx - 1  (= 4(x - 1/4)) */
-    FOP(MATH_MUL, 4, 4);                              /* 16 (x-1/4)^2 */
-    FOP(MATH_MOV, 0, 5); FOP(MATH_MUL, 0, 6); FOP(MATH_MUL, 0, 6);   /* F0 = 16 y^2 */
-    FOP(MATH_ADD, 4, 0);                              /* F4 = 16 q, q = (x-1/4)^2 + y^2 */
-    FOP(MATH_MOV, 1, 2); FOP(MATH_MUL, 1, 6); FI_SET(1); FOP(MATH_ITOF, 6, 0); FOP(MATH_SUB, 1, 6);   /* F1 = 4(x - 1/4) */
-    /* cardioid: q (q + x - 1/4) < y^2/4  <=>  16q (16q + 16(x-1/4)) < 64 y^2 */
-    FOP(MATH_MOV, 6, 1); FI_SET(4); FOP(MATH_ITOF, 0, 0); FOP(MATH_MUL, 6, 0); FOP(MATH_ADD, 6, 4);  /* F6 = 16q + 16(x-1/4) */
-    FOP(MATH_MUL, 6, 4);                              /* F6 = 16q (16q + 16(x-1/4)) = 256 q (q + x - 1/4) */
-    FOP(MATH_MOV, 0, 5); FI_SET(64); FOP(MATH_ITOF, 1, 0); FOP(MATH_MUL, 0, 1);                    /* F0 = 64 y^2 = 256 (y^2/4) */
-    FOP(MATH_CMP, 6, 0);
-    if (REG(0xD722u) & 2) return 0;
-
-    FOP(MATH_MOV, 0, 2); FOP(MATH_MOV, 1, 3);         /* z = c */
-    for (i = 1; i < MAXIT; i++) {
-        FOP(MATH_MOV, 4, 0); FOP(MATH_MUL, 4, 0);     /* x^2 */
-        FOP(MATH_MOV, 5, 1); FOP(MATH_MUL, 5, 1);     /* y^2 */
-        FOP(MATH_MOV, 6, 4); FOP(MATH_ADD, 6, 5);     /* |z|^2 */
-        FOP(MATH_FTOI, 0, 6);
-        if (FI_LO >= 4) return i;                     /* escaped (|z|^2 >= 4; the int is small here) */
-        FOP(MATH_MUL, 1, 0); FOP(MATH_ADD, 1, 1); FOP(MATH_ADD, 1, 3);   /* y = 2xy + cy */
-        FOP(MATH_MOV, 0, 4); FOP(MATH_SUB, 0, 5); FOP(MATH_ADD, 0, 2);   /* x = x^2 - y^2 + cx */
-    }
-    return 0;
+    REG(0xD72Eu) = MAXIT; REG(0xD72Fu) = 0;
+    REG(0xD72Cu) = 1;
+    return REG(0xD72Du) ? (uint8_t)(MAXIT - REG(0xD72Eu)) : 0;      /* stopped: iterations taken; ran out: inside */
 }
 
 static uint8_t render(void)
@@ -113,16 +95,17 @@ void main(void)
     dma_fill(' ', TEXTMAP, 40 * 30);
     text8_layer(1, TEXTMAP, 40, 127);
     text8_print(TEXTMAP, 40, 1, 29, "any key returns to the shell");
+    w32(0xD728u, (uint16_t)mlist);                            /* the unit's program */
     REG(V_CTRL) = 1 | 2;
     for (;;) {
         uint8_t f0, f1, secs;
-        text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 Mandelbrot FPU  zoom ");
-        far_poke(TEXTMAP + 32, '0' + level);
+        text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 Mandelbrot mathlist zoom ");
+        far_poke(TEXTMAP + 36, '0' + level);
         if (level == 0) set_view(-2458, 0, 0); else set_view(-3052, 410, level);      /* -0.6,0 then -0.745,0.1 */
         f0 = REG(SYS + 0x0D); f1 = REG(SYS + 0x0E);
         if (render()) return;
         secs = (uint8_t)((((uint16_t)REG(SYS + 0x0E) << 8 | REG(SYS + 0x0D)) - ((uint16_t)f1 << 8 | f0)) / 60);
-        text8_print(TEXTMAP, 40, 34, 0, "   s"); put_num(TEXTMAP, 40, 34, 0, secs);
+        text8_print(TEXTMAP, 40, 36, 1, "   s"); put_num(TEXTMAP, 40, 36, 1, secs);
         for (k = 0; k < 180; k++) { wait_vblank(); set_palette(++phase); if (key_hit()) return; }
         if (++level == LEVELS) level = 0;
     }

@@ -27,6 +27,19 @@
  *        10 ATAN2 (Fd = atan2(Fd,Fs))  13 POW (Fd = Fd^Fs)  21 FMOD (Fd = fmod(Fd,Fs))
  *        18 CMP   flags from Fd - Fs, registers unchanged
  *        19 ITOF  Fd = (float)FI        20 FTOI  FI = (int32)Fs, truncated
+ *   Math list -- a program for the unit in RAM, run with one write:
+ *   $D728-$D72B MLPTR   28-bit pointer to the list
+ *   $D72C  MLRUN   write = run from MLPTR until END or a STOP fires
+ *   $D72D  MLSTAT  0 reached END, 1 a STOP fired, $FF runaway (65536 ops)
+ *   $D72E,$D72F MLCNT  16-bit counter for DJNZ, read/write
+ *   list ops, 2 bytes each (op, arg) unless noted; ops 0..21 are the FOP ops
+ *   with arg = (dst<<4)|src, and in addition:
+ *   $80 END            $81 STOPNEG  stop if last flags negative    $82 STOPPOS  if not negative
+ *   $83 STOPZERO       $84 STOPNZ           $85 JUMP arg (signed, in ops from the next op)
+ *   $86 DJNZ arg       MLCNT--, jump if nonzero
+ *   $87 STOPFIGE arg   stop if FI >= arg (unsigned byte compare on the low byte, FI clamped)
+ *   $88 LDF arg=dst<<4, then 4 bytes: IEEE single immediate into Fdst (6-byte op)
+ *   $89 LDI, then 4 bytes: int32 immediate into FI (6-byte op)
  *   MEGA65-compatible integer unit (same addresses as the MEGA65):
  *   $D770-$D773 MULTINA  $D774-$D777 MULTINB  (unsigned 32-bit, LE)
  *   $D778-$D77F MULTOUT  = A * B, 64-bit
@@ -54,6 +67,16 @@
 #define MATH_ITOF 19
 #define MATH_FTOI 20
 #define MATH_FMOD 21
+#define ML_END 0x80
+#define ML_STOPNEG 0x81
+#define ML_STOPPOS 0x82
+#define ML_STOPZERO 0x83
+#define ML_STOPNZ 0x84
+#define ML_JUMP 0x85
+#define ML_DJNZ 0x86
+#define ML_STOPFIGE 0x87
+#define ML_LDF 0x88
+#define ML_LDI 0x89
 /* SYS registers (read-only unless noted):
  *   $00,01  CPU clock, kHz, LE (40500)      $02,03  physical RAM, MB, LE (256)
  *   $04     read: latch the host clock into $05-$0C and return 0

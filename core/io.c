@@ -157,11 +157,39 @@ static void math_fop(uint8_t op)
     if (store) mf_set(d, r);
     math_reg[0x22] = (uint8_t)((r == 0.0f ? 1 : 0) | (r < 0.0f ? 2 : 0) | (isnan(r) || isinf(r) ? 4 : 0));
 }
+static void math_list_run(void)
+{
+    uint32_t pc = m32(0x28) & K4510_PHYS_MASK;
+    uint16_t cnt = (uint16_t)(math_reg[0x2E] | (math_reg[0x2F] << 8));
+    uint8_t status = 0xFF;
+    for (int guard = 0; guard < 65536; guard++) {
+        uint8_t op = k4510_ram[pc & K4510_PHYS_MASK], arg = k4510_ram[(pc + 1) & K4510_PHYS_MASK];
+        pc += 2;
+        if (op < 0x20) { math_reg[0x21] = arg; math_fop(op); continue; }
+        int fl = math_reg[0x22];
+        switch (op) {
+        case ML_END:     status = 0; goto done;
+        case ML_STOPNEG: if (fl & 2)   { status = 1; goto done; } break;
+        case ML_STOPPOS: if (!(fl & 2)) { status = 1; goto done; } break;
+        case ML_STOPZERO: if (fl & 1)  { status = 1; goto done; } break;
+        case ML_STOPNZ:  if (!(fl & 1)) { status = 1; goto done; } break;
+        case ML_JUMP:    pc += (int8_t)arg * 2; break;
+        case ML_DJNZ:    if (--cnt) pc += (int8_t)arg * 2; break;
+        case ML_STOPFIGE: { int32_t fi = (int32_t)m32(0x24); if (fi >= (int32_t)arg) { status = 1; goto done; } break; }
+        case ML_LDF:     for (int i = 0; i < 4; i++) math_reg[((arg >> 4) & 7) * 4 + i] = k4510_ram[(pc + i) & K4510_PHYS_MASK]; pc += 4; break;
+        case ML_LDI:     for (int i = 0; i < 4; i++) math_reg[0x24 + i] = k4510_ram[(pc + i) & K4510_PHYS_MASK]; pc += 4; break;
+        default:         status = 0xFF; goto done;
+        }
+    }
+done:
+    math_reg[0x2D] = status; math_reg[0x2E] = (uint8_t)cnt; math_reg[0x2F] = (uint8_t)(cnt >> 8);
+}
 static uint8_t math_read(uint8_t r) { return r < sizeof math_reg ? math_reg[r] : 0xFF; }
 static void math_write(uint8_t r, uint8_t v)
 {
     if (r >= sizeof math_reg) return;
     if (r == 0x20) { math_fop(v); return; }
+    if (r == 0x2C) { math_list_run(); return; }
     math_reg[r] = v;
     if (r >= 0x70 && r < 0x78) math_int_update();
 }
