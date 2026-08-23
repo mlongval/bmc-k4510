@@ -15,6 +15,45 @@
 #define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
+#define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
+/* MATH unit. Results are ready the cycle after the write that triggers them.
+ *   $D700-$D71F  F0..F7   eight IEEE-754 single registers, little-endian, read/write
+ *   $D720  FOP     write = execute; low 5 bits op, see below
+ *   $D721  FARG    (dst << 4) | src, register numbers 0..7, write before FOP
+ *   $D722  FFLAGS  from the last op: bit0 result zero, bit1 negative, bit2 NaN/inf
+ *   $D724-$D727  FI  int32 for ITOF / FTOI
+ *   ops: 0 MOV Fd=Fs  1 ADD  2 SUB  3 MUL  4 DIV   (Fd = Fd op Fs)
+ *        5 SQRT 6 SIN 7 COS 8 TAN 9 ATAN 10 EXP 11 LOG 14 ABS 15 NEG 16 FLOOR 17 ROUND  (Fd = f(Fs))
+ *        10 ATAN2 (Fd = atan2(Fd,Fs))  13 POW (Fd = Fd^Fs)  21 FMOD (Fd = fmod(Fd,Fs))
+ *        18 CMP   flags from Fd - Fs, registers unchanged
+ *        19 ITOF  Fd = (float)FI        20 FTOI  FI = (int32)Fs, truncated
+ *   MEGA65-compatible integer unit (same addresses as the MEGA65):
+ *   $D770-$D773 MULTINA  $D774-$D777 MULTINB  (unsigned 32-bit, LE)
+ *   $D778-$D77F MULTOUT  = A * B, 64-bit
+ *   $D76C-$D76F DIVOUT integer part of A / B   $D768-$D76B fractional part (32.32)
+ *   recomputed on every write to an input byte; B = 0 gives all-ones. */
+#define MATH_MOV 0
+#define MATH_ADD 1
+#define MATH_SUB 2
+#define MATH_MUL 3
+#define MATH_DIV 4
+#define MATH_SQRT 5
+#define MATH_SIN 6
+#define MATH_COS 7
+#define MATH_TAN 8
+#define MATH_ATAN 9
+#define MATH_ATAN2 10
+#define MATH_EXP 11
+#define MATH_LOG 12
+#define MATH_POW 13
+#define MATH_ABS 14
+#define MATH_NEG 15
+#define MATH_FLOOR 16
+#define MATH_ROUND 17
+#define MATH_CMP 18
+#define MATH_ITOF 19
+#define MATH_FTOI 20
+#define MATH_FMOD 21
 /* SYS registers (read-only unless noted):
  *   $00,01  CPU clock, kHz, LE (40500)      $02,03  physical RAM, MB, LE (256)
  *   $04     read: latch the host clock into $05-$0C and return 0

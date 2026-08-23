@@ -27,6 +27,16 @@
 #define V_SHEILACTL 0xD064u
 
 #define FONT8    0x00010000UL        /* 256 ASCII glyphs, placed by the frontend */
+/* MATH unit ops (core/io.h) */
+#define MATH_MOV 0
+#define MATH_ADD 1
+#define MATH_SUB 2
+#define MATH_MUL 3
+#define MATH_DIV 4
+#define MATH_SQRT 5
+#define MATH_CMP 18
+#define MATH_ITOF 19
+#define MATH_FTOI 20
 #define WINDOW   ((uint8_t *)0x2000) /* the MAP window, 16 KB, see prg0.s */
 
 void __fastcall__ map_window(unsigned long phys);

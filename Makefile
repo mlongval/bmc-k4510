@@ -13,7 +13,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/balls.prg fs/cube.prg fs/mandel.prg fs/keytest.prg test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/balls.prg fs/cube.prg fs/mandel.prg fs/keytest.prg test/mathtest test/capture test/fstest test/romtest test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -72,10 +72,13 @@ test/dmatest: test/dmatest.c $(CORE_OBJS)
 test/vicketest: test/vicketest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test/mathtest: test/mathtest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test/sidtest: test/sidtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest test/fstest test/romtest rom/wozmon.bin rom/kernal.bin
+test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/sidtest test/fstest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
@@ -84,6 +87,7 @@ test: test/cputest test/woztest test/maptest test/dmatest test/vicketest test/si
 	./test/sidtest
 	./test/fstest
 	./test/romtest
+	./test/mathtest
 
 clean: clean-demos
 clean-demos:

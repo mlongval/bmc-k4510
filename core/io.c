@@ -5,6 +5,7 @@
 
 static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 #include <string.h>
+#include <stdint.h>
 
 /* ---- keyboard: a FIFO behind two registers (Wozmon polls them) -------- */
 static uint8_t kbd_fifo[64];
@@ -121,6 +122,50 @@ static void dma_run(uint8_t cmd)
 
 /* ---- dispatch ------------------------------------------------------------ */
 
+/* ---- MATH $D700 --------------------------------------------------------- */
+#include <math.h>
+static uint8_t math_reg[0x80];       /* $D700-$D77F image; F0..F7 at 0, FI at $24, integer unit at $68.. */
+static float  mf_get(int n) { float f; memcpy(&f, &math_reg[n * 4], 4); return f; }
+static void   mf_set(int n, float f) { memcpy(&math_reg[n * 4], &f, 4); }
+static uint32_t m32(int off) { return (uint32_t)math_reg[off] | ((uint32_t)math_reg[off + 1] << 8) | ((uint32_t)math_reg[off + 2] << 16) | ((uint32_t)math_reg[off + 3] << 24); }
+static void m32w(int off, uint32_t v) { for (int i = 0; i < 4; i++) math_reg[off + i] = (uint8_t)(v >> (8 * i)); }
+static void math_int_update(void)
+{
+    uint32_t a = m32(0x70), b = m32(0x74);
+    uint64_t p = (uint64_t)a * b;
+    m32w(0x78, (uint32_t)p); m32w(0x7C, (uint32_t)(p >> 32));
+    if (b == 0) { m32w(0x6C, 0xFFFFFFFFu); m32w(0x68, 0xFFFFFFFFu); }
+    else { uint64_t q = ((uint64_t)a << 32) / b; m32w(0x6C, (uint32_t)(q >> 32)); m32w(0x68, (uint32_t)q); }
+}
+static void math_fop(uint8_t op)
+{
+    int d = (math_reg[0x21] >> 4) & 7, sidx = math_reg[0x21] & 7;
+    float a = mf_get(d), b = mf_get(sidx), r = a; int store = 1;
+    switch (op & 0x1F) {
+    case MATH_MOV: r = b; break;       case MATH_ADD: r = a + b; break;   case MATH_SUB: r = a - b; break;
+    case MATH_MUL: r = a * b; break;   case MATH_DIV: r = a / b; break;
+    case MATH_SQRT: r = sqrtf(b); break; case MATH_SIN: r = sinf(b); break; case MATH_COS: r = cosf(b); break;
+    case MATH_TAN: r = tanf(b); break; case MATH_ATAN: r = atanf(b); break; case MATH_ATAN2: r = atan2f(a, b); break;
+    case MATH_EXP: r = expf(b); break; case MATH_LOG: r = logf(b); break;  case MATH_POW: r = powf(a, b); break;
+    case MATH_ABS: r = fabsf(b); break; case MATH_NEG: r = -b; break;     case MATH_FLOOR: r = floorf(b); break;
+    case MATH_ROUND: r = roundf(b); break; case MATH_FMOD: r = fmodf(a, b); break;
+    case MATH_CMP: r = a - b; store = 0; break;
+    case MATH_ITOF: r = (float)(int32_t)m32(0x24); break;
+    case MATH_FTOI: { float t = truncf(b); int32_t i = (t > 2147483520.0f) ? INT32_MAX : (t < -2147483648.0f) ? INT32_MIN : (int32_t)t; m32w(0x24, (uint32_t)i); r = b; store = 0; break; }
+    default: store = 0; break;
+    }
+    if (store) mf_set(d, r);
+    math_reg[0x22] = (uint8_t)((r == 0.0f ? 1 : 0) | (r < 0.0f ? 2 : 0) | (isnan(r) || isinf(r) ? 4 : 0));
+}
+static uint8_t math_read(uint8_t r) { return r < sizeof math_reg ? math_reg[r] : 0xFF; }
+static void math_write(uint8_t r, uint8_t v)
+{
+    if (r >= sizeof math_reg) return;
+    if (r == 0x20) { math_fop(v); return; }
+    math_reg[r] = v;
+    if (r >= 0x70 && r < 0x78) math_int_update();
+}
+
 /* ---- SYS $D500 ---------------------------------------------------------- */
 #include <time.h>
 extern uint32_t mem_rom_base;
@@ -152,7 +197,7 @@ static uint8_t sys_read(uint8_t r)
 
 void io_reset(void)
 {
-    sys_frames = 0; memset(sid_shadow, 0, sizeof sid_shadow);
+    sys_frames = 0; memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();
@@ -170,6 +215,8 @@ uint8_t io_read(uint16_t addr)
         return 0xFF;
     case IO_SYS:
         return sys_read(addr & 0xFF);
+    case IO_MATH:
+        return math_read(addr & 0xFF);
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
@@ -193,6 +240,8 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_SID:
         if (addr < IO_FM) { sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F] = v; sid_write((addr - IO_SID) >> 5, addr & 0x1F, v); }
         return;
+    case IO_MATH:
+        math_write(addr & 0xFF, v); return;
     case IO_DMA:
         if ((addr & 0xFF) < 12) { dma_reg[addr & 0xFF] = v; return; }
         if (addr == IO_DMA_CMD) { dma_run(v); return; }
