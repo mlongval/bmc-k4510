@@ -93,7 +93,11 @@ void main(void)
         int16_t step = 38 >> level;
         text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 Mandelbrot  zoom level ");
         far_poke(TEXTMAP + 34, '0' + level);
-        if (render(ccx[level] - 160 * step, ccy[level] - 120 * step, step)) return;
+        {   uint8_t f0 = REG(SYS + 0x0D), f1 = REG(SYS + 0x0E), secs;
+            if (render(ccx[level] - 160 * step, ccy[level] - 120 * step, step)) return;
+            secs = (uint8_t)((((uint16_t)REG(SYS + 0x0E) << 8 | REG(SYS + 0x0D)) - ((uint16_t)f1 << 8 | f0)) / 60);
+            text8_print(TEXTMAP, 40, 36, 0, "   s"); put_num(TEXTMAP, 40, 35, 0, secs);
+        }
         for (k = 0; k < 180; k++) { wait_vblank(); set_palette(++phase); if (key_hit()) return; }
         if (++level == 5) level = 0;
     }

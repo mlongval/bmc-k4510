@@ -43,6 +43,25 @@ static void pal(uint8_t i, uint8_t r, uint8_t g, uint8_t b) { REG(V_PALIDX) = i;
 static void wait_vblank(void) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }
 /* any key pressed? consume it and return nonzero */
 static uint8_t key_hit(void) { if (REG(KBDST) & 0x80) { (void)REG(KBD); return 1; } return 0; }
+/* key pressed? return it (0 if none) */
+static uint8_t key_get(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
+
+/* frames-per-second meter: call fps_tick() once per drawn frame; fps_value
+ * is refreshed every 60 vblanks (from the $D50D frame counter) */
+static uint8_t fps_value, fps_count, fps_last;
+static uint16_t fps_vbl;
+static void fps_tick(void)
+{
+    uint8_t f = REG(SYS + 0x0D);
+    fps_count++;
+    fps_vbl += (uint8_t)(f - fps_last); fps_last = f;
+    if (fps_vbl >= 60) { fps_value = fps_count; fps_count = 0; fps_vbl -= 60; }
+}
+static void put_num(uint32_t map, uint8_t cols, uint8_t x, uint8_t y, uint8_t v)
+{
+    uint32_t p = map + (uint32_t)y * cols + x;
+    far_poke(p, '0' + v / 100); far_poke(p + 1, '0' + (v / 10) % 10); far_poke(p + 2, '0' + v % 10);
+}
 
 /* DMA: copy len bytes phys src -> phys dst */
 static void dma_copy(uint32_t src, uint32_t dst, uint32_t len) { w32(DMA, src); w32(DMA + 4, dst); w32(DMA + 8, len); REG(DMA + 12) = 1; }

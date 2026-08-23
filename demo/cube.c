@@ -105,7 +105,7 @@ static uint8_t visible(const uint8_t *f)
 
 void main(void)
 {
-    uint16_t frame = 0; uint8_t i, j, solid = 0;
+    uint16_t frame = 0; uint8_t i, j, solid = 0, dbuf = 1, k;
     REG(V_CTRL) = 0;
     pal(1, 255, 255, 255);
     pal(2, 220, 40, 40); pal(3, 40, 200, 60); pal(4, 50, 90, 240); pal(5, 240, 200, 40); pal(6, 200, 60, 220); pal(7, 40, 210, 210);
@@ -117,13 +117,17 @@ void main(void)
     dma_fill(' ', TEXTMAP, 40 * 30);
     text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: flat stores, DMA spans,");
     text8_print(TEXTMAP, 40, 1, 1, "double buffered by one pointer write");
-    text8_print(TEXTMAP, 40, 1, 29, "any key returns to the shell");
+    text8_print(TEXTMAP, 40, 1, 29, "D: buffering   key: exit   FPS ");
+    text8_print(TEXTMAP, 40, 1, 28, "double buffered");
     text8_layer(1, TEXTMAP, 40, 0);
     dma_fill(0, BUF0, (uint32_t)W * H);
     REG(V_CTRL) = 1 | 2;                                                /* display on, lowres */
     back = 1;
-    while (!key_hit()) {
-        buf = back ? BUF1 : BUF0;
+    for (;;) {
+        k = key_get();
+        if (k == 'd' || k == 'D') { dbuf ^= 1; text8_print(TEXTMAP, 40, 1, 28, dbuf ? "double buffered" : "single buffer  "); }
+        else if (k) break;
+        buf = dbuf ? (back ? BUF1 : BUF0) : BUF0;
         dma_fill(0, buf, (uint32_t)W * H);
         a += 1; b += 2; c += 1;
         transform();
@@ -135,9 +139,9 @@ void main(void)
                 for (j = 0; j < 4; j++) line(sx[face[i][j]], sy[face[i][j]], sx[face[i][(j + 1) & 3]], sy[face[i][(j + 1) & 3]], 1);
             }
         }
-        wait_vblank();
-        w32(V_LAYER(0) + 8, buf);
-        back ^= 1;
+        if (dbuf) { wait_vblank(); w32(V_LAYER(0) + 8, buf); back ^= 1; }
+        else w32(V_LAYER(0) + 8, BUF0);
+        fps_tick(); put_num(TEXTMAP, 40, 32, 29, fps_value);
         if (++frame == 300) { frame = 0; solid ^= 1; }
     }
 }

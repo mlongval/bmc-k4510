@@ -95,7 +95,7 @@ void main(void)
     }
     dma_fill(' ', TEXTMAP, 80 * 60);
     text8_print(TEXTMAP, 80, 1, 0, "BMC-K4510  VICKe: 15 x 32x32 4bpp sprites, 15 palette banks, SHEILA sky");
-    text8_print(TEXTMAP, 80, 1, 59, "any key returns to the shell");
+    text8_print(TEXTMAP, 80, 1, 59, "any key returns to the shell        FPS ");
     text8_layer(0, TEXTMAP, 80, 0);
     init_table(SPRTAB_A); init_table(SPRTAB_B);
     write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
@@ -113,5 +113,6 @@ void main(void)
         write_table(back);
         wait_vblank();
         w32(V_SPRTAB, back); cur ^= 1;
+        fps_tick(); put_num(TEXTMAP, 80, 41, 59, fps_value); fps_last = REG(SYS + 0x0D);
     }
 }
