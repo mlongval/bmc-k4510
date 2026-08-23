@@ -178,6 +178,12 @@ static void math_list_run(void)
         case ML_STOPFIGE: { int32_t fi = (int32_t)m32(0x24); if (fi >= (int32_t)arg) { status = 1; goto done; } break; }
         case ML_LDF:     for (int i = 0; i < 4; i++) math_reg[((arg >> 4) & 7) * 4 + i] = k4510_ram[(pc + i) & K4510_PHYS_MASK]; pc += 4; break;
         case ML_LDI:     for (int i = 0; i < 4; i++) math_reg[0x24 + i] = k4510_ram[(pc + i) & K4510_PHYS_MASK]; pc += 4; break;
+        case ML_LDMS: {  uint32_t a = ((uint32_t)k4510_ram[pc & K4510_PHYS_MASK] | ((uint32_t)k4510_ram[(pc + 1) & K4510_PHYS_MASK] << 8)
+                         | ((uint32_t)k4510_ram[(pc + 2) & K4510_PHYS_MASK] << 16) | ((uint32_t)k4510_ram[(pc + 3) & K4510_PHYS_MASK] << 24)) & K4510_PHYS_MASK;
+                         uint8_t e = k4510_ram[a], m1 = k4510_ram[(a + 1) & K4510_PHYS_MASK], m2 = k4510_ram[(a + 2) & K4510_PHYS_MASK], m3 = k4510_ram[(a + 3) & K4510_PHYS_MASK];
+                         float f = 0.0f;
+                         if (e >= 2) { uint32_t bits = ((uint32_t)(m1 & 0x80) << 24) | ((uint32_t)(e - 2) << 23) | ((uint32_t)(m1 & 0x7F) << 16) | ((uint32_t)m2 << 8) | m3; memcpy(&f, &bits, 4); }
+                         mf_set((arg >> 4) & 7, f); pc += 4; break; }
         default:         status = 0xFF; goto done;
         }
     }

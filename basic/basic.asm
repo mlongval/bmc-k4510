@@ -443,12 +443,12 @@ Ibuffs		= IRQ_vec+$14
 Ibuffe		= Ibuffs+$7E; end of input buffer (K4510: 126 characters)
 
 Ram_base		= $0800	; K4510: start of user RAM
-Ram_top		= $7000	; K4510: BASIC code is at $7000
+Ram_top		= $6C00	; K4510: BASIC code is at $6C00
 
 ; This start can be changed to suit your system
 
 ;	.org	$5000		; Suitable for RAM
-	.org	$7000		; K4510 .prg
+	.org	$6C00		; K4510 .prg
 
 ; For convenience, put jump here to reset location so it can be
 ; run from the load address.
@@ -918,6 +918,7 @@ LAB_1311
 	STA	(Baslnl),Y		; save it to program memory
 
 LAB_1319
+	JSR	K_INVAL		; K4510: the program changed
 	JSR	LAB_1477		; reset execution to start, clear vars and flush stack
 	LDX	Smeml			; get start of mem low byte
 	LDA	Smemh			; get start of mem high byte
@@ -1243,6 +1244,7 @@ LAB_1463
 ; reset execution to start, clear vars and flush stack
 
 LAB_1477
+	JSR	K_INVAL		; K4510: variables move, forget the compiled expressions
 	CLC				; clear carry
 	LDA	Smeml			; get start of mem low byte
 	ADC	#$FF			; -1
@@ -2891,6 +2893,8 @@ LAB_1ABE
 ; evaluate expression
 
 LAB_EVEX
+	JMP	K_EVEX			; K4510: expressions compile to math lists
+LAB_EVEX_SW
 	LDX	Bpntrl		; get BASIC execute pointer low byte
 	BNE	LAB_1AC7		; skip next if not zero
 

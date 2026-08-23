@@ -114,7 +114,14 @@ static void label(const char *s) { uint8_t o = fg; fg = C_HI; puts_(s); fg = o; 
 static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
 
 /* ---- keyboard ---------------------------------------------------------- */
-uint8_t k_getin(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
+/* GETIN shows the cursor while a program waits for a key (BASIC reads this way) */
+static void draw_cursor(uint8_t on);
+uint8_t k_getin(void)
+{
+    if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return REG(KBD); }
+    if (!cursor_vis) draw_cursor(1);
+    return 0;
+}
 
 uint8_t k_chrin(void)
 {

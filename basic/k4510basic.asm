@@ -8,8 +8,8 @@
 IRQ_vec	= VEC_SV+2		; EhBASIC keeps its page-3 layout (Ibuffs follows)
 NMI_vec	= IRQ_vec+$0A
 
-	.org	$6FFC
-	.word	$7000			; .prg header: load address
+	.org	$6BFC
+	.word	$6C00			; .prg header: load address
 	.word	k4510_start		;              run address
 
 	.include "basic.asm"		; .org $7000 inside, Ram_base/Ram_top patched for the K4510
@@ -91,6 +91,7 @@ k4510_outdone
 
 	.include "k4510file.asm"
 	.include "k4510math.asm"
+	.include "k4510expr.asm"
 
 	.include "k4510gfx.asm"
 

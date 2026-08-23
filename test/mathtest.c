@@ -45,5 +45,13 @@ int main(void)
       CHECK(io_read(IO_MATH + 0x2E) == 20 - 9, "math list: DJNZ ran 9 times before the stop on the 10th doubling");
       io_write(IO_MATH + 0x2E, 3); io_write(IO_MATH + 0x2C, 1);
       CHECK(io_read(IO_MATH + 0x2D) == 0 && fget(0) == 12.0f, "math list: runs out of count -> END, F0 = 1.5 * 8"); }
+    /* LDMS: Microsoft float 3.5 = exponent $82, mantissa $E0 00 00 (0.875 * 2^2), positive */
+    { mem_poke(0x4000, 0x82); mem_poke(0x4001, 0x60); mem_poke(0x4002, 0); mem_poke(0x4003, 0);     /* sign bit clear, leading 1 implied: $60 -> 1.11 */
+      uint8_t list[] = { ML_LDMS, 0x20, 0x00, 0x40, 0x00, 0x00, ML_END, 0 };
+      for (unsigned i = 0; i < sizeof list; i++) mem_poke(0x3100 + i, list[i]);
+      w32(IO_MATH + 0x28, 0x3100); io_write(IO_MATH + 0x2C, 1);
+      CHECK(fget(2) == 3.5f, "LDMS converts a Microsoft-format 3.5 (got %g)", fget(2));
+      mem_poke(0x4001, 0xE0); io_write(IO_MATH + 0x2C, 1);
+      CHECK(fget(2) == -3.5f, "LDMS honours the sign bit"); }
     printf(fails ? "\n%d FAILED\n" : "ALL OK\n", fails); return fails != 0;
 }

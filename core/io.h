@@ -40,6 +40,9 @@
  *   $87 STOPFIGE arg   stop if FI >= arg (unsigned byte compare on the low byte, FI clamped)
  *   $88 LDF arg=dst<<4, then 4 bytes: IEEE single immediate into Fdst (6-byte op)
  *   $89 LDI, then 4 bytes: int32 immediate into FI (6-byte op)
+ *   $8A LDMS arg=dst<<4, then 4 bytes: 28-bit address of a Microsoft-format float
+ *       (exponent excess-128, mantissa1 with sign in bit 7, mantissa2, mantissa3 --
+ *       EhBASIC's packed variable format); converted into Fdst (6-byte op)
  *   MEGA65-compatible integer unit (same addresses as the MEGA65):
  *   $D770-$D773 MULTINA  $D774-$D777 MULTINB  (unsigned 32-bit, LE)
  *   $D778-$D77F MULTOUT  = A * B, 64-bit
@@ -77,6 +80,7 @@
 #define ML_STOPFIGE 0x87
 #define ML_LDF 0x88
 #define ML_LDI 0x89
+#define ML_LDMS 0x8A
 /* SYS registers (read-only unless noted):
  *   $00,01  CPU clock, kHz, LE (40500)      $02,03  physical RAM, MB, LE (256)
  *   $04     read: latch the host clock into $05-$0C and return 0
