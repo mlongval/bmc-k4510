@@ -509,17 +509,8 @@ TabLoop
 	LDX	#des_sk		; descriptor stack start
 	STX	next_s		; set descriptor stack pointer
 	JSR	LAB_CRLF		; print CR/LF
-	LDA	#<LAB_MSZM		; point to memory size message (low addr)
-	LDY	#>LAB_MSZM		; point to memory size message (high addr)
-	JSR	LAB_18C3		; print null terminated string from memory
-	JSR	LAB_INLN		; print "? " and get BASIC input
-	STX	Bpntrl		; set BASIC execute pointer low byte
-	STY	Bpntrh		; set BASIC execute pointer high byte
-	JSR	LAB_GBYT		; get last byte back
-
-	BNE	LAB_2DAA		; branch if not null (user typed something)
-
-	LDY	#$00			; else clear Y
+	LDY	#$00			; K4510: no "Memory size ?" question -- the machine knows its memory;
+					; fall into the auto-size probe (Itempl/h hold Ram_base already)
 					; character was null so get memory size the hard way
 					; we get here with Y=0 and Itempl/h = Ram_base
 LAB_2D93

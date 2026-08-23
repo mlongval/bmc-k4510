@@ -216,7 +216,7 @@ k_fi_5
 	RTS
 k_fi_end
 	LDA	chain
-	BEQ	k_fi_restore
+	BEQ	k_fi_msg		; a plain LOAD: confirm with LOADED, then restore
 	PHX
 	LDX	cidx
 	LDA	k_chainstr,X		; R U N; the final CR below runs it
@@ -228,6 +228,22 @@ k_fi_end
 	RTS
 k_chainstr
 	.byte	"RUN", 0
+k_loadedmsg
+	.byte	$0D, "LOADED", $0D, 0
+k_fi_msg
+	PHX				; the line editor keeps its buffer index in X across input calls
+	PHY
+	STZ	cidx
+k_fi_lmsg
+	LDX	cidx
+	LDA	k_loadedmsg,X
+	BEQ	k_fi_lmdone
+	JSR	ROM_CHROUT		; straight to the screen: EhBASIC output is still muted here
+	INC	cidx
+	BRA	k_fi_lmsg
+k_fi_lmdone
+	PLY
+	PLX
 k_fi_restore
 	STZ	chain
 	STZ	ccflag			; Ctrl-C works again
