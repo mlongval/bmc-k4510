@@ -8,7 +8,10 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 - **CPU:** 45GS02 — the MEGA65's 6502 descendant (4510 + Q register +
   32-bit flat addressing + 28-bit MAP), at 40.5 MHz. The core is Xemu's,
   byte for byte; everything around it is ours.
-- **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms.
+- **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms;
+  byte-pokeable **bank registers** ($D600) and a **far-call gate** ($DF00)
+  so programs bigger than the 64 KB window are overlays, not a puzzle;
+  `LOAD` understands segmented `K4SG` files (see `demo/segdemo.c`, `demo/far.h`).
 - **VICKe**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from
   24-bit, four layers (bitmap / tile / text), 128 sprites with no per-line
   limit, a blitter with copy/fill/logic/**line/triangle** ops, and
@@ -30,7 +33,7 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 ## Build and run (desktop)
 
     make            # needs gcc, SDL2, cc65, and ACME for the two asm ROMs
-    make test       # nine test suites
+    make test       # ten test suites
     ./sdl/k4510     # the machine; then DIR, RUN balls.prg, RUN ehbasic.prg ...
 
 ## Raspberry Pi 3B+
@@ -48,7 +51,7 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
     rom/         system ROM (cc65), Wozmon and a demo (ACME)
-    demo/        programs in C -> fs/*.prg  (balls, cube, mandel, sids, keytest, sieve, chrout)
+    demo/        programs in C -> fs/*.prg  (balls, cube, mandel, sids, keytest, sieve, chrout, segdemo)
     basic/       EhBASIC 2.22 + K4510 glue -> fs/ehbasic.prg
     fs/          the machine's filesystem (programs, BASIC text files; RF1-8/AHL/SIEVE.BAS are the classic benchmarks)
     test/        tests, headless screenshot and benchmark tools

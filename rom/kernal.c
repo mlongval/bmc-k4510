@@ -17,6 +17,7 @@
 #define FS     0xD300u
 #define SID0   0xD400u
 #define SYS    0xD500u
+#define BANK   0xD600u
 
 #define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
 #define FONT     0x010000UL           /* placed by the loader */
@@ -174,7 +175,7 @@ static void poke(uint32_t a, uint8_t v)
 static char line[96];
 static uint32_t xam;          /* last opened address */
 static uint8_t mode;          /* 0 xam, 1 store, 2 block */
-static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run;   /* last LOAD */
+static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs;   /* last LOAD */
 
 static uint8_t ishex(char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
 static uint8_t hexval(char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; }
@@ -236,21 +237,50 @@ static uint8_t is_prg(const char *name)
     return n > 4 && name[n - 4] == '.' && (name[n - 3] | 0x20) == 'p' && (name[n - 2] | 0x20) == 'r' && (name[n - 1] | 0x20) == 'g';
 }
 
-/* returns 0 on success. A .prg carries a 4-byte header: load address, run address. */
+/* returns 0 on success. A .prg carries a 4-byte header: load address, run address.
+ * A segmented program (K-03) starts with "K4SG" instead:
+ *   4 nseg  5 flags  6-7 entry (CPU address)
+ *   then nseg x 12 (nseg <= 8): phys[4] len[4] block (bank it there, $FF = no) pad[3]
+ *   then the segments' bytes, in order. Each lands at its physical address
+ *   anywhere in 256 MB; a block number also sets that bank register. */
 static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
 {
     uint8_t hdr[4];
-    last_run = 0;
+    last_run = 0; last_segs = 0;
     fs_name(name);
     if (is_prg(name)) {
         if (fs_cmd(1)) return 1;
         w32(FS + 8, (uint16_t)hdr); w32(FS + 12, 4);
         if (fs_cmd(3) || r32(FS + 12) != 4) { fs_cmd(5); return 2; }
-        if (!has_addr) addr = hdr[0] | ((uint16_t)hdr[1] << 8);
-        last_run = hdr[2] | ((uint16_t)hdr[3] << 8);
-        w32(FS + 8, addr); w32(FS + 12, 0x100000UL);
-        if (fs_cmd(3)) { fs_cmd(5); return 2; }
-        last_len = r32(FS + 12); fs_cmd(5);
+        if (hdr[0] == 'K' && hdr[1] == '4' && hdr[2] == 'S' && hdr[3] == 'G') {
+            static uint8_t tab[8 * 12];          /* the table comes first, then the segments' bytes */
+            uint8_t i, n; uint32_t phys, len, total = 0;
+            w32(FS + 8, (uint16_t)hdr); w32(FS + 12, 4);
+            if (fs_cmd(3) || r32(FS + 12) != 4) { fs_cmd(5); return 2; }
+            n = hdr[0]; last_run = hdr[2] | ((uint16_t)hdr[3] << 8);
+            if (n == 0 || n > 8) { fs_cmd(5); return 2; }
+            w32(FS + 8, (uint16_t)tab); w32(FS + 12, (uint32_t)n * 12);
+            if (fs_cmd(3) || r32(FS + 12) != (uint32_t)n * 12) { fs_cmd(5); return 2; }
+            for (i = 0; i < n; i++) {
+                uint8_t *e = tab + i * 12;
+                phys = r32((uint16_t)e) & 0x0FFFFFFFUL; len = r32((uint16_t)e + 4);
+                if (len) {
+                    w32(FS + 8, phys); w32(FS + 12, len);
+                    if (fs_cmd(3) || r32(FS + 12) != len) { fs_cmd(5); return 2; }
+                }
+                if (e[8] < 8) w32(BANK + 4 * e[8], phys);
+                if (i == 0) addr = phys;
+                total += len;
+            }
+            fs_cmd(5);
+            last_len = total; last_segs = n;
+        } else {
+            if (!has_addr) addr = hdr[0] | ((uint16_t)hdr[1] << 8);
+            last_run = hdr[2] | ((uint16_t)hdr[3] << 8);
+            w32(FS + 8, addr); w32(FS + 12, 0x100000UL);
+            if (fs_cmd(3)) { fs_cmd(5); return 2; }
+            last_len = r32(FS + 12); fs_cmd(5);
+        }
     } else {
         w32(FS + 8, addr);
         if (fs_cmd(9)) return 1;
@@ -269,6 +299,7 @@ static void cmd_load(const char *p)
     if (st == 1) { error("load: not found"); return; }
     if (st) { error("load: bad file"); return; }
     puts_("loaded "); putdec(last_len); puts_(" bytes at "); puthex28(last_addr);
+    if (last_segs) { puts_(" in "); putdec(last_segs); puts_(" segments"); }
     if (last_run) { puts_(", run address "); puthex16(last_run); }
     newline();
 }
@@ -396,6 +427,11 @@ static void info_mem(void)
     pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); the text screen is at $030000 (far)"); newline();
     pad(8); puts_("I/O $D000-$DFFF  ROM $"); puthex16(rombase); puts_("-$FFFF ("); putdec((0x10000UL - rombase) / 1024); puts_(" KB)"); newline();
     pad(8); puts_("font at $0010000, MAP window convention $2000-$BFFF"); newline();
+    { uint8_t b, any = 0;
+      for (b = 0; b < 8; b++) if (REG(BANK + 4 * b + 3) != 0xFF) {
+          if (!any) { pad(8); puts_("banks:"); any = 1; }
+          puts_(" "); putdec(b); puts_("=$"); puthex28(r32(BANK + 4 * b)); }
+      if (any) newline(); }
     if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); if (last_run) { puts_(", run $"); puthex16(last_run); } newline(); }
 }
 

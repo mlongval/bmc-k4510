@@ -15,7 +15,26 @@
 #define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
+#define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
+#define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
+/* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.
+ *   bytes 0-3  28-bit physical base, little-endian; every byte write takes
+ *              effect at once (STQ works). Writing byte 3 with bit 7 set
+ *              (e.g. $FF) turns the block off. Reads give the base, or
+ *              $FFFFFFFF when the block is not banked.
+ *   $D620  read: bit n = block n banked     $D621  read: MAP mask (bit n = MAPped)
+ * A banked block resolves phys = base + (cpu & $1FFF). MAP rewrites all
+ * eight blocks, so the ROM's "MAP off" at program exit clears the banks too.
+ * Blocks 6 and 7 hold I/O and ROM in the unmapped view: banking them hides
+ * these registers and the IRQ vectors -- legal, your problem.
+ * FAR gate: JSR $DF00 + 4n calls descriptor n of the table at FARTAB.
+ *   $DF00-$DF7F  32 call slots      $DFF0  return gate (RTS lands here)
+ *   $DF80-$DF83  FARTAB 28-bit pointer to the descriptor table (read/write)
+ *   $DF84  read: nesting depth      $DF85  read: last error (1 overflow, 2 underflow, 3 bad slot); write clears
+ *   descriptor, 8 bytes: base[4] block flags entry[2]; flags bit0 leave
+ *   banked on return, bit1 do not bank (long jump to resident code).
+ *   A/X/Y/Z pass through both ways: cc65 __fastcall__ works across it. */
 /* MATH unit. Results are ready the cycle after the write that triggers them.
  *   $D700-$D71F  F0..F7   eight IEEE-754 single registers, little-endian, read/write
  *   $D720  FOP     write = execute; low 5 bits op, see below

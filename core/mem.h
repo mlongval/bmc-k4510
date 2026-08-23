@@ -42,5 +42,24 @@ typedef struct {
 } k4510_map_t;
 const k4510_map_t *mem_map_state(void);
 
+/* ---- bank registers (K-01) and the far-call gate (K-02) -------------- */
+/* A bank register puts one 8 KB block of the CPU view onto any 28-bit
+ * physical base (byte granularity): phys = base + (cpu & $1FFF). A block
+ * is owned by whichever wrote it last, MAP or a bank register; MAP always
+ * rewrites all eight blocks, so "MAP everything off" also clears the banks. */
+#define BANK_OFF 0xFFFFFFFFu
+void     mem_bank_set(uint8_t block, uint32_t phys);    /* block 0-7 */
+void     mem_bank_off(uint8_t block);
+uint32_t mem_bank_get(uint8_t block);                   /* BANK_OFF if not banked */
+uint8_t  mem_bank_mask(void);                           /* bit n: block n banked */
+/* Far-call gate: JSR $DF00+4n banks descriptor n in and jumps to it; the
+ * callee's RTS lands on the return gate, which restores the bank. */
+#define FAR_GATE     0xDF00u
+#define FAR_SLOTS    32
+#define FAR_RET      0xDFF0u
+#define FAR_DEPTH_MAX 64
+extern uint32_t far_table;          /* 28-bit phys of the descriptor table ($DF80-$DF83) */
+extern uint8_t  far_depth, far_err; /* nesting depth; last error: 1 overflow, 2 underflow, 3 bad slot */
+
 
 #endif

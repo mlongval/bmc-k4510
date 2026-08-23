@@ -20,3 +20,7 @@ demo/*.s
 demo/*.map
 basic/*.o
 test/headless
+test/banktest
+!demo/segdemo-header.s
+test/mathtest
+test/woztest

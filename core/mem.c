@@ -27,6 +27,8 @@ static k4510_map_t map;
 static uint32_t block_base[8];       /* per 8 KB block: phys address of CPU offset 0 within it, or
                                         UNMAPPED */
 #define UNMAPPED 0xFFFFFFFFu
+static uint32_t bank_reg[8];         /* K-01: per block, 28-bit base or BANK_OFF */
+static uint8_t  bank_on[8];          /* 1: the bank register owns this block (overrides MAP) */
 
 /* ---- physical RAM ----------------------------------------------------- */
 
@@ -45,7 +47,9 @@ int mem_init(void)
 static void map_apply(void)
 {
     for (int b = 0; b < 8; b++) {
-        if (map.mask & (1u << b)) {
+        if (bank_on[b]) {
+            block_base[b] = bank_reg[b];
+        } else if (map.mask & (1u << b)) {
             uint32_t off = (b < 4) ? map.offset_low : map.offset_high;
             uint32_t mb  = (b < 4) ? map.mb_low     : map.mb_high;
             /* phys(cpu) = mb + ((off + cpu) & 0xFFFFF); cpu = b*8K + i, so precompute for i = 0 */
@@ -59,6 +63,8 @@ static void map_apply(void)
 void mem_reset(void)
 {
     memset(&map, 0, sizeof map);
+    for (int b = 0; b < 8; b++) { bank_reg[b] = BANK_OFF; bank_on[b] = 0; }
+    far_table = 0; far_depth = 0; far_err = 0;
     map_apply();
     io_reset();
 }
@@ -94,6 +100,7 @@ static XEMU_INLINE uint32_t cpu_to_phys(uint16_t a)
 {
     uint32_t base = block_base[a >> 13];
     if (base == UNMAPPED) return a;
+    if (bank_on[a >> 13]) return (base + (a & 0x1FFF)) & K4510_PHYS_MASK;
     /* within the mapped block the 20-bit add can wrap at the megabyte: redo it exactly */
     uint32_t off = (a < 0x8000) ? map.offset_low : map.offset_high;
     uint32_t mb  = (a < 0x8000) ? map.mb_low     : map.mb_high;
@@ -103,6 +110,54 @@ static XEMU_INLINE uint32_t cpu_to_phys(uint16_t a)
 
 uint32_t mem_cpu_to_phys(uint16_t a) { return cpu_to_phys(a); }
 
+/* ---- bank registers (K-01) -------------------------------------------- */
+void mem_bank_set(uint8_t b, uint32_t phys) { b &= 7; bank_reg[b] = phys & K4510_PHYS_MASK; bank_on[b] = 1; map_apply(); }
+void mem_bank_off(uint8_t b)                { b &= 7; bank_reg[b] = BANK_OFF; bank_on[b] = 0; map_apply(); }
+uint32_t mem_bank_get(uint8_t b)            { b &= 7; return bank_on[b] ? bank_reg[b] : BANK_OFF; }
+uint8_t mem_bank_mask(void)                 { uint8_t m = 0; for (int b = 0; b < 8; b++) if (bank_on[b]) m |= 1u << b; return m; }
+
+/* ---- far-call gate (K-02) --------------------------------------------- */
+/* Descriptor n, 8 bytes at far_table + 8n:
+ *   0-3 phys base of the code (28-bit)   4 block (0-7) to bank it into
+ *   5 flags: bit0 leave banked on return, bit1 do not bank (long jump only)
+ *   6-7 entry, a CPU address inside that block
+ * An opcode fetch from $DF00+4n (i.e. JSR/JMP there) runs the call; the
+ * core sees a NOP and continues at the entry. The callee's RTS returns to
+ * $DFF0, which restores the block and returns to the original caller. */
+uint32_t far_table; uint8_t far_depth, far_err;
+static struct { uint8_t block, on, flags; uint32_t base; } far_stack[FAR_DEPTH_MAX];
+static void far_push(uint8_t v) { cpu65_write_callback(cpu65.s | cpu65.sphi, v); if (cpu65.s-- == 0 && !cpu65.pf_e) cpu65.sphi -= 0x100; }
+static uint8_t far_pop(void) { if (++cpu65.s == 0 && !cpu65.pf_e) cpu65.sphi += 0x100; return cpu65_read_callback(cpu65.s | cpu65.sphi); }
+static uint8_t far_gate(uint16_t addr)
+{
+    if (addr == FAR_RET) {
+        uint16_t ret;
+        if (far_depth == 0) { far_err = 2; return 0x60; }              /* nothing to restore: behave as RTS */
+        far_depth--;
+        if (!(far_stack[far_depth].flags & 1) && !(far_stack[far_depth].flags & 2)) {
+            uint8_t b = far_stack[far_depth].block;
+            bank_on[b] = far_stack[far_depth].on; bank_reg[b] = far_stack[far_depth].base; map_apply();
+        }
+        ret = far_pop(); ret |= (uint16_t)far_pop() << 8;
+        cpu65.pc = ret;                 /* the core increments after the fetch: lands on ret+1 */
+        return 0xEA;
+    }
+    if (addr >= FAR_GATE + 4 * FAR_SLOTS || (addr & 3)) { far_err = 3; return 0x60; }
+    {
+        uint32_t d = (far_table + 8u * ((addr - FAR_GATE) >> 2)) & K4510_PHYS_MASK;
+        uint32_t base = k4510_ram[d] | (k4510_ram[(d + 1) & K4510_PHYS_MASK] << 8) | (k4510_ram[(d + 2) & K4510_PHYS_MASK] << 16) | ((uint32_t)k4510_ram[(d + 3) & K4510_PHYS_MASK] << 24);
+        uint8_t block = k4510_ram[(d + 4) & K4510_PHYS_MASK] & 7, flags = k4510_ram[(d + 5) & K4510_PHYS_MASK];
+        uint16_t entry = k4510_ram[(d + 6) & K4510_PHYS_MASK] | (k4510_ram[(d + 7) & K4510_PHYS_MASK] << 8);
+        if (far_depth >= FAR_DEPTH_MAX) { far_err = 1; return 0x60; }
+        far_stack[far_depth].block = block; far_stack[far_depth].on = bank_on[block]; far_stack[far_depth].base = bank_reg[block]; far_stack[far_depth].flags = flags;
+        far_depth++;
+        far_push((FAR_RET - 1) >> 8); far_push((FAR_RET - 1) & 0xFF);   /* so the callee's RTS lands on the return gate */
+        if (!(flags & 2)) { bank_on[block] = 1; bank_reg[block] = base & K4510_PHYS_MASK; map_apply(); }
+        cpu65.pc = entry - 1;           /* ditto: the NOP we return is "executed" at entry-1 */
+        return 0xEA;
+    }
+}
+
 /* ---- the eleven callbacks --------------------------------------------- */
 /* I/O and ROM live in the *unmapped* view only: if a block is MAPped over
  * $D000 or $F000 the CPU sees RAM there, as on the C65/MEGA65. */
@@ -111,7 +166,10 @@ Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) return io_read(addr);
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
+            if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
+            return io_read(addr);
+        }
         return k4510_ram[addr];
     }
     return k4510_ram[cpu_to_phys(addr)];
@@ -187,6 +245,7 @@ void cpu65_do_aug_callback(void)
         map.offset_high = ((uint32_t)cpu65.y << 8) | ((uint32_t)(cpu65.z & 15) << 16);
         map.mask = (map.mask & 0x0F) | (cpu65.z & 0xF0);
     }
+    for (int b = 0; b < 8; b++) { bank_on[b] = 0; bank_reg[b] = BANK_OFF; }   /* MAP owns all eight blocks now */
     map_apply();
 }
 

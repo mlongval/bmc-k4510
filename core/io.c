@@ -251,6 +251,20 @@ uint8_t io_read(uint16_t addr)
         return sys_read(addr & 0xFF);
     case IO_MATH:
         return math_read(addr & 0xFF);
+    case IO_BANK: {
+        uint8_t r = addr & 0xFF;
+        if (r < 0x20) { uint32_t v = mem_bank_get(r >> 2); return (uint8_t)(v >> (8 * (r & 3))); }
+        if (r == 0x20) return mem_bank_mask();
+        if (r == 0x21) return mem_map_state()->mask;
+        return 0xFF;
+    }
+    case IO_FAR: {
+        uint8_t r = addr & 0xFF;
+        if (r >= 0x80 && r < 0x84) return (uint8_t)(far_table >> (8 * (r - 0x80)));
+        if (r == 0x84) return far_depth;
+        if (r == 0x85) return far_err;
+        return 0xFF;
+    }
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
@@ -276,6 +290,20 @@ void io_write(uint16_t addr, uint8_t v)
         return;
     case IO_MATH:
         math_write(addr & 0xFF, v); return;
+    case IO_BANK: {
+        uint8_t r = addr & 0xFF, b = r >> 2, i = r & 3;
+        if (r >= 0x20) return;
+        if (i == 3 && (v & 0x80)) { mem_bank_off(b); return; }
+        { uint32_t cur = mem_bank_get(b); if (cur == BANK_OFF) cur = 0;
+          cur = (cur & ~(0xFFu << (8 * i))) | ((uint32_t)v << (8 * i)); mem_bank_set(b, cur); }
+        return;
+    }
+    case IO_FAR: {
+        uint8_t r = addr & 0xFF;
+        if (r >= 0x80 && r < 0x84) { far_table = (far_table & ~(0xFFu << (8 * (r - 0x80)))) | ((uint32_t)v << (8 * (r - 0x80))); far_table &= K4510_PHYS_MASK; }
+        if (r == 0x85) far_err = 0;
+        return;
+    }
     case IO_DMA:
         if ((addr & 0xFF) < 12) { dma_reg[addr & 0xFF] = v; return; }
         if (addr == IO_DMA_CMD) { dma_run(v); return; }
