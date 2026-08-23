@@ -12,7 +12,7 @@ run
 
 LOAD \"$1\"
 RUN
-" 36000 "SECONDS|Error" 2>/dev/null | grep -E "TIME:|ACCURACY|RANDOM|PRIMES|Error" | tr '\n' ' '; echo
+" 36000 "SECONDS|Error" 2>/dev/null | grep -E "THIS MACHINE:|TIME:|ACCURACY|RANDOM|PRIMES|Error" | tr '\n' ' '; echo
 }
 run_prg() {   # $1 = .prg in fs/
     printf '%-10s ' "$1"

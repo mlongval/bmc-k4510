@@ -128,6 +128,16 @@ k4510_load
 	CMP	#$FF			; $FF = immediate mode
 	BEQ	k_ld_imm
 	INC	chain
+	BRA	k_ld_imm
+
+; RUN "name": LOAD the file and run it, from immediate mode or a program
+k4510_runfile
+	JSR	k_getname
+	JSR	k_setname
+	STZ	cidx
+	LDA	#1
+	STA	chain			; the feed types RUN after the file
+	STA	ccflag
 k_ld_imm
 	JSR	ROM_LOAD		; A = status
 	CMP	#0

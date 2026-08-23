@@ -1742,9 +1742,13 @@ LAB_166C
 ; perform RUN
 
 LAB_RUN
-	BNE	LAB_1696		; branch if RUN n
+	BNE	LAB_RUNK		; K4510: RUN n, or RUN "file"
 	JMP	LAB_1477		; reset execution to start, clear variables, flush stack and
 					; return
+LAB_RUNK
+	CMP	#$22			; K4510: RUN "name" loads the file and runs it
+	BNE	LAB_1696
+	JMP	k4510_runfile
 
 ; does RUN n
 
