@@ -90,6 +90,7 @@ k4510_outdone
 	RTS
 
 	.include "k4510file.asm"
+	.include "k4510math.asm"
 
 	.include "k4510gfx.asm"
 

@@ -108,7 +108,7 @@ fs/%.prg: demo/%.c demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
 # EhBASIC 2.22 as a .prg at $7000 (basic/: Lee Davison's basic.asm + K4510 glue)
-fs/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/basic.asm basic/basic.cfg
+fs/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/basic.asm basic/basic.cfg
 	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
 	ld65 -C basic/basic.cfg -o $@ basic/k4510basic.o
 demos: $(DEMOS) fs/ehbasic.prg

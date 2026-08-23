@@ -5346,6 +5346,7 @@ LAB_246C
 ; add FAC2 to FAC1
 
 LAB_ADD
+	JMP	K_ADD		; K4510: MATH unit
 	BNE	LAB_2474		; branch if FAC1 was not zero
 
 ; copy FAC2 to FAC1
@@ -5626,6 +5627,7 @@ LAB_259A
 ; perform LOG()
 
 LAB_LOG
+	JMP	K_LOG		; K4510: MATH unit
 	JSR	LAB_27CA		; test sign and zero
 	BEQ	LAB_25C4		; if zero do function call error then warm start
 
@@ -5665,6 +5667,7 @@ LAB_25C7
 LAB_25FB
 	JSR	LAB_264D		; unpack memory (AY) into FAC2
 LAB_MULTIPLY
+	JMP	K_MULTIPLY		; K4510: MATH unit
 	BEQ	LAB_264C		; exit if zero
 
 	JSR	LAB_2673		; test and adjust accumulators
@@ -5827,6 +5830,7 @@ LAB_26CA
 
 					; Perform divide-into
 LAB_DIVIDE
+	JMP	K_DIVIDE		; K4510: MATH unit
 	BEQ	LAB_2737		; if zero go do /0 error
 
 	JSR	LAB_27BA		; round FAC1
@@ -6701,6 +6705,7 @@ LAB_2AF9
 ; perform EXP()	(x^e)
 
 LAB_EXP
+	JMP	K_EXP		; K4510: MATH unit
 	LDA	#<LAB_2AFA		; set 1.443 pointer low byte
 	LDY	#>LAB_2AFA		; set 1.443 pointer high byte
 	JSR	LAB_25FB		; do convert AY, FCA1*(AY)
@@ -6860,6 +6865,7 @@ CopyPRNG
 ; perform COS()
 
 LAB_COS
+	JMP	K_COS		; K4510: MATH unit
 	LDA	#<LAB_2C78		; set (pi/2) pointer low byte
 	LDY	#>LAB_2C78		; set (pi/2) pointer high byte
 	JSR	LAB_246C		; add (AY) to FAC1
@@ -6867,6 +6873,7 @@ LAB_COS
 ; perform SIN()
 
 LAB_SIN
+	JMP	K_SIN		; K4510: MATH unit
 	JSR	LAB_27AB		; round and copy FAC1 to FAC2
 	LDA	#<LAB_2C7C		; set (2*pi) pointer low byte
 	LDY	#>LAB_2C7C		; set (2*pi) pointer high byte
@@ -6911,6 +6918,7 @@ LAB_2C45
 ; perform TAN()
 
 LAB_TAN
+	JMP	K_TAN		; K4510: MATH unit
 	JSR	LAB_276E		; pack FAC1 into Adatal
 	LDA	#$00			; clear byte
 	STA	Cflag			; clear comparison evaluation flag
@@ -6943,6 +6951,7 @@ LAB_USR
 ; perform ATN()
 
 LAB_ATN
+	JMP	K_ATN		; K4510: MATH unit
 	LDA	FAC1_s		; get FAC1 sign (b7)
 	PHA				; save sign
 	BPL	LAB_2CA1		; branch if +ve
@@ -7592,6 +7601,7 @@ TabErr
 ; perform SQR()
 
 LAB_SQR
+	JMP	K_SQR		; K4510: MATH unit
 	LDA	FAC1_s		; get FAC1 sign
 	BMI	TabErr		; if -ve do function call error
 
