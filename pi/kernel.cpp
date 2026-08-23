@@ -18,6 +18,9 @@ CKernel::CKernel(void)
     : m_Serial(0, FALSE, 0), m_Timer(&m_Interrupt), m_Logger(m_Options.GetLogLevel(), &m_Timer),
       m_EMMC(&m_Interrupt, &m_Timer, &m_ActLED)
 {
+    // Raise the CPU clock before the SD host is configured: the core clock the
+    // SD timing derives from moves with it (the library documents this order).
+    SDL2Circle_HardwareInit();
     m_ActLED.Blink(2);
 }
 
@@ -39,7 +42,9 @@ TShutdownMode CKernel::Run(void)
     m_Logger.Write(From, LogNotice, "BMC-K4510 -- 45GS02 / VICKe / SHEILA / 4 x SID, bare metal");
     if (SDL2Circle_DeclareVirtualDevice(32, 640, 480) != 0)
         m_Logger.Write(From, LogWarning, "virtual device: %s", SDL_GetError());
-    if (chdir("SD:/k4510") != 0) { m_Logger.Write(From, LogError, "no SD:/k4510 directory on the card"); return ShutdownHalt; }
+    int ok = 0;
+    for (int i = 0; i < 5 && !ok; i++) { if (chdir("SD:/k4510") == 0) ok = 1; else m_Timer.MsDelay(200); }
+    if (!ok) { m_Logger.Write(From, LogError, "no SD:/k4510 directory on the card (or the card stopped answering)"); return ShutdownHalt; }
     c64kbd_init();
     static char a0[] = "k4510", a1[] = "rom/kernal.bin", a2[] = "fs";
     char *argv[] = { a0, a1, a2, nullptr };

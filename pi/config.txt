@@ -2,7 +2,14 @@
 # The TV is driven at 640x480@60 and upscales itself; the emulator presents 1:1.
 hdmi_group=1
 hdmi_mode=1
-disable_overscan=1
+# The TV crops the edges of a 480p picture; these margins make the firmware
+# scale the 640x480 frame inward so the whole K4510 screen is visible.
+# Shrink or zero them on a display that shows the full picture.
+disable_overscan=0
+overscan_left=24
+overscan_right=24
+overscan_top=12
+overscan_bottom=12
 
 arm_64bit=1
 kernel_address=0x80000
