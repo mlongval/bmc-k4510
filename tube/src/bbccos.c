@@ -1004,19 +1004,15 @@ void oscli (char *cmd)
 			return ;
 
 		case RUN:
+			// [BMC-K4510] An unknown star command reaches here (and *RUN
+			// itself). The original ran it through the host's system();
+			// on the K4510 the host is the machine's own shell: hand the
+			// command over as an OSC sequence the console recognises.
 			strncpy (path, p, MAX_PATH - 1) ;
 			q = memchr (path, 0x0D, MAX_PATH) ;
 			if (q != NULL) *q = 0 ;
-			q = path + strlen (path) - 1 ;
-			if (*q == ';')
-				*q = '&' ;
-			SystemIO (1) ;
-			if (0 != system (path))
-			    {
-				SystemIO (0) ;
-				error (254, "Bad command") ;
-			    }
-			SystemIO (0) ;
+			printf ("\033]K4510;%s\007", path) ;
+			fflush (stdout) ;
 			return ;
 
 		case SAVE:		// *SAVE filename hexaddr +hexlen

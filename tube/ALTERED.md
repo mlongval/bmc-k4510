@@ -12,4 +12,8 @@ Alterations, all marked with [BMC-K4510] comments:
 - include/bbccon.h: MAXIMUM_RAM reduced from 4 GB to 256 MB, to match
   the machine the Tube is fitted to.
 
+- src/bbccos.c: OSCLI's unknown-command / *RUN path no longer calls the
+  host's system(); it emits `ESC ] K4510 ; <cmd> BEL`, which the K4510
+  console executes in the machine's own shell.
+
 Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.

@@ -365,7 +365,8 @@ static void tube_start(void)
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
         setenv ("TERM", "dumb", 1);
-        execl ("tube/bbcbasic", "bbcbasic", (char *) NULL);
+        if (chdir ("fs") != 0) { /* the co-processor lives in the machine's filesystem */ }
+        execl ("../tube/bbcbasic", "bbcbasic", (char *) NULL);
         _exit (127);
     }
     if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }

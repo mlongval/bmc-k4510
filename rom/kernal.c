@@ -720,7 +720,17 @@ static void cmd_bbcbasic(void)
         if (st & 0x80) {
             static char seq[8]; static uint8_t si;
             c = REG(TUBE + 1);
+            if (esc == 2) {                              /* an OSC string: ESC ] ... BEL (into the shell line buffer) */
+                static uint8_t oi;
+                if (c == 7) {
+                    esc = 0; line[oi] = 0;
+                    if (oi > 6 && !memcmp(line, "K4510;", 6)) { newline(); shell_line(line + 6); }   /* a star command, handed over */
+                    oi = 0;
+                } else if (oi < sizeof line - 1) line[oi++] = (char)c;
+                continue;
+            }
             if (esc) {                                   /* collect the VT sequence up to its final letter */
+                if (c == ']') { esc = 2; continue; }
                 if (si < 7) seq[si++] = (char)c;
                 if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
                     esc = 0;
