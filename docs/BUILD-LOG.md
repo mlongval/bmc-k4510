@@ -2243,3 +2243,364 @@ the sideways-ROM memory map) was messaged to reserve a slot for the
 msbasic ROM plus token headroom; the vendoring itself is a later work
 item. Decision also recorded in project memory
 (`project-k4510-msbasic-decision.md`).
+## 2026-08-24 (x) — the font research: a clean chargen (mirrored from the archive log, commit 9ea9086)
+
+Same discussion session, next question from Doc: "research other 8x8
+bitmapped fonts that are license compatible? ascii and petscii." The
+motivation is the same trap the BASIC research walked around — the
+original C64/C65 chargen ROMs are Commodore IP, Cloanto-claimed, the
+same category as the BASIC ROMs. Two web-research agents ran in
+parallel: one on PETSCII-flavored/Commodore-style fonts, one on
+general open 8x8 ASCII faces. Full reports pasted verbatim below.
+
+**The short version:** the drop-in winner is the MEGA65 open-roms
+clean-room chargen (`bin/chargen_openroms.rom` — 4 KB, 512 glyphs,
+both PETSCII sets, already in 8-bytes-per-glyph format, LGPL-3.0);
+**unscii-8** is the public-domain powerhouse (complete Legacy
+Computing/PETSCII repertoire, trivial .hex conversion, but the
+512-glyph layout must be assembled by hand); **BESCII** (CC0) is the
+most C64-flavored clean design. The prettiest matches — Pet Me and
+Style64's C64 TrueType — are both license-excluded. And the legal rule
+of thumb the community follows: *inspired-by with visible pixel
+differences = safe; pixel-identical to the Commodore ROM = same bytes
+as the ROM = don't put it in a public repo.*
+
+---
+
+### Report 1 — PETSCII-flavored 8x8 fonts with clean licenses
+
+#### 1. Kreative Korp "Pet Me" family — NOT usable
+- **Page:** https://www.kreativekorp.com/software/fonts/c64/ (the
+  `/petme/` URL 404s; download:
+  https://www.kreativekorp.com/swdownload/fonts/retro/petme.zip)
+- **Coverage:** FULL, best-in-class — Pet Me (PET), Pet Me 2X
+  (VIC-20), Pet Me 2Y (CBM2/80col), Pet Me 64/64 2Y, Pet Me 128/128
+  2Y. "code points 0xE000-0x1FF encode the complete Commodore 64
+  character set"; also mapped to Symbols for Legacy Computing since
+  Oct 2019.
+- **Format:** TrueType only.
+- **License:** "Kreative Software Relay Fonts Free Use License
+  v1.2f" — full text at
+  https://www.kreativekorp.com/software/fonts/FreeLicense.txt. Free
+  redistribution with credit is allowed (clause 1a), **but clause 2
+  is fatal**: *"The User may not modify, reverse-engineer, or create
+  any derivative works of the Software."* Converting the TTF into
+  8-byte-per-glyph ROM data is a derivative work. Also clause 5:
+  *"Kreative Software reserves the right to change this license at
+  any time without notice."* **Verdict: excluded for ROM
+  conversion.** (These fonts are also pixel-exact traces of the
+  original ROMs, so the deeper Cloanto question below applies too.)
+
+#### 2. Style64 "C64 TrueType (Pro)" — NOT usable
+- **License page:** https://style64.org/c64-truetype/license
+- Quoted terms: *"You MAY NOT: sell this font; include/redistribute
+  this font in any font collection…; provide the font for direct
+  download from any web site."* Embedding permitted only *"without
+  any modification and using the same filenames"* (web @font-face),
+  or *"as part of a software package but ONLY if said software
+  package is freely provided to end users."* No modifications
+  allowed in any case; anything more requires negotiating *"a
+  (possibly commercial) license."*
+- **Verdict: excluded.** No-modification + no-direct-download
+  clauses are incompatible with converted ROM data sitting in a
+  public git repo. Their https://style64.org/petscii/ page is still
+  useful as a *reference* — it defines the "Direct PETSCII" PUA
+  mapping (U+E000/E100/E200/E300 banks) but maps to PUA, not to
+  U+1FB00, and offers no downloadable table.
+
+#### 3. MEGA65 open-roms — CONFIRMED, ready-made ROM data
+- **Repo:** https://github.com/MEGA65/open-roms — license per
+  `LICENSE`: **LGPL v3 or later** (not plain GPLv3), copyright
+  Gardner-Stephen / Standzikowski; some BASIC files MIT (Microsoft).
+- **Charset exists and is complete:** `assets/8x8font.png` (8×4096
+  px = 512 glyphs = **both charsets, 2×256, full PETSCII
+  graphics**), built by `pngprepare` into
+  `bin/chargen_openroms.rom` — a prebuilt **4096-byte chargen ROM,
+  already in the exact 8-bytes-per-glyph format** needed. It is a
+  distinct clean design, not a pixel copy of the Commodore ROM.
+- Bonus: `bin/chargen_pxlfont_2.3.rom` (4 KB, also drop-in chargen
+  format) — "PXLfont 88665b RF2.3" by Retrofan; `bin/README.md`
+  states: *"PXL font was created by Retrofan, we got a permission to
+  include it with Open ROMs under GNU Lesser General Public License
+  3.0."* (Outside open-roms, PXLfont's own terms are
+  permission-required — e.g. the Ozmoo copy at
+  https://github.com/johanberntsson/ozmoo/blob/master/fonts/PXLfont-rf.license.txt
+  is Ozmoo-only — so take it *via* open-roms under LGPL-3.0.)
+- **Verdict: usable.** LGPL-3.0 on a 4 KB data blob is the only
+  cost; for chargen data used as data (not linked code), LGPL's
+  obligations reduce to shipping the license + source (the PNG).
+
+#### 4. unscii-8 (Viznut) — CONFIRMED public domain, near-complete
+- **Page:** http://viznut.fi/unscii/ (note: expired/invalid TLS cert
+  as of 2026-08; content intact)
+- **License:** quoted from the page: *"'unscii-16-full' falls under
+  GPL because of how Unifont is licensed; **the other variants are
+  in the Public Domain**."* So unscii-8 = public domain, no
+  conditions.
+- **Coverage (verified by downloading `unscii-8.hex`):** 3191
+  glyphs; **213 glyphs in U+1FB00 Symbols for Legacy Computing**
+  (Unicode 13 added 214 — effectively complete, and the page
+  explicitly says the block includes "the missing PETSCII
+  characters"); 256 glyphs across U+25xx (box drawing, block
+  elements, geometric); card suits at U+2660/2663/2665/2666 all
+  present. Full PETSCII repertoire reachable for both upper/graphics
+  and lower sets via ASCII + these blocks; also ships `uns2uni.tr`
+  (PUA↔Unicode mapping file).
+- **Format/conversion:** HEX (Unifont hexdump — for 8x8 each line is
+  codepoint + 16 hex digits = **exactly 8 bytes/glyph**; conversion
+  is a 10-line script), plus PCF/TTF/OTF/WOFF. **Verdict: easiest
+  and cleanest license of all; style is unscii's own, not
+  Commodore-look.**
+
+#### 5. CC0/MIT PETSCII-inspired fonts — two verified
+- **BESCII** (Damian Vila) —
+  https://github.com/damianvila/font-bescii (archived; moved to
+  https://codeberg.org/Dmian/font-bescii). `LICENCE` file verified:
+  **CC0 1.0 Universal** full legal text. README: "An 8x8 pixel font
+  based on PETSCII… PETSCII symbols + some Amstrad CPC 464… PETSCII
+  characters mapped using Direct PETSCII mapping" (style64 PUA
+  scheme), plus Latin/Greek/Cyrillic/kana. **Coverage: full PETSCII
+  graphics repertoire, deliberately *not* pixel-identical** (a
+  redesign fixing C64 font flaws — see
+  https://damianvila.com/blog/20240515-designing-the-bescii-font.html).
+  Format: TTF/OTF/WOFF/WOFF2 **and FontForge .sfd source** (v2.0:
+  `Bescii-Mono.sfd`) — conversion needs rasterizing the TTF at 8px
+  or parsing the .sfd; moderate effort.
+- **funscii** (Wuerfel21) — https://github.com/Wuerfel21/funscii.
+  Verified: repo SPDX **CC0-1.0**; README: *"The font itself is put
+  into the public domain - licensed under the terms of CC0 1.0
+  Universal"* (builder is Apache-2.0). It is a fork of unscii with
+  fixes + Japanese; source `font.txt`/`glyphs` in unscii's text
+  format; community reports a C64-style binary build. Same coverage
+  story as unscii-8.
+- FontStruct "PETSCII Commodore"
+  (https://fontstruct.com/fontstructions/show/1336244/petscii-commodore)
+  is tagged CC0 but is a pixel-copy traced from the Wikipedia
+  PETSCII chart — the uploader cannot launder the original bitmap
+  into CC0; treat as unsafe.
+
+#### 6. Unicode Symbols for Legacy Computing as mapping target — CONFIRMED
+- Block U+1FB00–U+1FBFF, added in Unicode 13.0 (2020) specifically
+  for PETSCII et al. Proposal **L2/19-025** ("Proposal to add
+  characters from legacy computers and teletext", successor of
+  L2/17-435):
+  https://www.unicode.org/L2/L2019/19025-terminals-prop.pdf —
+  **contains per-machine mapping tables (incl. Commodore PETSCII →
+  Unicode)** that can drive a conversion; supplement L2/21-235
+  (Unicode 16 additions) at
+  https://www.unicode.org/L2/L2021/21235-terminals-supplement.pdf.
+- Human-readable PETSCII→Unicode mapping table:
+  https://www.kreativekorp.com/charset/map/petscii/
+- Open 8x8 fonts implementing the block: **unscii-8** (213/214
+  glyphs, verified), **funscii**, Pet Me 2019+ (license-blocked),
+  Kreative's Fairfax HD (OFL, but 6x12 not 8x8).
+
+#### 7. Other findings
+- **VICE fallback charset:** none exists — VICE (GPLv2+) ships the
+  *original* Commodore `chargen` ROM images on the old Usenet-era
+  tolerance; the ROMs are not GPL and are exactly the
+  Cloanto-claimed material (community discussion:
+  https://www.lemon64.com/forum/viewtopic.php?t=73857). Nothing to
+  reuse.
+- **ZX Origins (DamienG):** ~hundreds of 8x8 fonts incl. "C64"
+  export formats (C headers, 6502 asm); terms are informal —
+  "freely available… in exchange for a mention in the credits"
+  (https://damieng.com/typography/zx-origins/). ASCII-96 only, **no
+  PETSCII graphics repertoire**; useful for alternate text glyphs,
+  not for the chargen graphics half.
+
+#### Ranked top 3 (report 1)
+1. **MEGA65 open-roms `chargen_openroms.rom`** — already a 4 KB,
+   512-glyph, 8-bytes-per-glyph chargen with both PETSCII sets,
+   drop-in zero conversion; LGPL-3.0 (note in the license table).
+   PXLfont 2.3 from the same `bin/` dir is a nicer-looking second
+   option under the same license.
+2. **unscii-8** — public domain, no strings at all; `.hex` converts
+   trivially; complete Legacy Computing/PETSCII glyph repertoire,
+   but you must build the 512-entry PETSCII layout yourself using
+   the L2/19-025 mapping, and the look is unscii's, not Commodore's.
+3. **BESCII** — CC0, deliberately C64-flavored (closest "feel" with
+   a clean pedigree), full PETSCII graphics via Direct-PETSCII PUA
+   mapping; needs TTF→bitmap extraction (it is a true 8x8 grid
+   design, so 8px rasterization is lossless).
+
+Excluded despite being the prettiest matches: Pet Me
+(no-derivatives clause) and Style64 C64 TrueType (no-modification,
+no-direct-download).
+
+#### Legal caveat: pixel-exact clones of the Commodore charset
+Honest summary: **unsettled, lean away.** Community/legal consensus
+(e.g. the Lemon64 threads above): in the US, typeface *designs* are
+not copyrightable, but the ROM as a data file is, so byte-copying
+the chargen ROM is clearly off-limits; the open question is whether
+an independently-typed but pixel-identical 8x8 bitmap is a "copy of
+the ROM data" (it is byte-identical by construction) or an
+uncopyrightable typeface rendering. No case law answers this for
+8x8 chargen bitmaps; jurisdictions differ (UK/Germany protect
+typefaces, though 25-year terms have expired for 1982 designs).
+Cloanto/C64-forever actively license the ROMs, and open-roms chose
+clean-room reimplementation precisely to avoid the argument.
+Practical rule the community follows and open-roms/BESCII embody:
+*inspired-by with visible pixel differences = safe; pixel-identical
+= same bytes as the ROM = don't put it in a public repo.* All three
+ranked picks satisfy this.
+
+---
+
+### Report 2 — General open 8x8 ASCII bitmap fonts
+
+#### 1. dhepper/font8x8 — https://github.com/dhepper/font8x8
+- **License:** Public domain (stated in repo README). *Caveat:*
+  provenance chain is "directly derived from an assembler file" by
+  Marcel Sondaar, itself based on "IBM public domain VGA fonts."
+  IBM never formally dedicated these to the PD — the claim
+  ultimately rests on the US doctrine that bitmap glyph designs are
+  uncopyrightable. Community treats it as safe; used everywhere
+  (OS-dev tutorials, embedded projects).
+- **Coverage:** Basic ASCII (0x00–0x7F), extended Latin
+  (0x80–0xFF), box drawing, block elements, Greek, Hiragana — as
+  separate C arrays.
+- **Format:** C header arrays, exactly 8 bytes/glyph, LSB =
+  leftmost pixel. **Zero conversion needed** — already chargen ROM
+  format (bit-reversal per byte may be needed depending on shift
+  orientation).
+- **Readability:** Classic IBM-ish face; lowercase without true
+  descenders (CGA-style squash); 0 unslashed but distinguishable
+  from O; 1/l/I distinct. Serviceable, very "PC."
+- **Status:** Repo dormant (7 commits) but stable.
+
+#### 2. Ultimate Oldschool PC Font Pack (VileR) — https://int10h.org/oldschool-pc-fonts/readme/
+- **License:** **CC BY-SA 4.0**. Attribution: credit "VileR" + link
+  to int10h.org. Adaptations (which ROM-converted glyph data is)
+  must be distributed under a compatible license.
+- **8x8 faces in the pack:** IBM CGA 8x8, AMI EGA 8x8, ATI 8x8,
+  Verite 8x8, ToshibaTxL1 8x8, and dozens more OEM 8x8s (CGA
+  thin/thick, EGA, Amstrad, Phoenix, etc.).
+- **Mechanics:** Converting glyphs to a C array/ROM binary is fine
+  under CC BY-SA with credit + the CC BY-SA 4.0 notice on the
+  derived font data. The share-alike obligation attaches to the
+  font data, not to the emulator code that merely loads it (fonts
+  as data are generally treated as separate works — convention, not
+  litigated certainty). One CC BY-SA row in the license table.
+- **Underlying IBM/OEM designs:** VileR's own legal analysis: "The
+  raw bitmap typefaces are not copyrightable, unlike fonts in
+  specific formats such as .fon and TrueType (which qualify as
+  software)" (citing *Eltra Corp. v. Ringer*); IBM's fonts were
+  cloned by every BIOS vendor for decades without litigation.
+  Well-founded **for the US**; some jurisdictions (Germany, UK)
+  protect typefaces — essentially zero practical risk, small
+  theoretical non-US risk.
+- **Format:** TTF/OTB + PNG specimens + raw bitmaps in the extras;
+  conversion easy.
+- **Readability:** The CGA/EGA 8x8 faces are the gold standard for
+  readable 8x8: distinct 1/l/I, O/0, decent pseudo-descenders.
+
+#### 3. ZX Origins (Damien Guard) — https://damieng.com/typography/zx-origins/
+- **License:** Informal: fonts are "freely available to be used in
+  games you create in exchange for a mention in the credits section
+  or perhaps a coffee." Commercial use explicitly allowed;
+  recommended credit "*[fontname]* font by DamienG". **The one
+  prohibited use: "redistributing the font as a font."**
+- **The catch:** a chargen ROM in a public repo *is* redistributable
+  font data — a raw 768-byte glyph table sits in a gray zone
+  between "used in a product" (allowed) and "redistributed as a
+  font" (not). He is explicitly open to email; one message would
+  settle it. Not a drop-in for a strict license table without that.
+- **Collection:** 263 original 8x8 typefaces, each shipped as TTF
+  **plus C headers and Z80/6502/x86/68000 assembly** — already
+  8-bytes-per-glyph. Coverage full printable ASCII (Spectrum
+  heritage), typically no box drawing.
+- **Standout readable faces:** **Envious** (very clean terminal
+  face), **Localhost**, **Keytop**, **Clear Plan**, **Computer**.
+
+#### 4. unscii-8 — http://viznut.fi/unscii/ (repo: https://github.com/viznut/unscii)
+- **License:** "You can consider it Public Domain (or CC-0)" except
+  the Unifont-derived files (unifont.hex, unscii-16-full) which are
+  GPL. **unscii-8 is PD/CC0.**
+- **Coverage:** Huge — best in this sweep. Full ASCII, Latin-1, box
+  drawing, block elements, Teletext/Videotex mosaics, PETSCII
+  pseudographics, shades, round corners. Variants: unscii-8 plus
+  stylistic 8x8s (thin, alt, fantasy, mcr).
+- **Format:** .hex (trivially parseable), plus BDF/PCF/TTF/OTF.
+  Conversion to ROM data is a 10-line script.
+- **Readability:** Designed as a *usable terminal font*, not just
+  retro pastiche — good 0/O and 1/l/I distinction, consistent
+  stroke weight; compressed descenders (8px cell limit).
+
+#### 5. Spleen — https://github.com/fcambus/spleen
+BSD 2-Clause. **Sizes: 5x8, 6x12, 8x16, 12x24, 16x32, 32x64 — no
+8x8 exists.** Dismissed. (If an 8x16 is ever wanted for an
+80-column mode, Spleen 8x16 with full CP437 + BSD-2 is a top pick.)
+
+#### 6. Fantasy-console and homebrew fonts
+- **TIC-80:** project MIT, but the system font is **6x6** in 8x8
+  sprite cells. Dismissed on size.
+- **PICO-8:** font and palette are **CC0** (official FAQ) — but
+  glyphs are 3x5. Dismissed on size.
+- **Pixel Operator** (Jayvee Enaguas) — **CC0 1.0**
+  (fontlibrary.org; source notabug.org/HarvettFox96/ttf-pixeloperator).
+  8px-height mono variants exist but ship **TTF only** — rasterize
+  at 8px and verify the advance is actually 8. Usable with modest
+  work; license perfect.
+- **Kitchen Sink** (Polyducks, itch.io) — **6x8, not 8x8**, and
+  "redistributing the font as an asset is prohibited" + an NFT
+  clause. **Excluded** on both size and license.
+- **Portfolio 6x8:** 6x8 (Atari Portfolio). Dismissed.
+
+#### 7. Terminus
+Sizes 6x12 through 16x32; **no 8x8**. SIL OFL 1.1. Dismissed.
+
+#### 8. Linux consolefonts and other BDF/PSF sources
+- **Kernel `lib/fonts/font_8x8.c`:** SPDX **GPL-2.0**, "generated
+  by cpi2fnt," no origin credit. Same IBM-derived CP437 face as
+  font8x8, but taking it from the kernel imports GPL-2.0 —
+  pointless when dhepper/font8x8 offers equivalent glyphs as PD.
+  Same for `font_pearl_8x8.c`. Skip.
+- **IBM BIOS font recreations:** the canonical open ones are
+  exactly the int10h pack (CC BY-SA) and dhepper/font8x8 (PD).
+  Nothing cleaner-licensed found; nothing else notable at 8x8
+  surfaced that beats the above.
+
+#### Ranked top 3 (report 2)
+1. **unscii-8** — PD/CC0, widest coverage by far (ideal raw
+   material for a fantasy machine's full 256-glyph chargen), .hex
+   converts trivially, genuinely readable. Cleanest license + best
+   fit. Watch-out: don't grab the Unifont-derived files (irrelevant
+   at 8x8).
+2. **dhepper/font8x8** — already literally chargen-format C arrays,
+   PD-labeled, ASCII+Latin+box+blocks. Slightly weaker provenance
+   story but universally used; fine as fallback or "boring
+   default."
+3. **Ultimate Oldschool PC Font Pack (IBM CGA 8x8 / ATI 8x8 /
+   Verite 8x8)** — the most authentic and most readable faces, but
+   CC BY-SA 4.0 means attribution + share-alike on the converted
+   glyph data — one viral-ish row in the license table. Use for the
+   real CGA look if the flag is acceptable.
+
+ZX Origins is the honorable mention: 263 original faces,
+pre-converted 6502 source, but the "don't redistribute as a font"
+clause needs one clarifying email before a raw glyph table lands in
+a public repo.
+
+---
+
+### The combined ranking
+
+For the K4510 chargen, both sweeps agree on the shape of the answer:
+
+1. **open-roms `chargen_openroms.rom`** (LGPL-3.0) — the only
+   ready-made, complete, 512-glyph PETSCII chargen in drop-in
+   8-bytes-per-glyph format; zero conversion work. PXLfont 2.3 from
+   the same directory (same license route) if a nicer face is
+   wanted.
+2. **unscii-8** (public domain) — the no-strings powerhouse for
+   both ASCII and PETSCII repertoires; requires assembling the
+   512-entry layout via the L2/19-025 PETSCII→Unicode mapping, and
+   the look is its own.
+3. **BESCII** (CC0) — the most Commodore-flavored clean design;
+   TTF→bitmap extraction needed (lossless — it's a true 8x8 grid).
+
+The prettiest candidates (Pet Me, Style64) are license-excluded;
+pixel-identical recreations of the Commodore charset are avoided on
+principle regardless of who typed them in. No decision taken yet —
+this entry is the research record; the pick is Doc's.
