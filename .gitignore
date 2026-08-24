@@ -33,3 +33,5 @@ doc/guide/*.log
 doc/guide/*.out
 doc/guide/*.toc
 doc/guide/*.pdf
+tube/*.o
+tube/bbcbasic

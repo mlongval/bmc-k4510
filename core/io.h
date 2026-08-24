@@ -16,6 +16,7 @@
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
+#define IO_TUBE        0xD800u   /* $D800-$D8FF  the Tube: a co-processor running BBC BASIC (desktop host only) */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.
@@ -189,6 +190,15 @@ void    io_frame_tick(void);                 /* called by VICKe at vblank */
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);
 
+/* The Tube ($D800): Acorn's answer, refitted. The HOST runs Richard
+ * Russell's BBC BASIC interpreter (the vendored BBCTTY console edition,
+ * tube/bbcbasic) on a pty; the machine talks to it byte-wise:
+ *   $D800 R: status  bit0 alive, bit7 a byte waits in $D801
+ *   $D801 R: next byte from the co-processor (pops)
+ *   $D802 W: a byte to the co-processor (its keyboard)
+ *   $D803 W: 1 start (spawn), 2 stop (kill)
+ * The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far
+ * beyond the 64 KB view. Absent (the Pi, for now): status reads 0. */
 void    kbd_push(uint8_t code);
 void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */
 int     dbg_dump(const char *why);           /* write a dump; returns its number, -1 on failure */

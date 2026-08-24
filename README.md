@@ -23,6 +23,12 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   included), played by their own 6502 code on SID 0 with the player hidden
   under the ROM; +/- picks the song, Esc returns. RSID files need a real C64
   and are shown as unsupported.
+- **The Tube:** a co-processor port of Acorn heritage. `BBC` (or `BBCBASIC`)
+  at the shell connects the console to Richard Russell's BBC BASIC (the
+  vendored BBCTTY console edition, tube/, zlib licence) running on the host
+  with its own flat 256 MB: `HIMEM=PAGE+250*1024*1024` and a 200 MB `DIM`
+  just work. `*QUIT` returns to the shell. Desktop only for now; the Pi
+  needs the C core compiled into the kernel (planned).
 - **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point

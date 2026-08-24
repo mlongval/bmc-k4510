@@ -18,6 +18,7 @@
 #define SID0   0xD400u
 #define SYS    0xD500u
 #define BANK   0xD600u
+#define TUBE   0xD800u
 
 #define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
 #define FONT     0x010000UL           /* placed by the loader */
@@ -574,6 +575,7 @@ static void cmd_info(const char *p)
 
 uint8_t k_shell(const char *p);
 static void cmd_mon(const char *p);
+static void cmd_bbcbasic(void);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
 static void cmd_dump(const char *p)
@@ -594,7 +596,7 @@ static void cmd_help(void)
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
     pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO [-vcmgsft]  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note|ON|OFF]"); newline();
+    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note|ON|OFF]  BBC"); newline();
 }
 
 static void shell_line(const char *p)
@@ -625,6 +627,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
     if (is_cmd(&p, "MON"))   { cmd_mon(p); return; }
+    if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(); return; }
     /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
     { char name[64]; const char *q = p0;
       if (getname(&q, name) && !*q) {
@@ -699,6 +702,68 @@ static void video_init(void)
 
 /* the VIDEO system call ($FF92): the text screen's mode and palette back, screen contents kept */
 void k_video(void) { video_init(); }
+/* BBCBASIC: the console connected to the Tube co-processor, which runs
+ * Richard Russell's BBC BASIC with its own flat 256 MB (PAGE and HIMEM are
+ * the co-processor's, far beyond this CPU's 64 KB view). Keys go over,
+ * bytes come back; a minimal VT filter eats the escape sequences the
+ * console edition emits. *QUIT (or the co-processor dying) returns here. */
+static void cmd_bbcbasic(void)
+{
+    uint8_t k, c, esc = 0;
+    REG(TUBE + 3) = 1;
+    { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
+    if (!(REG(TUBE) & 1)) { error("no Tube fitted (the co-processor runs on the desktop host only, for now)"); return; }
+    puts_("BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
+    for (;;) {
+        uint8_t st = REG(TUBE);
+        if (!(st & 1)) break;                            /* the co-processor ended (*QUIT) */
+        if (st & 0x80) {
+            static char seq[8]; static uint8_t si;
+            c = REG(TUBE + 1);
+            if (esc) {                                   /* collect the VT sequence up to its final letter */
+                if (si < 7) seq[si++] = (char)c;
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                    esc = 0;
+                    if (c == 'H' && seq[0] == '[') {
+                        /* cursor position: ESC[row;colH (1-based, clamp into the screen --
+                         * the width probe jumps to column 999 and asks where it landed) */
+                        uint8_t r = 0, cc = 0, j = 1;
+                        while (j < si && seq[j] >= '0' && seq[j] <= '9') r = r * 10 + (seq[j++] - '0');
+                        if (j < si && seq[j] == ';') j++;
+                        while (j < si && seq[j] >= '0' && seq[j] <= '9') { if (cc < 200) cc = cc * 10 + (seq[j] - '0'); j++; }
+                        if (r) cy = (r - 1 < ROWS) ? r - 1 : ROWS - 1;
+                        if (cc) cx = (cc - 1 < COLS) ? cc - 1 : COLS - 1;
+                        draw_cursor(0);
+                    }
+                    if (c == 'n' && si == 3 && seq[0] == '[' && seq[1] == '6') {
+                        /* "where is the cursor?" -- answer with the real one (1-based) */
+                        char rep[12]; uint8_t i = 0, v;
+                        rep[i++] = 0x1B; rep[i++] = '[';
+                        v = cy + 1; if (v >= 10) rep[i++] = '0' + v / 10; rep[i++] = '0' + v % 10;
+                        rep[i++] = ';';
+                        v = cx + 1; if (v >= 10) rep[i++] = '0' + v / 10; rep[i++] = '0' + v % 10;
+                        rep[i++] = 'R';
+                        for (v = 0; v < i; v++) REG(TUBE + 2) = (uint8_t)rep[v];
+                    }
+                }
+                continue;
+            }
+            if (c == 0x1B) { esc = 1; si = 0; continue; }
+            if (c == '\r') { cx = 0; draw_cursor(0); continue; }
+            if (c == '\n' || c == 8 || c == 9 || c == 12 || c >= ' ') k_chrout(c);
+            continue;                                    /* drain output before reading keys */
+        }
+        k = k_getin();
+        if (k) {
+            if (k == 0x0D) REG(TUBE + 2) = 0x0D;
+            else if (k < 0x80) REG(TUBE + 2) = k;        /* incl. Escape: BBC BASIC's own Escape handling */
+            else if (k == 0x89) REG(TUBE + 2) = 0x7F;    /* DEL */
+        }
+    }
+    REG(TUBE + 3) = 2;
+    newline(); puts_("the Tube co-processor has left."); newline();
+}
+
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
 uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
 

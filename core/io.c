@@ -342,6 +342,52 @@ static uint8_t sys_read(uint8_t r)
     return 0xFF;
 }
 
+/* ---- the Tube ($D800): BBC BASIC on the host, via a pty ----------------- */
+#ifndef K4510_PI
+#include <pty.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <fcntl.h>
+static pid_t tube_pid; static int tube_fd = -1;
+static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
+static void tube_pump(void)
+{
+    uint8_t buf[256]; ssize_t n;
+    if (tube_fd < 0) return;
+    while (tube_w - tube_r < sizeof tube_ring - 256 && (n = read (tube_fd, buf, sizeof buf)) > 0)
+        for (ssize_t i = 0; i < n; i++) tube_ring[tube_w++ & 4095] = buf[i];
+    if (tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; }
+}
+static void tube_start(void)
+{
+    struct winsize ws = { 29, 79, 0, 0 };
+    if (tube_pid) return;
+    tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
+    if (tube_pid == 0) {
+        setenv ("TERM", "dumb", 1);
+        execl ("tube/bbcbasic", "bbcbasic", (char *) NULL);
+        _exit (127);
+    }
+    if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
+    fcntl (tube_fd, F_SETFL, O_NONBLOCK);
+}
+static void tube_stop(void)
+{
+    if (tube_pid) { kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }
+    if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
+    tube_w = tube_r = 0;
+}
+static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
+static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_fd, &v, 1); (void) n; } }
+#else
+static uint8_t tube_status(void) { return 0; }
+static uint8_t tube_read(void) { return 0; }
+static void tube_write(uint8_t v) { (void) v; }
+static void tube_start(void) {}
+static void tube_stop(void) {}
+#endif
+
 /* ---- debug recorder and DUMP ------------------------------------------- */
 #define DBG_PCS 4096
 #define DBG_KEYS 256
@@ -439,6 +485,10 @@ uint8_t io_read(uint16_t addr)
         if (r == 0x21) return mem_map_state()->mask;
         return 0xFF;
     }
+    case IO_TUBE:
+        if ((addr & 0xFF) == 0) return tube_status();
+        if ((addr & 0xFF) == 1) return tube_read();
+        return 0xFF;
     case IO_FAR: {
         uint8_t r = addr & 0xFF;
         if (r >= 0x80 && r < 0x84) return (uint8_t)(far_table >> (8 * (r - 0x80)));
@@ -493,6 +543,10 @@ void io_write(uint16_t addr, uint8_t v)
           else mem_bank_setbase(b, cur); }                                                                           /* bytes 0-2: the base only */
         return;
     }
+    case IO_TUBE:
+        if ((addr & 0xFF) == 2) tube_write(v);
+        if ((addr & 0xFF) == 3) { if (v == 1) tube_start(); else if (v == 2) tube_stop(); }
+        return;
     case IO_FAR: {
         uint8_t r = addr & 0xFF;
         if (r >= 0x80 && r < 0x84) { far_table = (far_table & ~(0xFFu << (8 * (r - 0x80)))) | ((uint32_t)v << (8 * (r - 0x80))); far_table &= K4510_PHYS_MASK; }
