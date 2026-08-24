@@ -1,0 +1,53 @@
+\chapter{Forth}\label{cha:forth}
+
+The machine's third language is native: no Tube, no co-processor, just
+45GS10 machine code loaded at \texttt{\$4000}. It is Tali Forth 2 ---
+a public-domain, ANS-flavoured Forth written for the 65C02, which this
+CPU speaks as a strict superset.
+
+\begin{type}
+FORTH
+\end{type}
+
+\begin{type}
+2 3 + . 5  ok
+: cube dup dup * * ;  ok
+7 cube . 343  ok
+\end{type}
+
+\screen{shots/forth.png}{A Forth session: arithmetic, a new word, and
+\texttt{SEE} showing its compiled code.}
+
+\section{The machine at your fingertips}
+Forth's oldest habit is poking hardware, and this machine is one large,
+friendly memory map. \verb|C@| and \verb|C!| reach every register of
+Chapter~\ref{cha:io} directly:
+
+\begin{type}
+hex
+D000 C@ .            read a VICKe register
+D5E0 80 swap C!      HUSH, by hand: silence the sequencer
+\end{type}
+
+\section{The assembler}
+Tali brings an interactive 65C02 assembler and a disassembler, kept in
+because on this machine they are the point:
+
+\begin{type}
+4000 10 disasm       disassemble the Forth kernel itself
+assembler-wordlist >order
+here  2 lda.#  0 sta.z  drop
+\end{type}
+
+\verb|DISASM| is strictly 65C02: at a 45GS10-only opcode it prints a polite
+\verb|?| and moves on.
+
+\section{Manners}
+The dictionary has about 12.8\,KB free for your words. \verb|BYE| returns
+to the shell with the screen and the session exactly as you left them.
+
+\begin{aside}
+No file words yet: Forth source lives in \texttt{/FORTH} but must be typed.
+An \texttt{INCLUDED} that reads through the machine's storage device is on
+the list.
+\end{aside}

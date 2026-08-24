@@ -1,0 +1,41 @@
+\chapter{CP/M: the Z80 Second Processor}\label{cha:cpm}
+
+In 1984 Acorn sold a Z80 Second Processor for the BBC Micro; its purpose
+was to run CP/M, the operating system that owned business computing before
+the IBM PC. It sat on the Tube. So does ours. \verb|CPM| at the shell boots
+CP/M~2.2 on a Z80 co-processor (RunCPM, on the host --- the boot banner
+cheerfully measures the Z80 in \emph{gigahertz}), and the \verb|A0>|
+prompt that defined a decade appears.
+
+\begin{type}
+CPM
+\end{type}
+
+\screen{shots/cpm.png}{CP/M 2.2 over the Tube: the CCP's \texttt{DIR} and
+\texttt{TYPE}, on drive A.}
+
+\section{Drives are folders}
+Drives \verb|A:| to \verb|P:| are the host folders \texttt{fs/CPM/A}
+through \texttt{fs/CPM/P}; CP/M's user areas 0--15 are numbered subfolders.
+Drop any \texttt{.COM} file into \texttt{fs/CPM/A/0} and run it by name.
+\verb|DIR|, \verb|TYPE|, \verb|ERA|, \verb|REN|, \verb|SAVE| and
+\verb|USER| are built into the CCP; \verb|EXIT| hands the console back to
+the K/OS shell.
+
+\section{Software}
+The RunCPM project ships a complete system disk
+(\texttt{DISK/A0.zip} in its repository): Digital Research's own
+\texttt{ASM}, \texttt{MAC}, \texttt{DDT}, \texttt{ZSID}, \texttt{STAT},
+\texttt{PIP} and \texttt{ED}, the \texttt{SUBMIT} batch system, Microsoft
+BASIC, a Z80 assembler with its manual, XMODEM, and the source code of the
+BDOS and CCP --- buildable on the machine itself. One
+\texttt{unzip A0.zip -d fs/CPM/} installs the lot. Beyond that lies the
+whole surviving CP/M software world: WordStar, Turbo Pascal, dBase~II,
+Zork, one archive away.
+
+\begin{aside}
+\textbf{Edges, honestly:} line-mode programs (assemblers, compilers,
+MBASIC, adventures) work today. Full-screen software --- WordStar's
+editor, ZDE --- needs terminal emulation the console does not have yet.
+Desktop host only, like the rest of the Tube.
+\end{aside}

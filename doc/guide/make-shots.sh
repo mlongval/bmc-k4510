@@ -19,4 +19,18 @@ shot demos 900 "run ehbasic
 
 RUN \"DEMOS.BAS\"
 "
+shot forth 240 "forth
+2 3 + .
+: cube dup dup * * ;
+7 cube .
+see cube
+"
+shot bbc 800 "bbc
+LOAD \"BBCBASIC/KALEID.BBC\"
+RUN
+"
+shot cpm 500 "cpm
+dir
+type readme.txt
+"
 echo "shots: done"

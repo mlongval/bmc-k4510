@@ -2,32 +2,58 @@
 
 The shell is what the machine boots into. It is a file manager, a program
 launcher and a front door to the monitor, and every command here also works
-from BASIC with an \verb|@| in front.
+from BASIC with an \verb|@| in front. Type \verb|HELP| for the whole command
+set on one screen --- the text it prints is itself a file on disk, a hidden
+one called \verb|/.HELP|.
 
 \section{Files and directories}
 Files live on the host (the \texttt{fs/} directory on the desktop, the
-\texttt{k4510/fs/} folder of the SD card on the Pi). Programs are kept in
-\texttt{/PRG}, BASIC text in \texttt{/BASIC}, music in \texttt{/SID} --- and a
-bare name is searched there too, so you rarely need a path.
+\texttt{k4510/fs/} folder of the SD card on the Pi). The layout is one
+directory per language: machine code in \texttt{/PRG}, the BASICs in
+\texttt{/EHBASIC} and \texttt{/BBCBASIC}, Forth in \texttt{/FORTH}, CP/M's
+drives under \texttt{/CPM}, music in \texttt{/SID} --- and a bare name is
+searched across the language directories too, so you rarely need a path.
 
 \begin{type}
-DIR              CD BASIC         CD ..
+DIR              CD EHBASIC       CD ..
 MKDIR MYDIR      RM OLD.TXT       RMDIR MYDIR
-TYPE README.BAS  LOAD name [addr] SAVE name from.to
+TYPE README.TXT  RENAME OLD NEW   CP FROM TO
+LOAD name [addr] SAVE name from.to
+XD name          a hex dump (HEX works too); Esc stops it
 \end{type}
+
+Names that begin with a dot are hidden; \verb|DIR A| shows them.
 
 \screen{shots/dir.png}{\texttt{DIR}: directories first in white, then files
 with their sizes, two columns.}
 
 \section{Running things}
 \verb|RUN balls.prg| runs a program; so does \verb|RUN balls|, and so does
-plain \verb|BALLS| --- an unknown word is tried as a program name before the
-shell gives up. Try \verb|SIDPLAY|, the SID jukebox, or \verb|RUN ehbasic|
-for BASIC.
+plain \verb|BALLS| --- an unknown word is tried as a program on disk before
+the shell gives up, \emph{with its arguments}, the way REXX did it on the
+mainframes. A program reads its arguments through the \texttt{ARGS} system
+call; \verb|SAY| is the demonstration:
+
+\begin{type}
+SAY HELLO FROM THE DISK
+\end{type}
+
+prints \texttt{HELLO FROM THE DISK} --- there is no \texttt{SAY} command,
+only a \texttt{say.prg} in \texttt{/PRG}. Try \verb|SIDPLAY|, the SID
+jukebox; and four words open whole languages: \verb|EHBASIC|
+(Chapter~\ref{cha:basic}), \verb|BBC| (Chapter~\ref{cha:tube}),
+\verb|FORTH| (Chapter~\ref{cha:forth}) and \verb|CPM|
+(Chapter~\ref{cha:cpm}).
+
+\section{Scripts and the boot file}
+\verb|EXEC name| runs a text file as shell commands, one per line. At
+power-on the machine runs \verb|/!BOOT| as such a script, if it exists ---
+half a second's grace, and any key held or typed skips it without the
+keystroke being lost.
 
 \section{The monitor}
-\verb|MON| opens the machine monitor at a \verb|*| prompt; its grammar is
-Wozmon's, with 28-bit addresses:
+\verb|MON| (old-timers may type \verb|WOZ|) opens the machine monitor at a
+\verb|*| prompt; its grammar is Wozmon's, with 28-bit addresses:
 
 \begin{type}
 *E000.E00F           examine a range
@@ -38,6 +64,12 @@ Wozmon's, with 28-bit addresses:
 
 \screen{shots/mon.png}{The monitor examining the ROM. \texttt{MON E000.E00F}
 runs one line without entering the prompt.}
+
+\section{Housekeeping}
+\verb|INFO| is the machine's self-description; \verb|TIME| the clock;
+\verb|MODE| and \verb|COLOR| set the text screen; \verb|FILL| and
+\verb|COPY| work on memory; \verb|HUSH| silences all four SIDs at once;
+\verb|LS| is \verb|DIR| for fingers that have used Unix too long.
 
 \section{When something goes wrong}
 \verb|DUMP a note| writes the whole machine state --- registers, screen, the
