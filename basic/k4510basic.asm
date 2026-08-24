@@ -9,11 +9,27 @@ IRQ_vec	= VEC_SV+2		; EhBASIC keeps its page-3 layout (Ibuffs follows)
 NMI_vec	= IRQ_vec+$0A
 k_crx0	= $03B3			; K4510: the crunch start index (the * prefix is only a prefix there)
 
-	.org	$6BFC
-	.word	$6C00			; .prg header: load address
-	.word	k4510_start		;              run address
+K4510_TAIL = $BA00			; = Ram_top: BASIC's RAM ends where the interpreter tail begins
 
-	.include "basic.asm"		; .org $7000 inside, Ram_base/Ram_top patched for the K4510
+; K4SG header, stage 3 of the memory plan: the interpreter loads in three
+; segments above BASIC's RAM -- $E000-$FEFF (block 7) + $C000-$CFFF
+; (block 6) + a tail at $BC00 in the RAM under the sideways window. The
+; loader sets the bank bases; the launch trampoline engages blocks 5-7.
+; BASIC's program RAM is $0800-$BBFF: 46079 bytes free.
+	.byte	"K4SG"
+	.byte	3, 0			; segments, flags
+	.word	k4510_start		; entry
+	.dword	$E000
+	.dword	K4510_SPLIT1 - $E000
+	.byte	7, 0, 0, 0
+	.dword	$C000
+	.dword	K4510_SPLIT2 - $C000
+	.byte	6, 0, 0, 0
+	.dword	K4510_TAIL
+	.dword	K4510_END - K4510_TAIL
+	.byte	$FF, 0, 0, 0		; no bank: lives in the RAM under the window
+
+	.include "basic.asm"		; .org $E000 / $C000 inside; Ram_base/Ram_top patched for the K4510
 
 ; ---- the K4510 host glue -------------------------------------------------
 
@@ -124,11 +140,17 @@ k4510_out
 k4510_outdone
 	RTS
 
-	.include "k4510file.asm"
 	.include "k4510math.asm"
 	.include "k4510expr.asm"
 
+K4510_SPLIT2				; [BMC-K4510] the glue tail, in the RAM under the sideways window
+	.assert K4510_SPLIT2 <= $D000, error, "EhBASIC $C000 slice overflows into the I/O page"
+	.org	K4510_TAIL
+
+	.include "k4510file.asm"
 	.include "k4510gfx.asm"
 
 k4510_banner
 	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS SPRITES PLOT LINE TRI  (RUN/STOP: shell)", CR, 0
+K4510_END
+	.assert K4510_END <= $C000, error, "EhBASIC tail overflows its slice"

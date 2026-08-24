@@ -14,9 +14,10 @@
 ;                and BYE puts them back before returning
 ;   $0200-$07FF  NOT OURS: the ROM's data, bss and C stack live here
 ;   $0800-$08FF  input buffer
-;   $0900-$3BFF  dictionary RAM: ~12.8 KB for user words
-;   $3C00-$3FFF  input history buffers (ctrl-p / ctrl-n)
-;   $4000-.....  this image (~17 KB), loaded by K/OS from /FORTH/FORTH.PRG
+;   $0900-$87FF  dictionary RAM: ~31.7 KB for user words (stage 3 moved
+;                the image high: programs own $0800-$CFFF now)
+;   $8800-$8BFF  input history buffers (ctrl-p / ctrl-n)
+;   $8C00-.....  this image (~17 KB), loaded by K/OS from /FORTH/FORTH.PRG
 ;
 ; Console I/O is the ROM jump table: CHROUT $FF80 and CHRIN $FF83 (both
 ; wrapped to preserve X/Y, which the stubs do not promise); KEY? peeks the
@@ -29,7 +30,7 @@
 TALI_ARCH := "k4510"
 
 ram_start = $0000
-ram_end   = $4000-1             ; dictionary RAM ends where the image begins
+ram_end   = $8C00-1             ; dictionary RAM ends where the image begins
 buffer0   = $0800               ; input buffer: skip the ROM's RAM at $0200-$07FF
                                 ; (cp0, the dictionary start, follows it at $0900)
 
@@ -44,8 +45,8 @@ TALI_OPTION_HISTORY := 1
 TALI_OPTION_TERSE := 0
 
 ; .prg header: K/OS loads the image at $4000 and JSRs to kernel_init
-        * = $3FFC
-        .word $4000             ; load address
+        * = $8BFC
+        .word $8C00             ; load address
         .word kernel_init       ; run address
 
 ; ---------------------------------------------------------------------

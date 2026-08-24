@@ -1853,3 +1853,393 @@ banked away too: 61.75 KB contiguous. maptest grew case K-06.
 Also: CPM's greeting no longer claims to be BBC BASIC. Parked, next
 stage of the pinned plan: user space to $CFFF by default and EhBASIC
 relocated ("38911 BASIC BYTES FREE"). All 10 suites green.
+
+## 2026-08-24 (v) — stage 3: the payoff. 45567 BASIC BYTES FREE
+
+The memory plan's payoff stage, Doc's "ok do it". Programs now own
+$0800-$CFFF and $E000-$FEFF **by default**: run_at() builds a 28-byte
+trampoline in RAM at $02D8 that engages banks 5-7 onto the RAM under
+the ROM (skipping blocks a K4SG load claimed), calls the program, and
+turns every bank off on return. It must be RAM: the instant block 7
+engages, the ROM half that built it is gone. Which was also the
+evening's one real crash — the setup code used w32() on the bank
+registers, whose byte-3 write IS the engage trigger, so run_at
+vaporised its own ROM mid-flight (Z ended up 1 and the console spent
+a while printing invisibly into the attribute plane — a new entry for
+the phantom-crash genre). Byte 3 now stays in the trampoline, and the
+K4SG loader got the same discipline for blocks 5-7.
+
+EhBASIC moved above BASIC's RAM: three K4SG segments — $E000-$FEFF
+(7839 bytes, cut at LAB_NLTO after an automated search for a boundary
+no relative branch crosses), $C000-$CFFF (core tail + math + the
+expression compiler), and $BA00-$BFFF (file + gfx glue) in the RAM
+under the sideways window. Ram_top = $BA00 and the machine boots:
+**45567 Bytes free** (was 25599). DIM A(9000) really allocates 36 KB;
+demos, graphics, LOAD/SAVE, star commands, sidplay, sprites all
+green. Tali Forth's image moved to $8C00: the dictionary grew from
+12.8 to ~31.7 KB. The C64's 38911 is beaten without an asterisk.
+
+Also on the record (relayed from Doc via the archive-side session):
+**msbasic is coming** — Microsoft's MIT-licensed 6502 BASIC via
+mist64/msbasic, eventually beside/replacing EhBASIC (whose
+non-commercial licence is the murkiest thing in the ROM). Sideways
+banks 2-3 are earmarked for it, though stage 3 opens a second door:
+it could live EhBASIC-style in high K4SG segments instead. Decision
+when it's ported; entry (w) below carries the full research.
+## 2026-08-24 (w) — the BASIC research: what could replace EhBASIC (mirrored from the archive log, commit a7ccffc)
+
+Discussion session (this host, archive folder — the coding session was
+busy reshaping the sideways-ROM map and was left alone). It started as
+"could adding elements of the 8510 give us 128k ram?" and ended, three
+questions later, at "research other BASICs for the 4510 side." Along
+the way: the 8510 is just an HMOS 6510 — the C128's 128K was the
+**8722 MMU**, not the CPU; its `122365 BYTES FREE` was two 16-bit
+pools summed through common-RAM trampolines; and the Tube BBC BASIC
+already owns 250 MB, so the native side is the open question.
+
+Two web-research agents ran in parallel: one on the Commodore lineage,
+one on independent 6502 BASICs. **Outcome, decided by Doc the same
+day: bring Microsoft 6502 BASIC (MIT since Sept 2025) into play;
+the coding session was asked to reserve a sideways-ROM slot.** The
+full reports follow, pasted verbatim for the record.
+
+---
+
+### Report 1 — Commodore-lineage BASIC options (45GS02-native)
+
+#### The headline finding
+**Microsoft open-sourced 6502 BASIC v1.1 (1976-78) under MIT in
+September 2025** — github.com/microsoft/BASIC-M6502 (repo archived
+read-only 2025-09-05, license stands). This resets the legal landscape
+for everything MS-lineage.
+([Hackaday](https://hackaday.com/2025/09/04/microsoft-basic-for-6502-is-now-open-source/),
+[Tom's Hardware](https://www.tomshardware.com/software/bill-gates-48-year-old-microsoft-6502-basic-goes-open-source))
+
+#### 1. C65 ROM BASIC 10 (910111)
+- **License: PROPRIETARY** — all Commodore ROMs owned by Cloanto; the
+  C65 ROM is licensed to MEGA65 per-device (fee per unit sold) and
+  bundled in C64 Forever since 2022. No standalone redistribution
+  right. ([generationamiga.com](https://www.generationamiga.com/2020/04/09/cloanto-licenses-commodore-65-rom-for-the-upcoming-mega-65/),
+  [forum64 thread](https://forum64.de/index.php?thread%2F106568-about-the-license-of-the-c65-rom=))
+- **Source:** never released; only community disassemblies
+  (zimmers.net hosts binaries — legally grey to even mirror).
+- **>64K:** yes, natively — program text in bank 0, variables/strings
+  in bank 1 (the model BASIC65 inherited); graphics commands
+  DMA-backed.
+- **Porting: HIGH** — binary-patch-only (no legal source), deeply
+  entangled with VIC-III, C65 F011 DOS, CIAs, C65 Kernal jump table.
+  Also famously buggy (prototype ROM).
+- **Footprint:** part of the 128 KB system ROM (BASIC+editor+graphics
+  roughly half; Kernal/DOS/charset the rest).
+- **Verdict for a public repo: unusable.**
+
+#### 2. MEGA65 BASIC65
+- **License: PROPRIETARY** — the "closed ROM."
+  github.com/MEGA65/mega65-rom-public is a **bug tracker only**: "As a
+  MEGA65 owner you have acquired a license to the ROM"; source repo
+  access is by request on Discord, owners-only, no
+  redistribution/derivative rights for other machines.
+  ([mega65-rom-public](https://github.com/MEGA65/mega65-rom-public))
+  Underlying Commodore rights still Cloanto's.
+- **>64K:** yes, the best of the family. Commands per the MEGA65
+  User's Guide ([memory.tex](https://github.com/MEGA65/mega65-user-guide/blob/master/memory.tex)):
+  - `BANK n` — sets the bank used by `PEEK/POKE/SYS/BLOAD/BSAVE` etc.;
+    with BANK 0–5 or address >$FFFF, PEEK/POKE go through the
+    45GS02's base-page quad-pointer ([addr32],Z) far addressing —
+    i.e. real 28-bit PEEK/POKE.
+  - `DMA` — C65-style F018 DMA job from BASIC; `EDMA` — enhanced DMA
+    with full 28-bit flat source/dest addresses.
+  - Extended `PEEK, POKE, SYS, BLOAD, BVERIFY, SCREEN, SPRSAV…` are
+    all bank-aware. Known limit: BANK/DMA can't reach colour RAM
+    beyond the first megabyte.
+  - Program/variable model: bank 0 text + bank 1 variables (BASIC 10
+    heritage).
+- **Porting: HIGH** — even ignoring the license wall: tied to VIC-IV
+  registers, MEGA65 hypervisor traps, C65-DOS/SD controller, CIAs.
+  The license alone disqualifies it.
+- **Footprint:** 128 KB ROM total (BASIC is the majority).
+- **Verdict: the feature model to imitate, not code to take.**
+
+#### 3. MEGA65 Open-ROMs
+- **License: CLEAN (GPLv3)** — documented clean-room process (spec
+  from books like Mapping the C64, similarity tool flagging >2-byte
+  matches against originals).
+  ([open-roms](https://github.com/MEGA65/open-roms))
+- **Completeness (per [STATUS.md](https://github.com/MEGA65/open-roms/blob/master/STATUS.md),
+  still true in 2025-2026):** Kernal is substantially done (IEC,
+  devices, screen partial); floating-point math package done; **but
+  the BASIC interpreter core is not**: integer/float variables/arrays
+  NOT DONE, expression handling only partial (strings mostly work),
+  FOR/NEXT, GOSUB, IF/THEN NOT DONE. It boots to READY and runs
+  trivial things; it cannot run real BASIC programs.
+- **>64K:** extended-BASIC ideas exist for MEGA65 builds, but nothing
+  bank-aware is usable yet.
+- **Porting: HIGH as a working BASIC** (you'd be writing the
+  interpreter yourself), **LOW-MED as a parts quarry** (GPL3 math
+  package, string GC, Kernal patterns). Note GPLv3 would apply to
+  your ROM if you incorporate it — fine for your repo, but it's viral.
+- **Footprint:** C64-shaped (8K BASIC + 8K Kernal regions; MEGA65
+  build larger).
+
+#### 4. mist64/msbasic
+- **License: MURKY-but-now-anchored.** The repo's README claims
+  "2-clause BSD" — but that can only cover mist64's reconstruction
+  scaffolding; the code itself is Microsoft's (byte-exact rebuilds of
+  9 shipped ROMs). **Since Sept 2025 the Microsoft core is genuinely
+  MIT** via microsoft/BASIC-M6502. Residual murk: the
+  Commodore-specific patch levels (CBM BASIC 1/2 ROM-exact builds)
+  contain **Commodore-authored modifications** that the MIT grant
+  doesn't cover and Cloanto still claims.
+- **Practical combo:** microsoft/BASIC-M6502 is the *legal anchor* but
+  is written in PDP-10 MACRO-10 syntax; msbasic is the *buildable
+  equivalent* — ca65/cc65 toolchain, same one your ROM already uses.
+  Build a generic/OSI/KBD-style config (pure-MS feature set), avoid
+  the CBM-ROM-exact targets, and cite the MS MIT release in your
+  license table.
+- **>64K:** no — 16-bit pointers throughout; strings, arrays, program
+  text all in one 64K image. You'd bolt on far PEEK/POKE/DMA tokens
+  yourself (your 45GS02 [zp],Z far pointers make the *data* side
+  easy; making program/variable storage >64K is a rewrite).
+- **Porting: LOW** — designed for retargeting: platform config files,
+  I/O isolated to a handful of vectors (char in/out, ctrl-C check,
+  LOAD/SAVE hooks). Zero VIC/CIA/Kernal entanglement.
+- **Footprint:** ~8-9 KB.
+- **Source:** github.com/mist64/msbasic +
+  github.com/microsoft/BASIC-M6502.
+
+#### 5. Commander X16 ROM BASIC
+- **License: MIXED, core is PROPRIETARY.**
+  [LICENSE.md](https://github.com/X16Community/x16-rom/blob/master/LICENSE.md)
+  is explicit: the `basic` and `math` directories are "©1977 Microsoft
+  Corp. ©1983 Commodore Business Machines" under a **commercial
+  license from Cloanto valid only "in the context of the X16
+  computer"** — outside users are told to contact Cloanto. Only the
+  *additions* (new BASIC commands, CMDR-DOS, FAT32, audio API) are
+  BSD-2, plus GPLv3 open-roms Kernal pieces. So no, it is not clean
+  for reuse, and the community is honest about it.
+- **>64K:** partial — `BANK` selects an 8 KB RAM bank at $A000 (up to
+  2 MB) for PEEK/POKE/SYS; `BLOAD` auto-wraps across banks. Program +
+  variables still live in the fixed low-RAM ~38 KB.
+- **Porting: MED** technically (C64-BASIC-shaped, X16 banking
+  hardware assumptions) — but license-blocked for the core; only its
+  BSD-2 extension code (graphics/audio command implementations, DOS
+  wedge) is reusable.
+- **Footprint:** ~16 KB ROM bank + annex bank for the extensions.
+
+#### Summary table (report 1)
+
+| Candidate | License verdict | >64K | Porting | Footprint |
+|---|---|---|---|---|
+| C65 BASIC 10 (910111) | PROPRIETARY — Cloanto, per-device MEGA65/C64-Forever only | Yes (bank0 text/bank1 vars) | HIGH (no source, VIC-III/DOS-welded) | ~half of 128 KB ROM |
+| MEGA65 BASIC65 | PROPRIETARY — owners-only source, Cloanto underneath | Yes — BANK, 28-bit PEEK/POKE, DMA, EDMA | HIGH (license + VIC-IV/hypervisor) | 128 KB ROM |
+| Open-ROMs | CLEAN — GPLv3 clean-room | Not yet | HIGH as BASIC, LOW as parts quarry | ~16 KB |
+| msbasic + MS MIT release | CLEAN for pure-MS configs; MURKY for CBM-ROM-exact builds | No (16-bit; far tokens bolt-on) | LOW — vector-isolated I/O, ca65/cc65 | ~8-9 KB |
+| X16 ROM BASIC | PROPRIETARY core (Cloanto, X16-context-only); BSD-2 additions | Partial (BANK + 8K window) | MED, license-blocked | ~16-32 KB |
+
+#### Other options found (report 1)
+- **C128 BASIC 7.0 / Plus-4 BASIC 3.5** — the split-pool (bank-0 text
+  / bank-1 vars) 7.0 model: same Cloanto-proprietary status as BASIC
+  10; original Commodore engineering sources circulating on
+  zimmers.net are leaks, not licensed. Dead end for a public repo.
+- **microsoft/BASIC-M6502 as a direct base** — worth listing
+  separately from msbasic: it is the one genuinely MIT-licensed
+  Commodore-ancestor BASIC in existence (the exact code the PET ran).
+  Legal gold; needs MACRO-10→ca65 translation, which msbasic has
+  effectively already done.
+- **A license-table caveat you already carry: EhBASIC.** Lee
+  Davison's EhBASIC is "free for non-commercial use" only, and
+  Davison died in 2013 leaving the rights orphaned — it is arguably
+  the murkiest thing in your current ROM. The pragmatic clean-up path
+  given everything above: migrate the native BASIC to an
+  msbasic/BASIC-M6502-derived build (MIT), then add your own
+  BANK/EDMA/far-PEEK-POKE tokens modeled on BASIC65's command
+  surface.
+
+---
+
+### Report 2 — Non-Commodore-lineage 6502 BASICs
+
+#### 1. EhBASIC 2.22 (Klaus2m5 fork) — the incumbent
+- **License (exact):** Not OSI. "EhBASIC is free but not copyright
+  free" — non-commercial use OK provided binaries/docs carry "Derived
+  from EhBASIC"; commercial use required contacting Lee Davison, who
+  died in 2013, so the commercial clause is now un-clearable and the
+  license can never be regularized. Widely redistributed anyway
+  (Klaus2m5, jefftranter, lgblgblgb forks all public on GitHub);
+  community treats it as tolerated with attribution.
+- **Implementation:** 6502 assembly (single source; many ports to
+  ca65).
+- **Memory model:** Classic 16-bit pointers everywhere (program,
+  vars, strings all in one 64K image). No fork with banked/large
+  memory was found — the only sighting is the PZ1 laptop running
+  stock EhBASIC *under* a banking scheduler (banking is outside
+  BASIC). **>64K: TEACHABLE** — far PEEK/POKE/COPY tokens using
+  45GS02 [zp],Z is easy; making program/variable storage itself >64K
+  is major surgery on ~16-bit pointer code throughout.
+- **REPL:** Y. **Port effort: NONE** (already running).
+  **2025-26 activity:** frozen (Klaus fork ~18 commits, bugfix-era).
+- URL: https://github.com/Klaus2m5/6502_EhBASIC_V2.22
+
+#### 2. BBC BASIC for 6502 (Acorn original + derivatives)
+- **License:** Proprietary, orphaned. The 2018 Apache-2.0 RISC OS
+  Open release covers **ARM BBC BASIC V only, not the 6502 ROMs**.
+  Stardot consensus: the 6502 BASIC IP passed Acorn→Element
+  14→Pace→Castle→(RISC OS Developments) so many times that "not even
+  Sophie Wilson is sure who owns it now." J.G. Harston's assemblable
+  source on mdfs.net still carries Acorn copyright; the Tube "BASIC V
+  for 65C02" there is copyright Colin C Dean, also not free.
+  BeebEater (github.com/chelsea6502/BeebEater, for Ben Eater builds)
+  is a nice MIT wrapper but **ships the proprietary ROM binary
+  inside**.
+- **>64K:** NO (16-bit; the BBC's answer was the Tube/sideways RAM,
+  outside BASIC). **REPL:** Y. **Port effort:** LOW technically (MOS
+  entry-vector shims, BeebEater proves it) but **legally unusable for
+  a clean public repo**. No open-source reimplementation of 6502 BBC
+  BASIC exists as of 2026.
+- URLs: https://mdfs.net/Software/BBCBasic/6502/ ,
+  https://stardot.org.uk/forums/viewtopic.php?t=16087 ,
+  https://github.com/chelsea6502/BeebEater
+
+#### 3. FastBasic (dmsc) — strongest real candidate
+- **License (exact):** GPL-2.0-or-later **with an explicit linking
+  exception**: programs you compile with it may be distributed under
+  any license. Clean for a public repo.
+- **Implementation:** Parser/compiler in 6502 asm (on-machine IDE) +
+  C++ cross-compiler on PC; runtime is a small bytecode **VM in ca65
+  assembly** — it already builds with the cc65 toolchain the K4510
+  uses.
+- **Memory model:** 16-bit VM; 16-bit ints + Atari-ROM floating point
+  (FP routines would need replacing or dropping for a port).
+  **>64K: TEACHABLE, and more cheaply than anywhere else** — because
+  all memory access funnels through ~10 VM opcodes, adding
+  FARPEEK/FARPOKE/FARCOPY (or even a far string pool) means touching
+  the VM, not a whole interpreter. The 45GS02's [zp],Z 32-bit mode
+  slots straight into a VM opcode.
+- **REPL:** Y-ish — full-screen IDE with editor + instant
+  compile-and-run on the machine (not line-at-a-time immediate mode).
+- **Port effort: MED** — author states "the libraries are fairly
+  portable, so creating a version for other 6502s shouldn't be too
+  much work"; work = console I/O layer, replace Atari FP, strip
+  P/M-graphics statements. **Activity:** active — v4.6 (2024), v4.7
+  discussed on AtariAge; 866 commits.
+- URL: https://github.com/dmsc/fastbasic
+
+#### 4. XC=BASIC 3 (neilsf)
+- **License:** MIT. **Implementation:** cross-compiler written in
+  **D** (runs on PC, emits 6502 via DASM). **REPL: N — compile-only**,
+  which fails the core requirement. **>64K:** NO (16-bit codegen);
+  teachable only by hacking the D codegen. **Port effort:** MED (add
+  a target config + runtime shims; C64/VIC20/C16/Plus4/PET/C128
+  supported, X16 via community target). **Activity:** mature, ~970
+  commits, slow but alive.
+- URL: https://github.com/neilsf/xc-basic3
+
+#### 5. Tiny BASICs (Tom Pittman, DDJ-IL, CorshamTech, uBASIC etc.)
+All are 2-8 KB toys with 16-bit (or 8-bit!) address spaces, no
+strings/FP worth having, and nothing to say about large memory —
+strictly a step down from EhBASIC. (CorshamTech's is GPL-3 and
+maintained if a minimal fallback is ever wanted:
+https://github.com/CorshamTech/6502-Tiny-BASIC ; uBASIC is BSD, in C,
+cc65-compilable, and would run — but it's if/for/goto-only. The irony
+is affordable, the language isn't.)
+
+#### 6. dflat (6502Nerd)
+- **License:** MIT. **Implementation:** 6502/65C02 assembly.
+  **REPL:** Y (interactive, structured BASIC-like: def/enddef
+  procedures, locals, recursion, while/repeat — no GOTO). **>64K:**
+  NO as-is; TEACHABLE same as EhBASIC (it's conventional 16-bit asm
+  inside). **Port effort: MED-LOW** — explicitly designed to port:
+  "core language just needs character put and get routines."
+  **Activity:** ongoing hobby refinement (Oric-1 branch, ~89
+  commits); one-man project, non-standard dialect (existing BASIC
+  listings won't run).
+- URL: https://github.com/6502Nerd/dflat
+
+#### 7. BASIC816 (pweingar, C256 Foenix) — the 65816 design reference
+- **License:** **GPL-3.0** (author has said he'd consider MIT if
+  asked). **Implementation:** 65816 assembly (64tass), clean-room,
+  interactive REPL, shipped as the stock BASIC of the C256 Foenix U
+  (a 65816 machine with up to 4 MB flat RAM). **>64K: YES —
+  genuinely** — program text, variable table and string heap
+  addressed with native 24-bit long pointers; this is the
+  proof-of-existence for "an interactive BASIC whose *heap* lives
+  above bank 0."
+- **Not portable to the 45GS02** (65816 native mode ≠ 45GS02;
+  opcode/register model differs), so **port effort: HIGH / treat as
+  reference only**: what it did — keep interpreter code+ZP state in
+  bank 0, use long-pointer addressing modes for every data structure
+  — maps directly onto the 45GS02's [zp],Z 32-bit pointers.
+  **Activity:** mostly 2019-2021; README still calls itself unstable
+  though it ships on real hardware. No comparable Apple IIGS/SNES
+  open BASIC found (GS BASICs are Apple-proprietary).
+- URL: https://github.com/pweingar/BASIC816
+
+#### 8. Wildcard that changed the landscape: Microsoft 6502 BASIC, MIT (Sept 2025)
+Technically Commodore-lineage (it *is* the ancestor), but note:
+Microsoft released the original 6502 BASIC 1.1 source (m6502.asm,
+~6,955 lines, the pagetable multi-target source) under **MIT** on
+2025-09-03. If the owner ever wants a license-spotless classic
+Microsoft-style core to hack far-memory features into — with zero
+attribution ambiguity — this now exists and EhBASIC's grey clause
+stops being the only game in town.
+https://opensource.microsoft.com/blog/2025/09/03/microsoft-open-source-historic-6502-basic/
+
+#### 9. BASIC-in-portable-C compiled with cc65
+Feasible but poor: uBASIC (BSD, dunkels.com/adam/ubasic/) compiles
+under cc65 and would fit (~few KB code), but cc65-generated
+interpreter code is 3-5x the size and far slower than hand asm, and
+every richer C BASIC (MY-BASIC, etc.) blows the 24 KB ROM-bank budget
+and assumes malloc/heap ≫ what's free. Verdict: only worth it for a
+toy scripting sublanguage, never as *the* BASIC.
+
+#### Comparison table (report 2)
+
+| Candidate | License | >64K | REPL | Port | Note |
+|---|---|---|---|---|---|
+| EhBASIC (Klaus2m5) | non-commercial + attribution, un-clearable | TEACHABLE | Y | NONE | already running; far PEEK/POKE easy, far heap = surgery |
+| BBC BASIC 6502 | proprietary, orphaned IP | NO | Y | LOW (tech) / blocked (legal) | ARM BASIC V is Apache-2.0, 6502 ROMs are not |
+| FastBasic | GPL-2.0+ w/ linking exception | TEACHABLE (via VM opcodes) | Y (on-machine IDE) | MED | ca65-based, active 2025, best asm-effort/feature ratio |
+| XC=BASIC 3 | MIT | NO | N | MED | compile-only kills it for this use |
+| Tiny BASICs | varies | NO | Y | LOW | too small to matter |
+| dflat | MIT | TEACHABLE | Y | MED-LOW | portable by design, one-man non-standard dialect |
+| BASIC816 | GPL-3.0 | YES (24-bit long ptrs) | Y | HIGH (ref only) | the blueprint for a far-heap interactive BASIC |
+| MS 6502 BASIC (2025 MIT) | MIT | TEACHABLE | Y | LOW-MED | Commodore-lineage but now license-clean |
+| uBASIC via cc65 | BSD-3 | trivially (C far shims) | Y | LOW | too weak a language |
+
+#### Top 3 for the BMC-K4510 (report 2's ranking)
+1. **FastBasic** — the only active, license-clean (GPL2+exception),
+   cc65-toolchain-native candidate where >64K support is
+   architecturally cheap: add far-memory opcodes to a small bytecode
+   VM using the 45GS02's [zp],Z pointers, rather than re-plumbing an
+   entire interpreter. On-machine IDE satisfies "interactive."
+2. **Keep EhBASIC, teach it far ops** — zero porting cost, users
+   already have it; add FARPEEK/FARPOKE/FARBLOCK/bank-pool tokens
+   (ROM budget permitting). Accept the grey "Derived from EhBASIC"
+   non-commercial clause — fine in practice for a hobby public repo,
+   but it can never be made properly open.
+3. **dflat** — MIT, explicitly built to be ported to homebrew 6502
+   machines, structured and interactive; the fallback if FastBasic's
+   Atari FP/runtime extraction proves heavier than expected. Use
+   **BASIC816** as the design reference for any far-heap work
+   regardless of which core wins.
+
+---
+
+### The synthesis and the decision
+
+Ranked across both reports for this machine: **migrate the native
+BASIC to an msbasic/BASIC-M6502 build (pure-MS config, MIT anchor),
+then add our own BANK / 28-bit PEEK-POKE / DMA tokens modeled on
+BASIC65's command surface** — clean license table, authentic
+Commodore-family dialect (EhBASIC is an MS-alike, demos mostly carry
+over), ~8-9 KB core, far commands in code we fully own. The banner
+can then print a C128-style number the C128's own way (pool
+arithmetic) — backed by commands that really reach the 256 MB.
+FastBasic stays the runner-up; BASIC816 the blueprint if a true
+far-heap BASIC ever goes on the ballot.
+
+Doc's call, same evening: do it. The coding session (then reworking
+the sideways-ROM memory map) was messaged to reserve a slot for the
+msbasic ROM plus token headroom; the vendoring itself is a later work
+item. Decision also recorded in project memory
+(`project-k4510-msbasic-decision.md`).

@@ -446,12 +446,12 @@ Ibuffs		= IRQ_vec+$14
 Ibuffe		= Ibuffs+$7E; end of input buffer (K4510: 126 characters)
 
 Ram_base		= $0800	; K4510: start of user RAM
-Ram_top		= $6C00	; K4510: BASIC code is at $6C00
+Ram_top		= $BA00	; K4510 stage 3: the interpreter lives above BASIC's RAM ($BC00 tail, $C000 slice, $E000 half)
 
 ; This start can be changed to suit your system
 
 ;	.org	$5000		; Suitable for RAM
-	.org	$6C00		; K4510 .prg
+	.org	$E000		; K4510 stage 3: part 1 of the interpreter, banked over the ROM's $E000 half
 
 ; For convenience, put jump here to reset location so it can be
 ; run from the load address.
@@ -7197,6 +7197,9 @@ LAB_AL2X
 	DEY				; decrement counter
 	RTS
 
+K4510_SPLIT1				; [BMC-K4510] sideways stage 3: part 1 ends here
+	.assert K4510_SPLIT1 <= $FF00, error, "EhBASIC part 1 overflows the $E000 half"
+	.org	$C000			; the interpreter continues below the I/O page
 LAB_NLTO
 	STA	FAC1_e		; save FAC1 exponent
 	LDA	#$00			; clear sign compare

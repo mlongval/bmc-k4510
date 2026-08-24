@@ -90,7 +90,13 @@ Insert, power on, and the K4510 boots in about three seconds.
   banks; INFO and TIME already live in bank 1), so the ROM stopped
   being full forever; **RAM under the I/O page**: a MAP of block 6
   hides $D000-$DFFF and exposes RAM -- MAP is an instruction, so the
-  program that hid the I/O can always bring it back;
+  program that hid the I/O can always bring it back; and since stage 3,
+  **programs own $0800-$CFFF and $E000-$FEFF by default** (a RAM
+  trampoline banks the ROM away around every launch; system calls keep
+  working through the always-ROM stub page). EhBASIC boots with
+  **45567 Bytes free** (was 25599) -- the interpreter now lives above
+  BASIC's RAM in three K4SG segments; Forth's dictionary grew to
+  ~31.7 KB;
   `LOAD` understands segmented `K4SG` files (see `demo/segdemo.c`, `demo/far.h`).
 - **VICKe**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from
   24-bit, four layers (bitmap / tile / text), 128 sprites with no per-line

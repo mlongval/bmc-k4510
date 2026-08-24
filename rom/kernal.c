@@ -187,7 +187,7 @@ static void poke(uint32_t a, uint8_t v)
 static char line[96];
 static uint32_t xam;          /* last opened address */
 static uint8_t mode;          /* 0 xam, 1 store, 2 block */
-static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs;   /* last LOAD */
+static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs, last_bmask;   /* last LOAD; bmask = blocks claimed by K4SG segments */
 
 static uint8_t ishex(char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
 static uint8_t hexval(char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; }
@@ -304,7 +304,7 @@ static uint8_t is_prg(const char *name)
 static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
 {
     uint8_t hdr[4];
-    last_run = 0; last_segs = 0;
+    last_run = 0; last_segs = 0; last_bmask = 0;
     fs_name(name);
     if (is_prg(name)) {
         if (fs_cmd(1)) return 1;
@@ -326,7 +326,15 @@ static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
                     w32(FS + 8, phys); w32(FS + 12, len);
                     if (fs_cmd(3) || r32(FS + 12) != len) { fs_cmd(5); return 2; }
                 }
-                if (e[8] < 8) w32(BANK + 4 * e[8], phys);
+                if (e[8] < 5) w32(BANK + 4 * e[8], phys);           /* low blocks: engage at load */
+                else if (e[8] < 8) {                                 /* blocks 5-7: base only -- engaging here would
+                                                                        pull the ROM out from under this loader;
+                                                                        the launch trampoline engages them */
+                    REG(BANK + 4 * e[8])     = (uint8_t)phys;
+                    REG(BANK + 4 * e[8] + 1) = (uint8_t)(phys >> 8);
+                    REG(BANK + 4 * e[8] + 2) = (uint8_t)(phys >> 16);
+                    last_bmask |= 1 << (e[8] & 7);
+                }
                 if (i == 0) addr = phys;
                 total += len;
             }
@@ -396,13 +404,46 @@ typedef void (*fn_t)(void);
 #pragma rodata-name (pop)
 static void video_init(void);
 #pragma code-name (push, "CODE2")
+/* Launching a program (stage 3 of the memory plan): the program owns
+ * $0800-$CFFF and $E000-$FEFF by default. A RAM trampoline at $02D8
+ * engages banks 5-7 onto the RAM under the ROM (skipping blocks a K4SG
+ * load already claimed), calls the program, then turns every bank off.
+ * It must live in always-visible RAM: once block 7 engages, the ROM
+ * half that built it is gone until the next system call. */
+#define TRAMP 0x02D8u
 static void run_at(uint16_t a)
 {
+    static const uint8_t tpl[] = {
+        0xA9, 0x00,                                  /*      lda #0             */
+        0xEA, 0xEA, 0xEA,                            /*      three slots: sta $D617 / $D61B / $D61F */
+        0xEA, 0xEA, 0xEA,                            /*      (engage a block) or nop nop nop        */
+        0xEA, 0xEA, 0xEA,
+        0x20, 0x00, 0x00,                            /*      jsr program        */
+        0xA2, 28, 0xA9, 0xFF,                        /*      ldx #28  lda #$FF  */
+        0x9D, 0x03, 0xD6,                            /* @:   sta $D603,x        */
+        0xCA, 0xCA, 0xCA, 0xCA,                      /*      dex x4             */
+        0x10, 0xF7,                                  /*      bpl @              */
+        0x60 };                                      /*      rts                */
+    uint8_t *t = (uint8_t *)TRAMP, b, i;
     /* snapshot the video controls: a program that drew gets the text mode
      * put back and a clean screen; one that only printed keeps its output
      * on screen (so SAY, and disk commands like it, behave like commands) */
     uint8_t v0 = REG(VICKE + 0), l1 = REG(VICKE + 0x20), l2 = REG(VICKE + 0x30), l3 = REG(VICKE + 0x40), sc = REG(VICKE + 0x0E);
-    call_prog(a);
+    for (i = 0; i < sizeof tpl; i++) t[i] = tpl[i];
+    for (b = 5; b <= 7; b++) {
+        uint8_t *slot = t + 2 + 3 * (b - 5);
+        if (!(last_bmask & (1 << b))) {              /* base: the RAM under the ROM. Bytes 0-2 only -- */
+            uint32_t base = (uint32_t)b << 13;       /* a byte-3 write ENGAGES, and engaging block 7  */
+            REG(BANK + 4 * b)     = (uint8_t)base;   /* here would vaporise the ROM this code runs in */
+            REG(BANK + 4 * b + 1) = (uint8_t)(base >> 8);
+            REG(BANK + 4 * b + 2) = (uint8_t)(base >> 16);
+        }                                            /* claimed blocks keep the base the loader set */
+        slot[0] = 0x8D;                              /* sta $D603+4b: engage (byte 3 = 0, from RAM) */
+        slot[1] = (uint8_t)(0x03 + 4 * b);
+        slot[2] = 0xD6;
+    }
+    t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
+    call_prog(TRAMP);
     if (v0 != REG(VICKE + 0) || l1 != REG(VICKE + 0x20) || l2 != REG(VICKE + 0x30) ||
         l3 != REG(VICKE + 0x40) || sc != REG(VICKE + 0x0E)) {
         video_init();

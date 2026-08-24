@@ -5,7 +5,7 @@ as native 45GS10 code -- no Tube, no tricks: a .prg loaded at $4000.
 
   2 3 + .              arithmetic; . prints, u. prints unsigned
   : cube dup dup * * ; define words
-  words                the dictionary (~12.8 KB free for yours)
+  words                the dictionary (~31.7 KB free for yours)
   hex  decimal         change the number base
   $D000 c@             every chip register is a phone call away
   4000 20 disasm       the disassembler (a ? is a 45GS10 opcode
