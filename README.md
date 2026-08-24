@@ -9,7 +9,7 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   (Q register, 32-bit flat addressing, 28-bit MAP) plus the K4510 MMU — bank
   registers, the far-call gate, RAM under the ROM — at 40.5 MHz. The
   instruction core is Xemu's 45GS02, byte for byte; everything around it is ours.
-- **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON`/`WOZ` is the Wozmon-style monitor, `@MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
+- **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON`/`WOZ` is the Wozmon-style monitor, `*MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
   XD LOAD SAVE RENAME CP RUN EXEC HUSH INFO MODE COLOR` (`HELP` lists them; the
   text lives in the dot-hidden `/.HELP`). An unknown word runs `name.prg` from
   disk with its arguments readable via the ARGS call ($FF95) -- the REXX rule;
@@ -53,7 +53,7 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   (DRI's ASM/MAC/DDT/ZSID/STAT/PIP/ED, MBASIC, Z80ASM, XMODEM, the BDOS
   and CCP sources...): `unzip A0.zip -d fs/CPM/` installs it; it is not
   committed here (mixed provenance -- see `fs/CPM/.gitignore`).
-- **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
+- **Debugging:** `DUMP [note]` in the shell (or `*DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point
   Claude at it.

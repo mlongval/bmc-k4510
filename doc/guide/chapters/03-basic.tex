@@ -35,9 +35,10 @@ PALETTE I,R,G,B     GCLS            GRAPHICS 0
 Colours 0--15 belong to the text screen; demos use 16 and up. \verb|GRAPHICS 0|
 puts the text mode and its palette back, whatever the program changed.
 
-\section{The @ escape}
-Any shell command works from BASIC with \verb|@| in front --- \verb|@DIR|,
-\verb|@CD EHBASIC|, \verb|@MON|, \verb|@DUMP a note| --- and \verb|@BYE|
-leaves BASIC for the shell. Escape or Ctrl-C stops a running program (and
+\section{The * escape}
+Any shell command works from BASIC with \verb|*| in front --- \verb|*DIR|,
+\verb|*CD EHBASIC|, \verb|*MON|, \verb|*DUMP a note| --- and \verb|*BYE|
+leaves BASIC for the shell (\verb|@| is accepted too, a survivor from an
+earlier machine). Escape or Ctrl-C stops a running program (and
 silences the SIDs); the program's variables survive for \verb|PRINT|-style
 post-mortems.
