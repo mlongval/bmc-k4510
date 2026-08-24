@@ -23,7 +23,7 @@ shot forth 240 "forth
 2 3 + .
 : cube dup dup * * ;
 7 cube .
-see cube
+hex 4000 10 disasm
 "
 shot bbc 800 "bbc
 LOAD \"BBCBASIC/KALEID.BBC\"
