@@ -864,7 +864,7 @@ ours and small. There is no third category; that was VICE.
 ## 1. Shape of the code
 
 ```
-k4510/                        t480i5 ~/Projects/BMC64k4502/k4510, git
+k4510/                        t480i5 ~/Projects/BMC-K4510/k4510, git
   core/xemu/    cpu65.c + headers      Xemu, byte-for-byte (GPL2)
   core/         shim, mem, vicke, (sid, opl, io, dma to come)
   sdl/          desktop frontend: window, audio, input

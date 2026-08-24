@@ -10,8 +10,8 @@ entry last.
 
 | What | Where |
 |---|---|
-| Design docs (this folder) | ubuntu-s1 `~/Projects/BMC64k4502/`, git |
-| **Code** — bmc64 fork, branch `k4510` | **t480i5** `~/Projects/BMC64k4502/bmc64/` |
+| Design docs (this folder) | `k4510/docs/` in the main repo since 2026-08-24; old standalone docs repo archived at ubuntu-s1 `~/Projects/BMC-K4510/` |
+| **Code** — own emulator, branch `master` | **t480i5** `~/Projects/BMC-K4510/k4510/` (mirror: ubuntu-s1 `~/LocalRepositories/k4510.git`) |
 | Build | `./build-desktop.sh` in that repo |
 | Run | `cd third_party/vice-3.3/data/K4510 && ../../src/xk4510 +sound` |
 | Pi image builds (not started) | p15, when Phase 0's Pi half begins |
