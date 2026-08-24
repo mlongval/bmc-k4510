@@ -49,7 +49,10 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   internal CCP (no DRI binaries) gives DIR/TYPE/ERA/REN/SAVE/USER; drives
   A:-P: are `fs/CPM/A` .. `fs/CPM/P` with user areas as subfolders -- drop
   .COM files in and run them. `EXIT` returns to the shell. Desktop only,
-  like the rest of the Tube.
+  like the rest of the Tube. RunCPM's `DISK/A0.zip` is a full system disk
+  (DRI's ASM/MAC/DDT/ZSID/STAT/PIP/ED, MBASIC, Z80ASM, XMODEM, the BDOS
+  and CCP sources...): `unzip A0.zip -d fs/CPM/` installs it; it is not
+  committed here (mixed provenance -- see `fs/CPM/.gitignore`).
 - **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point

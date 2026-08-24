@@ -1,0 +1,9 @@
+# The CP/M system disk (RunCPM's DISK/A0.zip: DRI's ASM/MAC/DDT/STAT/
+# SUBMIT etc. + third-party tools) is installed here for use but not
+# committed: its 81 files have mixed provenance and this repo is public.
+# To install:  unzip <RunCPM>/DISK/A0.zip -d fs/CPM/
+*
+!.gitignore
+!A/
+!A/0/
+!A/0/README.TXT
