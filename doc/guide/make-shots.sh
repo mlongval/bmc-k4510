@@ -5,6 +5,10 @@
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/../.." && pwd)
 cd "$REPO"
+# the Tube chapters photograph the co-processors: they must exist, or the
+# shots quietly show the wrong machine (it happened)
+make -s cpm/runcpm
+[ -x tube/bbcbasic ] || { echo "tube/bbcbasic missing: make -C tube (needs nasm) or copy the binary"; exit 1; }
 shot() { # name frames keys
     test/capture rom/kernal.bin "$2" "$HERE/shots/$1.png" "$3" >/dev/null
     [ -s "$HERE/shots/$1.png" ] || { echo "shot $1 FAILED"; exit 1; }
