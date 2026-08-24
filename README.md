@@ -11,11 +11,13 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   instruction core is Xemu's 45GS02, byte for byte; everything around it is ours.
 - **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON` is the Wozmon-style monitor, `@MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
   LOAD SAVE RUN INFO MODE COLOR`; files live in a host directory (`fs/`) with
-  `/PRG` for machine code, `/EHBASIC` and `/BBCBASIC` for the two BASICs; bare names are searched
-  there too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
+  one directory per language -- `/PRG` for machine code, `/EHBASIC` and
+  `/BBCBASIC` for the two BASICs, `/SID` for SID tunes -- and each language's
+  demos live in its own directory (no separate demos folder); bare names are
+  searched in `/PRG`, `/EHBASIC` and `/BBCBASIC` too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
 - **EhBASIC 2.22** with graphics, the MATH unit, an expression compiler,
   `LOAD`/`SAVE` of text files, `*command` (any K/OS command at the start of a line, e.g. `*DIR`,
-  `*CD BASIC`; `@` works too), and `LOAD` from a running program chains into the loaded
+  `*CD EHBASIC`; `@` works too), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
 - **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
   the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.
