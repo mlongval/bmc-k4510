@@ -14,8 +14,8 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   `/PRG` for programs and `/BASIC` for BASIC text; bare names are searched
   there too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
 - **EhBASIC 2.22** with graphics, the MATH unit, an expression compiler,
-  `LOAD`/`SAVE` of text files, `@command` (any shell command, e.g. `@DIR`,
-  `@CD BASIC`), and `LOAD` from a running program chains into the loaded
+  `LOAD`/`SAVE` of text files, `*command` (any K/OS command at the start of a line, e.g. `*DIR`,
+  `*CD BASIC`; `@` works too), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
 - **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
   the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.

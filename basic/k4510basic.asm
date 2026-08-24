@@ -7,6 +7,7 @@
 
 IRQ_vec	= VEC_SV+2		; EhBASIC keeps its page-3 layout (Ibuffs follows)
 NMI_vec	= IRQ_vec+$0A
+k_crx0	= $03B3			; K4510: the crunch start index (the * prefix is only a prefix there)
 
 	.org	$6BFC
 	.word	$6C00			; .prg header: load address

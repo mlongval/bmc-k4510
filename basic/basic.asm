@@ -1022,16 +1022,22 @@ LAB_13A6
 	LDA	Bpntrl		; get basic execute pointer low byte
 	SBC	#<Ibuffs		; subtract input buffer start pointer
 	TAX				; copy result to X (index past line # if any)
+	STX	k_crx0			; K4510: remember where the statement text starts (for the * prefix)
 
 	STX	Oquote		; clear open quote/DATA flag
 LAB_13AC
 	LDA	Ibuffs,X		; get byte from input buffer
 	BEQ	LAB_13EC		; if null save byte then exit
 
-	CMP	#'@'			; K4510: "@command" hands the rest of the line to the ROM shell,
-	BNE	K_NOTAT			; so keep it uncrunched (like REM)
+	CMP	#'@'			; K4510: "@command" hands the rest of the line to K/OS,
+	BEQ	K_ATCR			; so keep it uncrunched (like REM)
+	CMP	#'*'			; K4510: so does "*command", but only at the start of the line
+	BNE	K_NOTAT			; (anywhere else a * is a multiply)
+	CPX	k_crx0
+	BNE	K_NOTAT
+K_ATCR
 	STZ	Asrch			; search for [EOL]
-	JMP	LAB_1410		; save the @ and copy the rest
+	JMP	LAB_1410		; save the prefix and copy the rest
 K_NOTAT
 
 	CMP	#'_'			; compare with "_"
@@ -1562,8 +1568,11 @@ LAB_15FC
 LAB_15FF
 	BEQ	LAB_1628		; exit if zero [EOL]
 
-	CMP	#'@'			; K4510: @ statement -> the ROM shell
+	CMP	#'@'			; K4510: @ or leading * -> a K/OS command
+	BEQ	K_ATJ
+	CMP	#'*'
 	BNE	LAB_1602
+K_ATJ
 	JMP	K_AT
 
 LAB_1602
