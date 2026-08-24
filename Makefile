@@ -140,6 +140,36 @@ fs/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/defin
 
 # RunCPM (MIT, vendored unmodified in cpm/src/) -- the Z80 second processor:
 # CP/M 2.2 on the Tube, internal CCP (no DRI binaries), drives in fs/CPM/
+# The in-process Tube (what the Pi runs on core 3), built on the desktop
+# with the interpreter on a thread so it can be tested here first:
+#   make tubetest   -> test/tubetest, then the BBC BASIC round trip
+TUBE_IP_CFLAGS = -DK4510_TUBE -DK4510_TUBE_INPROC -Icore -Itube/include -Wno-array-bounds -Wno-unused-result \
+                 -ffast-math -fno-finite-math-only
+TUBE_IP_DEPS = $(wildcard tube/include/*.h) core/tube_cp.h
+TUBE_IP_OBJS = tube/ip_bbmain.o tube/ip_bbexec.o tube/ip_bbeval.o tube/ip_bbasmb.o tube/ip_bbdata.o tube/ip_bbccos.o tube/ip_bbccon.o
+CORE_IP_OBJS = $(filter-out core/io.o,$(CORE_OBJS)) core/io_ip.o core/tube_cp.o
+tube/ip_bbmain.o: tube/src/bbmain.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -c -o $@ $<
+tube/ip_bbexec.o: tube/src/bbexec.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -c -o $@ $<
+tube/ip_bbeval.o: tube/src/bbeval.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -fmath-errno -c -o $@ $<
+tube/ip_bbasmb.o: tube/src/bbasmb_x86_64.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -Os -c -o $@ $<
+tube/ip_bbccos.o: tube/src/bbccos.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -Os -c -o $@ $<
+tube/ip_bbccon.o: tube/src/bbccon.c $(TUBE_IP_DEPS)
+	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -Os -c -o $@ $<
+tube/ip_bbdata.o: tube/src/bbdata_x86_64.nas
+	@if command -v nasm >/dev/null; then nasm -f elf64 -s $< -o $@; else echo "no nasm: reusing tube/bbdata.o"; cp tube/bbdata.o $@; fi
+core/io_ip.o: core/io.c core/io.h core/tube_cp.h
+	$(CC) $(CFLAGS) -DK4510_TUBE_INPROC -c -o $@ $<
+core/tube_cp.o: core/tube_cp.c core/tube_cp.h
+test/tubetest: test/headless.c $(CORE_IP_OBJS) $(TUBE_IP_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS) -lpthread
+tubetest: test/tubetest rom/kernal.bin
+	./test/tubetest.sh
+
 cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 

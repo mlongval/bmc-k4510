@@ -46,6 +46,7 @@ static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trai
 static uint8_t fs_reg[0x14];
 static FILE *fs_file;
 void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
+const char *fs_get_root(void) { return fs_root; }
 static uint32_t fs_rd32(int off) { return rd32(&fs_reg[off]); }
 static void fs_wr32(int off, uint32_t v) { for (int i = 0; i < 4; i++) fs_reg[off + i] = (v >> (8 * i)) & 0xFF; }
 #include <strings.h>
@@ -488,13 +489,22 @@ static uint8_t sys_read(uint8_t r)
     return 0xFF;
 }
 
-/* ---- the Tube ($D800): BBC BASIC on the host, via a pty ----------------- */
-#ifndef K4510_PI
+/* ---- the Tube ($D800) ---------------------------------------------------
+ * Two transports carry the co-processor: on the desktop it is a child
+ * process on a pty (BBC BASIC or RunCPM, below); with K4510_TUBE_INPROC --
+ * the Pi, and the desktop test build -- it is the interpreter compiled in
+ * and running on a core (or thread) of its own, through core/tube_cp.c.
+ * The Tube ULA between them is the same code either way. */
+#if defined(K4510_TUBE_INPROC)
+#include "tube_cp.h"
+static int tube_was_alive;
+#elif !defined(K4510_PI)
 #include <pty.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
 static pid_t tube_pid; static int tube_fd = -1;
+#endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
 
 /* ---- the Tube ULA ------------------------------------------------------- 
@@ -681,6 +691,26 @@ static void tula_in(uint8_t b)                   /* every byte from the co-proce
         return;
     }
 }
+#if defined(K4510_TUBE_INPROC)
+static void tube_pump(void)
+{
+    uint8_t buf[256]; int n, alive = tube_cp_alive();
+    while (tube_w - tube_r < sizeof tube_ring - 600 && (n = tube_cp_read(buf, sizeof buf)) > 0)
+        for (int i = 0; i < n; i++) tula_in(buf[i]);
+    if (alive) tube_was_alive = 1;
+    else if (tube_was_alive) { tube_was_alive = 0; tula_close(); }   /* the co-processor ended (*QUIT) */
+}
+static void tube_start(int prog) { tube_cp_start(prog); }             /* 1 = BBC BASIC; 3 (CP/M) is not fitted in-process yet */
+static void tube_stop(void)
+{
+    tube_cp_stop();
+    tube_w = tube_r = 0; tube_was_alive = 0;
+    tula_close();
+}
+static uint8_t tube_status(void) { tube_pump(); return (tube_cp_alive() ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
+static void tube_write(uint8_t v) { tube_cp_write(v); }
+#elif !defined(K4510_PI)
 static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n;

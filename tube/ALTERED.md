@@ -28,3 +28,15 @@ Alterations, all marked with [BMC-K4510] comments:
   which plays them on the SID chips.
 
 Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
+
+- Build flag `K4510_TUBE` (the Pi kernel and the desktop `make tubetest`
+  build; the pty `tube/bbcbasic` build does not set it): the interpreter
+  becomes the in-process Tube co-processor of core/tube_cp.c.
+  include/bbccon.h then maps printf/fflush/isatty and the file calls
+  (fopen, opendir, remove, rename, mkdir, rmdir, chdir, getcwd) to the
+  Tube's ring and to the machine's filesystem; src/bbccon.c under that
+  flag drops the reader thread, the signal timer, termios, mmap and
+  dlsym, polls the Tube in kbchk() (where the 250 ms timer also ticks),
+  honours the machine's kill in trap(), and adds tube_bbc_main() -- a
+  re-entrant main() without the process around it. The Linux paths are
+  untouched.

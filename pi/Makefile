@@ -14,9 +14,11 @@ CIRCLESTDLIBHOME ?= $(SHIM)/circle-stdlib-$(BOARD)
 include $(CIRCLESTDLIBHOME)/Config.mk
 
 CORE = ../core
+TUBE = ../tube/src
 RESID_SRC = $(wildcard $(CORE)/resid/*.cc)
-OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o \
-       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicke.o $(CORE)/sid.o \
+OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o \
+       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicke.o $(CORE)/sid.o $(CORE)/tube_cp.o \
+       bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o \
        $(RESID_SRC:.cc=.o)
 
 STANDARD = -std=c++23 -Wno-volatile
@@ -26,13 +28,52 @@ include $(SHIM)/circle-syscallwrap/syscallwrap.mk
 include $(CIRCLEHOME)/Rules.mk
 
 INCLUDE := -I $(SHIM)/include $(CIRCLE_STDLIB_INCLUDES) $(INCLUDE) -I $(CORE)
-CFLAGS  += -DK4510_PI -Wno-unused-function
+CFLAGS  += -DK4510_PI -DK4510_TUBE_INPROC -Wno-unused-function
 LIBS := $(SHIM)/libSDL2-$(BOARD).a $(CIRCLE_STDLIB_LIBS)
 
 # the desktop frontend, compiled here under another name
 frontend.o: ../sdl/main.c
 	@echo "  CC    $@"
 	@$(CC) $(CFLAGS) $(C_STANDARD) -I $(SHIM)/include/SDL2 -c -o $@ $<
+
+# The Tube co-processor: Richard Russell's BBC BASIC (tube/src, see
+# tube/ALTERED.md) compiled into the kernel with -DK4510_TUBE, the flags
+# its own Makefile uses, and the AArch64 data/assembler files.
+# -fPIC: the data file lays its variables out byte-packed, and non-PIC
+# AArch64 code reaches a global with adrp + ldr :lo12:, which needs the
+# symbol aligned to the access -- the Linux build is PIC and goes through
+# the GOT, so do we. -Dpfree: BBC's heap pointer shares a name with
+# Circle's free(); renamed in C here and in the data object below.
+BBCDEPS = $(wildcard ../tube/include/*.h) $(CORE)/tube_cp.h
+BBCFLAGS = $(CFLAGS) $(C_STANDARD) -DK4510_TUBE -I ../tube/include -Wno-array-bounds -Wno-unused-result -Wno-unused-variable \
+           -ffast-math -fno-finite-math-only -fPIC -Dpfree=bbc_pfree
+bb_main.o: $(TUBE)/bbmain.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -O2 -c -o $@ $<
+bb_exec.o: $(TUBE)/bbexec.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -O2 -c -o $@ $<
+bb_eval.o: $(TUBE)/bbeval.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -O2 -fmath-errno -c -o $@ $<
+bb_asmb.o: $(TUBE)/bbasmb_arm_64.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -Os -c -o $@ $<
+bb_ccos.o: $(TUBE)/bbccos.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -Os -c -o $@ $<
+bb_ccon.o: $(TUBE)/bbccon.c $(BBCDEPS)
+	@echo "  CC    $@"
+	@$(CC) $(BBCFLAGS) -Os -c -o $@ $<
+# bbdata_arm_64.s names its globals with a leading underscore (the Apple
+# convention); ELF has none, so C's `liston` never meets its `_liston`.
+# The link is repaired mechanically: every global (D/T/U) loses the
+# underscore, locals such as b4fmt are untouched.
+bb_data.o: $(TUBE)/bbdata_arm_64.s
+	@echo "  AS    $@"
+	@$(CC) $(AFLAGS) -c -o $@.raw $<
+	@$(PREFIX)nm $@.raw | awk '$$NF ~ /^_/ && $$(NF-1) ~ /^[DTU]$$/ { print $$NF, ($$NF == "_pfree" ? "bbc_pfree" : substr($$NF, 2)) }' > bb_data.syms
+	@$(PREFIX)objcopy --redefine-syms=bb_data.syms $@.raw $@
 
 # reSID is .cc; Circle's rules only know .cpp
 %.o: %.cc

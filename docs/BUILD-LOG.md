@@ -2710,3 +2710,82 @@ itself. p15, unreachable on scrub day, turned out to hold only a
 plain rsync copy (no .git), and its release zips grep clean for
 session URLs. Nothing known still carries the old hashes; the
 pre-scrub bundles in ~/Backups/ remain the only intentional copies.
+
+## 2026-08-24 (ab) — the second processor: BBC BASIC on the Pi's core 3
+
+Doc, after supper was announced: "Do the BBCBasic tube for the RPi3B."
+On the desktop the Tube co-processor is a child *process* on a pty —
+`forkpty`, `execl ../tube/bbcbasic`, `read` — and a bare-metal Pi has
+none of those words. What it has is a spare core: Circle runs devices
+on 0, the emulator on 1, presentation on 2, and core 3 was parked
+"for VICKe later". So the co-processor is now Richard Russell's
+interpreter compiled INTO the kernel and running on core 3 — which
+makes it, without any metaphor, the second processor. The Tube ULA in
+io.c (graphics to the blitter, SOUND to the sequencer) is untouched;
+it simply gained a second transport underneath.
+
+**core/tube_cp.c** is that transport: two single-producer rings
+(16 KB down for the co-processor's screen, 256 bytes up for its
+keyboard), three atomic words (start request, alive, kill), and the
+co-processor's "OS" — printf into the ring, getc from the other, a
+millisecond clock, a sleep, and a file layer that prefixes every path
+with the machine's filesystem root and keeps its own current directory
+(the Pi's working directory is one global shared with the emulator;
+the co-processor must never chdir). `tube_cp_run()` is core 3's whole
+life: wait for `$D803 = 1`, run `tube_bbc_main()`, mark dead, wait
+again; `$D803 = 2` sets the kill word, which `trap()` turns into
+BASIC's own KILL flag, so the interpreter quits at its next trap
+instead of being shot. The interpreter side is one build flag,
+`K4510_TUBE`: bbccon.h maps printf/fflush/isatty and the file calls
+to the Tube, bbccon.c drops the reader thread, the SIGALRM timer,
+termios, mmap and dlsym, polls the Tube in `kbchk()` (where the
+250 ms timer now ticks synchronously), and grows `tube_bbc_main()`, a
+re-entrant `main()` without the process around it. The pty build and
+`tube/bbcbasic` are unchanged; the Linux paths still compile as before.
+
+The same transport builds on the desktop with the interpreter on a
+pthread (`make tubetest`), so the whole path was exercised here before
+a card existed: PRINT over the Tube, `*QUIT` and a restart (there is
+no fresh process to hide stale state, so `entry()` re-running had to
+be proven), MODE 2 / GCOL / PLOT / MODE 7 through the ULA, `*CD`,
+`*DIR` and `LOAD "TUNE.BBC"` through the path layer. Ten desktop
+suites still green, the pty BBC BASIC round trip still fine.
+
+The Pi link then taught four things. (1) `bbdata_arm_64.s` names
+every global `_liston`-style — the Apple convention; ELF has no
+underscore, so C's `liston` never met it. Rather than edit 5000 lines
+of vendored assembler, the Makefile assembles it and runs
+`objcopy --redefine-syms` over the globals (locals like `b4fmt`
+untouched). (2) The data file lays its variables out byte-packed,
+and non-PIC AArch64 reaches a global with `adrp + ldr :lo12:`, which
+needs the symbol aligned to the access: "relocation truncated to fit
+R_AARCH64_LDST64_ABS_LO12_NC against errtxt". The Linux build is PIC
+and goes through the GOT; so now do the six BBC objects (`-fPIC`).
+(3) BBC's heap pointer is a global called `pfree`, and so is Circle's
+free(): `-Dpfree=bbc_pfree` in C, the same rename in the symbol
+file. (4) Circle's libc has no `chmod`, `stdatomic.h`, `clock_gettime`
+on this path, or `ioctl`: the atomics are GCC builtins, the clock is
+`SDL_GetTicks`, chmod is a no-op on FAT. One more that never reached
+the linker: the shim's `SDL_Delay` off core 0 runs the SDL audio
+callback from the calling context, and the SIDs belong to core 1 —
+so core 3's waits are pure spins on the system counter, which is what
+the shim itself does off core 0 and is the correct wait for a
+dedicated core. Small archaeology: BBCSDL's headers are CRLF, which
+ate one patch anchor; and MODE 2's 80x60 geometry hides output from
+the headless harness's 80-column reader, which is why the test
+returns to MODE 7 before it looks.
+
+**kernel8.img: 1,496,320 bytes** (was 1,299,552 — the interpreter
+costs 197 KB), staged in p15's `pkg/`; the ROM and the card's files
+are unchanged, so only that one file needs copying to the card.
+**Untested on hardware**: the card was in the Pi at supper. What the
+first boot must show: `BBCBASIC` → the K4510 banner ("BBC BASIC for
+K4510 Console v0.50"), `PRINT 6*7`, `*QUIT` → "has left" and back,
+then `LOAD "TUNE.BBC"` / `RUN` for the sequencer and KALEID for the
+blitter. Parked, on the record: CP/M on the Pi (RunCPM is the next
+child through the same rings; `CPM` there still says "no Tube
+(desktop host only)"); BBC's 6502 assembler — `CALL` into code —
+is compiled in but relies on Circle mapping RAM executable, unproven;
+the co-processor's 256 MB comes from Circle's heap after the
+emulator's 256 MB, halving until it fits, so `HIMEM` on the Pi may
+read lower than the desktop's.

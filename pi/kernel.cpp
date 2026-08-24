@@ -3,7 +3,7 @@
 //   core 0  Circle's world -- USB, the SD card, sound, the library's servo
 //   core 1  the emulator: sdl/main.c unchanged, calling plain SDL_*
 //   core 2  presentation: the library scales each finished frame to the glass
-//   core 3  parked (a candidate for VICKe rendering later)
+//   core 3  the Tube co-processor: BBC BASIC, compiled in, waiting at $D803
 // Files live in SD:/k4510/{rom,data,fs}; the emulator's fopen/opendir from
 // core 1 are redirected to the library's I/O service by circle-syscallwrap
 // (see Makefile), so core/io.c is the same file as on the desktop.
@@ -17,6 +17,7 @@
 
 extern "C" int  k4510_frontend_main(int argc, char **argv);
 extern "C" void c64kbd_init(void);
+extern "C" void tube_cp_run(void);
 
 static const char From[] = "k4510";
 static std::atomic<int> s_AppGate{0};
@@ -40,6 +41,10 @@ void CK4510Cores::Run(unsigned nCore)
         break; }
     case 2:
         SDL2Circle_SplitPresentCore();          // never returns
+        break;
+    case 3:
+        while (!s_AppGate.load(std::memory_order_acquire)) asm volatile("wfe" ::: "memory");
+        tube_cp_run();                          // never returns: the second processor idles until the ROM starts it
         break;
     default:
         ParkCore();
@@ -72,7 +77,7 @@ boolean CKernel::Initialize(void)
 
 TShutdownMode CKernel::Run(void)
 {
-    m_Logger.Write(From, LogNotice, "BMC-K4510 -- 45GS02 / VICKe / SHEILA / 4 x SID; core 0 devices, core 1 emulator, core 2 presentation");
+    m_Logger.Write(From, LogNotice, "BMC-K4510 -- 45GS02 / VICKe / SHEILA / 4 x SID; core 0 devices, core 1 emulator, core 2 presentation, core 3 the Tube");
     if (SDL2Circle_DeclareVirtualDevice(32, 640, 480) != 0)
         m_Logger.Write(From, LogWarning, "virtual device: %s", SDL_GetError());
     int ok = 0;
