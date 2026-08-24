@@ -1,0 +1,2 @@
+cb887532b9fdc2d8c96d891dafb613ddf9640bb8 2026-08-13
+https://github.com/SamCoVT/TaliForth2, vendored unmodified

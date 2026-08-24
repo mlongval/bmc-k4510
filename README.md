@@ -17,13 +17,20 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   it). Names starting with `.` are hidden (`DIR A` shows them). Files live in a
   host directory (`fs/`) with
   one directory per language -- `/PRG` for machine code, `/EHBASIC` and
-  `/BBCBASIC` for the two BASICs, `/SID` for SID tunes -- and each language's
+  `/BBCBASIC` for the two BASICs, `/FORTH` for Forth, `/SID` for SID tunes -- and each language's
   demos live in its own directory (no separate demos folder); bare names are
-  searched in `/PRG`, `/EHBASIC` and `/BBCBASIC` too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
+  searched in `/PRG`, `/EHBASIC`, `/BBCBASIC` and `/FORTH` too. Boots in `MODE 1 1`: 640x240, 79x29 text with a one-cell margin.
 - **EhBASIC 2.22** with graphics, the MATH unit, an expression compiler,
   `LOAD`/`SAVE` of text files, `*command` (any K/OS command at the start of a line, e.g. `*DIR`,
   `*CD EHBASIC`; `@` works too), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
+- **Forth:** `FORTH` at the shell runs Tali Forth 2 (public domain,
+  vendored unmodified in `forth/tali/`; `forth/platform.asm` is the whole
+  port) as native 45GS10 code -- no Tube, just a `.prg` at $4000 talking to
+  the ROM's CHROUT/CHRIN. ANS-style Forth with the interactive 65c02
+  assembler and `DISASM` kept in; the dictionary has ~12.8 KB free, `BYE`
+  returns to the shell with the screen and stack intact. `C@`/`C!` reach
+  every register on the machine.
 - **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
   the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.
 - **SID player:** `RUN SIDPLAY` -- a chooser over `fs/SID` (199 PSID tunes

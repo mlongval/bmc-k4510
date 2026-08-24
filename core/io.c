@@ -101,7 +101,7 @@ static int fs_guest_name(char *name, size_t max)
     name[n] = 0;
     return 0;
 }
-/* host path for NAMEPTR; for reads, fall back to /PRG, /EHBASIC and /BBCBASIC when the
+/* host path for NAMEPTR; for reads, fall back to /PRG, /EHBASIC, /BBCBASIC and /FORTH when the
  * name has no directory part and is not found where we are */
 static int fs_path(char *out, size_t max, int search)
 {
@@ -110,8 +110,8 @@ static int fs_path(char *out, size_t max, int search)
     if ((st = fs_resolve(name, rel, sizeof rel, out, max))) return st;
     fs_casefix(out, max);
     if (search && stat(out, &sb) && !strchr(name, '/') && !strchr(name, '\\')) {
-        static const char *dirs[] = { "PRG", "EHBASIC", "BBCBASIC" };
-        for (int i = 0; i < 3; i++) {
+        static const char *dirs[] = { "PRG", "EHBASIC", "BBCBASIC", "FORTH" };
+        for (int i = 0; i < 4; i++) {
             char alt[128]; snprintf(alt, sizeof alt, "/%s/%s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
@@ -160,6 +160,9 @@ static void fs_run(uint8_t cmd)
         int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
         if ((st = fs_path(path, sizeof path, rd))) break;
         if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
+        { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
+                                                 not-found so the shell falls through to FORTH.prg */
+          if (rd && !stat(path, &sb) && S_ISDIR(sb.st_mode)) { st = 1; break; } }
         if (fs_file) { fclose(fs_file); fs_file = NULL; }
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
         if (!fs_file) { st = 1; break; }
