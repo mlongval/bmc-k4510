@@ -652,15 +652,20 @@ static void tube_pump(void)
         for (ssize_t i = 0; i < n; i++) tula_in(buf[i]);
     if (tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); }
 }
-static void tube_start(void)
+static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM) */
 {
     struct winsize ws = { 29, 79, 0, 0 };
     if (tube_pid) return;
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
         setenv ("TERM", "dumb", 1);
-        if (chdir ("fs") != 0) { /* the co-processor lives in the machine's filesystem */ }
-        execl ("../tube/bbcbasic", "bbcbasic", (char *) NULL);
+        if (prog == 3) {                          /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
+            if (chdir ("fs/CPM") != 0) { }
+            execl ("../../cpm/runcpm", "runcpm", (char *) NULL);
+        } else {
+            if (chdir ("fs") != 0) { /* the co-processor lives in the machine's filesystem */ }
+            execl ("../tube/bbcbasic", "bbcbasic", (char *) NULL);
+        }
         _exit (127);
     }
     if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
@@ -680,7 +685,7 @@ static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_
 static uint8_t tube_status(void) { return 0; }
 static uint8_t tube_read(void) { return 0; }
 static void tube_write(uint8_t v) { (void) v; }
-static void tube_start(void) {}
+static void tube_start(int prog) { (void) prog; }
 static void tube_stop(void) {}
 #endif
 
@@ -844,7 +849,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1) tube_start(); else if (v == 2) tube_stop(); }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3) tube_start(v); else if (v == 2) tube_stop(); }
         return;
     case IO_FAR: {
         uint8_t r = addr & 0xFF;

@@ -397,6 +397,13 @@ static void run_at(uint16_t a)
         cls();
     }
 }
+
+/* EXEC name: run a file of shell lines (and /!BOOT at power-on). The file
+ * is loaded whole into far memory first, so its own commands may use the
+ * filesystem; one level only, lines up to 95 chars. */
+#define EXECBUF 0x0FE00000UL
+static uint8_t exec_busy;
+
 #pragma code-name (pop)
 static void cmd_run(const char *p)
 {
@@ -590,7 +597,7 @@ static void cmd_info(const char *p)
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
 static void cmd_mon(const char *p);
-static void cmd_bbcbasic(void);
+static void cmd_bbcbasic(uint8_t prog);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
 static void cmd_dump(const char *p)
@@ -641,8 +648,6 @@ static void cmd_xd(const char *p)
     fs_cmd(5);
 }
 
-#pragma code-name (pop)
-/* HUSH: flush the sequencer, zero every register of all four SIDs */
 static void cmd_hush(void)
 {
     uint8_t c, r;
@@ -651,11 +656,8 @@ static void cmd_hush(void)
     puts_("hushed"); newline();
 }
 
-/* EXEC name: run a file of shell lines (and /!BOOT at power-on). The file
- * is loaded whole into far memory first, so its own commands may use the
- * filesystem; one level only, lines up to 95 chars. */
-#define EXECBUF 0x0FE00000UL
-static uint8_t exec_busy;
+#pragma code-name (pop)
+/* HUSH: flush the sequencer, zero every register of all four SIDs */
 static void cmd_exec(const char *p)
 {
     char name[64]; static uint32_t len, off; uint32_t L; uint8_t i;
@@ -721,7 +723,8 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
-    if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(); return; }
+    if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
+    if (is_cmd(&p, "CPM"))   { cmd_bbcbasic(3); return; }
     /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
     { char name[64]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {
@@ -831,12 +834,12 @@ static void sgr(uint8_t v)               /* SGR colours: BBC BASIC's COLOUR come
  * the co-processor's, far beyond this CPU's 64 KB view). Keys go over,
  * bytes come back; a minimal VT filter eats the escape sequences the
  * console edition emits. *QUIT (or the co-processor dying) returns here. */
-static void cmd_bbcbasic(void)
+static void cmd_bbcbasic(uint8_t prog)
 {
     uint8_t k, c, esc = 0, ofg = fg, obg = bg;
-    REG(TUBE + 3) = 1;
+    REG(TUBE + 3) = prog;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
-    if (!(REG(TUBE) & 1)) { error("no Tube fitted (the co-processor runs on the desktop host only, for now)"); return; }
+    if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
     puts_("BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
     for (;;) {
         uint8_t st = REG(TUBE);

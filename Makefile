@@ -13,7 +13,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg test/mathtest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -137,6 +137,11 @@ fs/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.
 # loaded at $4000; forth/platform.asm is the whole port (I/O + memory map)
 fs/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/definitions.asm forth/tali/stringtable.asm forth/tali/forth_words.asc $(wildcard forth/tali/words/*.asm)
 	64tass --nostart -q forth/platform.asm -o $@
+
+# RunCPM (MIT, vendored unmodified in cpm/src/) -- the Z80 second processor:
+# CP/M 2.2 on the Tube, internal CCP (no DRI binaries), drives in fs/CPM/
+cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
+	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 
 demos: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg
 .PHONY: demos

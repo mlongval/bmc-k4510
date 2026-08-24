@@ -1,0 +1,2 @@
+e698e8ab59c2de915b23be7f5b146a5c621f5c76 2026-07-21
+https://github.com/MockbaTheBorg/RunCPM, vendored unmodified (CCP_INTERNAL build: no DRI binaries)

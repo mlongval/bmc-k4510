@@ -43,6 +43,13 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   with its own flat 256 MB: `HIMEM=PAGE+250*1024*1024` and a 200 MB `DIM`
   just work. `*QUIT` returns to the shell. Desktop only for now; the Pi
   needs the C core compiled into the kernel (planned).
+- **CP/M:** `CPM` at the shell boots CP/M 2.2 on the Tube's other occupant --
+  RunCPM (MIT, vendored unmodified in `cpm/src/`), the **Z80 second
+  processor** Acorn sold in 1984, except this Z80 runs at host speed. The
+  internal CCP (no DRI binaries) gives DIR/TYPE/ERA/REN/SAVE/USER; drives
+  A:-P: are `fs/CPM/A` .. `fs/CPM/P` with user areas as subfolders -- drop
+  .COM files in and run them. `EXIT` returns to the shell. Desktop only,
+  like the rest of the Tube.
 - **Debugging:** `DUMP [note]` in the shell (or `@DUMP note` from BASIC) writes
   `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point
