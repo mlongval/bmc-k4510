@@ -11,10 +11,15 @@ machine with a flat 256\,MB of its own.
 BBC
 \end{type}
 
-You get the \verb|>| prompt of a BASIC with real power behind it:
-\verb|HIMEM=PAGE+250*1024*1024| works, a 200\,MB \verb|DIM| works, and it
-is \emph{fast} --- the co-processor is not cycle-matched to 1985. Type
-\verb|*QUIT| to hand the console back to the shell.
+You get the \verb|>| prompt of a BASIC with real power behind it, and it
+is \emph{fast} --- the co-processor is not cycle-matched to 1985:
+
+\begin{type}
+HIMEM=PAGE+250*1024*1024
+DIM space 200*1024*1024
+\end{type}
+
+both just work. Type \verb|*QUIT| to hand the console back to the shell.
 
 \section{Graphics and sound}
 The console cannot show what it cannot see, so the Tube speaks up: MODE,
@@ -48,6 +53,5 @@ co-processor lives inside \texttt{fs/} too.
 \begin{aside}
 \textbf{Edges, honestly:} \texttt{POINT(} and \texttt{TINT} are not
 implemented; \texttt{GCOL} modes 1--4 draw plain; \texttt{VDU 5} text
-prints as text. The Tube runs on the desktop host only for now --- the Pi
-build does not fit a co-processor yet.
+prints as text. Desktop host only, for now.
 \end{aside}
