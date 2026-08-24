@@ -317,7 +317,88 @@ extern uint32_t mem_rom_base;
 static uint8_t  sys_reg[0x10];
 static uint8_t  sid_shadow[4][32];
 static const char sys_version[16] = "k4510 0.3";
-void io_frame_tick(void) { sys_frames++; if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
+/* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
+ * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
+ * ($D5E0: low nibble = channel, bit 4 = flush that channel's queue first,
+ * bit 7 = silence everything now), AMP (signed, 0 to -15; an envelope
+ * number > 0 plays at a fixed loudness), PITCH (quarter semitones, 53 =
+ * middle C) and DUR ($D5E3: 20ths of a second, 255 = hold forever); the
+ * DUR write queues the note. Channels 1-3 are pulse voices 1-3 on SID 0,
+ * channel 0 is noise on SID 1 voice 1. Each channel holds a playing note
+ * plus 63 queued ones -- much deeper than the Beeb's four, because the Beeb
+ * blocked BASIC when the queue filled and a one-way Tube cannot; a whole
+ * tune fits instead. A note arriving on a full queue is dropped. */
+#define SEQ_DEPTH 64
+typedef struct { uint16_t freq; uint8_t amp, dur; } seq_note;
+static seq_note seq_q[4][SEQ_DEPTH];
+static uint8_t  seq_head[4], seq_len[4], seq_reg[3];
+static int      seq_left[4];             /* frames left of the playing note; 0 idle, -1 forever */
+
+static void seq_sid(int chip, uint8_t reg, uint8_t v) { sid_shadow[chip][reg] = v; sid_write(chip, reg, v); }
+static void seq_off(int ch)
+{
+    seq_sid(ch ? 0 : 1, (uint8_t)(ch ? (ch - 1) * 7 + 4 : 4), ch ? 0x40 : 0x80);   /* gate off */
+    seq_left[ch] = 0;
+}
+static void seq_start(int ch, const seq_note *n)
+{
+    int chip = ch ? 0 : 1, b = ch ? (ch - 1) * 7 : 0;
+    seq_sid(chip, 0x18, 0x0F);                                    /* volume up, filter routing off */
+    seq_sid(chip, (uint8_t)(b + 0), n->freq & 0xFF);
+    seq_sid(chip, (uint8_t)(b + 1), n->freq >> 8);
+    seq_sid(chip, (uint8_t)(b + 2), 0x00);
+    seq_sid(chip, (uint8_t)(b + 3), 0x08);                        /* 50 % pulse */
+    seq_sid(chip, (uint8_t)(b + 5), 0x00);                        /* attack/decay: instant */
+    seq_sid(chip, (uint8_t)(b + 6), (uint8_t)((n->amp << 4) | 6));/* sustain = loudness */
+    seq_sid(chip, (uint8_t)(b + 4), (uint8_t)((ch ? 0x40 : 0x80) | (n->amp ? 1 : 0)));
+    seq_left[ch] = (n->dur == 255) ? -1 : (n->dur ? n->dur * 3 : 1);   /* 20ths at 60 fps */
+}
+static void seq_next(int ch)
+{
+    if (seq_len[ch]) { seq_start(ch, &seq_q[ch][seq_head[ch]]); seq_head[ch] = (seq_head[ch] + 1) % SEQ_DEPTH; seq_len[ch]--; }
+    else seq_off(ch);
+}
+static void seq_tick(void)
+{
+    for (int ch = 0; ch < 4; ch++)
+        if (seq_left[ch] > 0 && --seq_left[ch] == 0) seq_next(ch);
+}
+static void seq_write(uint8_t r, uint8_t v)
+{
+    if (r < 3) {
+        if (r == 0 && (v & 0x80)) for (int c = 0; c < 4; c++) { seq_len[c] = 0; seq_off(c); }
+        seq_reg[r] = v;
+        return;
+    }
+    {
+        static const double clocks[3] = { 1000000.0, 985248.0, 1022730.0 };
+        static const double semiq[48] = {    /* 2^(i/48): a quarter-semitone ladder */
+            1.000000000, 1.014545335, 1.029302237, 1.044273782, 1.059463094, 1.074873340,
+            1.090507733, 1.106369533, 1.122462048, 1.138788635, 1.155352697, 1.172157689,
+            1.189207115, 1.206504531, 1.224053543, 1.241857812, 1.259921050, 1.278247024,
+            1.296839555, 1.315702520, 1.334839854, 1.354255547, 1.373953647, 1.393938263,
+            1.414213562, 1.434783772, 1.455653183, 1.476826146, 1.498307077, 1.520100455,
+            1.542210825, 1.564642798, 1.587401052, 1.610490332, 1.633915453, 1.657681301,
+            1.681792831, 1.706255071, 1.731073122, 1.756252160, 1.781797436, 1.807714277,
+            1.834008086, 1.860684348, 1.887748625, 1.915206561, 1.943063882, 1.971326397 };
+        int ch = seq_reg[0] & 3, q = (int)seq_reg[2] - 5;         /* pitch 5 = C3, 130.81 Hz */
+        signed char a = (signed char)seq_reg[1];
+        double hz, f;
+        seq_note n;
+        n.amp = a < 0 ? (uint8_t)(-a > 15 ? 15 : -a) : (a > 0 ? 13 : 0);
+        hz = 130.8127827;
+        if (q < 0) hz = hz * semiq[q + 48] / 2.0;
+        else       hz = hz * semiq[q % 48] * (double)(1 << (q / 48));
+        f = hz * 16777216.0 / clocks[sid_clock_sel];
+        n.freq = f > 65535.0 ? 65535 : (uint16_t)f;
+        n.dur = v;
+        if (seq_reg[0] & 0x10) { seq_len[ch] = 0; seq_left[ch] = 0; }          /* flush: this note now */
+        if (seq_left[ch] == 0) seq_start(ch, &n);
+        else if (seq_len[ch] < SEQ_DEPTH) { seq_q[ch][(seq_head[ch] + seq_len[ch]) % SEQ_DEPTH] = n; seq_len[ch]++; }
+    }
+}
+
+void io_frame_tick(void) { sys_frames++; seq_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -350,13 +431,198 @@ static uint8_t sys_read(uint8_t r)
 #include <fcntl.h>
 static pid_t tube_pid; static int tube_fd = -1;
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
+
+/* ---- the Tube ULA ------------------------------------------------------- 
+ * On a real BBC Micro the Tube ULA was the FIFO chip between host and
+ * co-processor. Ours does a little more: it watches the byte stream coming
+ * up from BBC BASIC and executes the machine-specific escapes itself --
+ * ESC]K4G;...BEL (the graphics VDU codes bbccos.c forwards: CLG, GCOL,
+ * palette, PLOT, origin, mode) go straight to the VICKe blitter, and
+ * ESC]K4S;...BEL (SOUND) to the sound sequencer. Those sequences never
+ * reach the console ROM (except MODE, which is executed here AND passed
+ * on, because the console must change its text geometry too); everything
+ * else flows through untouched. BBC coordinates (1280x1024, origin bottom
+ * left) land on a 640x480 8bpp bitmap at $200000 (EhBASIC's GRAPHICS
+ * surface), VICKe layer 1; colour 0 stays transparent so the text screen
+ * shows through, and BBC logical colours live in palette entries 16-31. */
+#include <math.h>
+#define TULA_GFXB 0x200000u
+#define TULA_W 640
+#define TULA_H 480
+static int tula_x[3], tula_y[3], tula_ox, tula_oy;
+static uint8_t tula_fg = 17, tula_bg = 16, tula_on;
+static uint8_t ula_buf[256]; static unsigned ula_n; static int ula_st;
+
+static void tula_vw16(uint8_t r, int v) { vicke_write(r, v & 0xFF); vicke_write(r + 1, (v >> 8) & 0xFF); }
+static void tula_vw32(uint8_t r, uint32_t v) { for (int i = 0; i < 4; i++) vicke_write(r + i, (v >> (8 * i)) & 0xFF); }
+static int tula_sx(int x) { return x >> 1; }
+static int tula_sy(int y) { return (TULA_H - 1) - ((y * 15) >> 5); }
+static uint8_t tula_pix(uint8_t c) { return c == 16 ? 0 : c; }   /* logical black -> transparent */
+static void tula_pal(int l, int r, int g, int b)
+{ vicke_write(6, 16 + (l & 15)); vicke_write(7, r); vicke_write(8, g); vicke_write(9, b); }
+static void tula_pphys(int l, int p)             /* a BBC physical colour: primaries from the bits */
+{ p &= 7; tula_pal(l, (p & 1) ? 255 : 0, (p & 2) ? 255 : 0, (p & 4) ? 255 : 0); }
+static void tula_defpal(int mode)                /* the mode's default logical->physical map */
+{
+    static const uint8_t four[4] = { 0, 1, 3, 7 };
+    for (int i = 0; i < 16; i++)
+        tula_pphys(i, mode == 2 ? (i & 7) : (mode == 1 || mode == 5) ? four[i & 3] : (i & 1) ? 7 : 0);
+}
+static void tula_pt(int i, int x, int y) { tula_vw16(0x84 + i * 4, tula_sx(x)); tula_vw16(0x86 + i * 4, tula_sy(y)); }
+static void tula_blt(uint8_t op, uint8_t c)
+{
+    tula_vw32(0x70, tula_pix(c));
+    tula_vw32(0x74, TULA_GFXB); tula_vw16(0x78, TULA_W); tula_vw16(0x7A, TULA_H); tula_vw16(0x7E, TULA_W);
+    vicke_write(0x80, op); vicke_write(0x82, 1);
+}
+static void tula_rect(int x0, int y0, int x1, int y1, uint8_t c)   /* pixel coords, any order */
+{
+    int t;
+    if (x0 > x1) { t = x0; x0 = x1; x1 = t; }
+    if (y0 > y1) { t = y0; y0 = y1; y1 = t; }
+    if (x1 < 0 || y1 < 0 || x0 >= TULA_W || y0 >= TULA_H) return;
+    if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0;
+    if (x1 >= TULA_W) x1 = TULA_W - 1; if (y1 >= TULA_H) y1 = TULA_H - 1;
+    tula_vw32(0x70, tula_pix(c));
+    tula_vw32(0x74, TULA_GFXB + (uint32_t)y0 * TULA_W + x0);
+    tula_vw16(0x78, x1 - x0 + 1); tula_vw16(0x7A, y1 - y0 + 1); tula_vw16(0x7E, TULA_W);
+    vicke_write(0x80, 2); vicke_write(0x82, 1);
+}
+static void tula_clg(void) { memset(k4510_ram + TULA_GFXB, tula_pix(tula_bg), TULA_W * TULA_H); }
+static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
+{
+    double fdx = ex - cx, fdy = ey - cy, r2 = fdx * fdx + fdy * fdy;
+    int r = (int)(sqrt(r2) + 0.5);
+    for (int d = -r; d <= r; d += 2) {           /* scanlines, 2 BBC units apart ~= one pixel row */
+        int s = (int)(sqrt(r2 - (double)d * d) + 0.5);
+        if (fill)
+            tula_rect(tula_sx(cx - s), tula_sy(cy + d), tula_sx(cx + s), tula_sy(cy + d), c);
+        else {
+            tula_rect(tula_sx(cx - s), tula_sy(cy + d), tula_sx(cx - s), tula_sy(cy + d), c);
+            tula_rect(tula_sx(cx + s), tula_sy(cy + d), tula_sx(cx + s), tula_sy(cy + d), c);
+            tula_rect(tula_sx(cx + d), tula_sy(cy - s), tula_sx(cx + d), tula_sy(cy - s), c);
+            tula_rect(tula_sx(cx + d), tula_sy(cy + s), tula_sx(cx + d), tula_sy(cy + s), c);
+        }
+    }
+}
+static void tula_mode(int n)
+{
+    if (n == 3 || n == 6 || n == 7) { if (tula_on) { vicke_write(0x20, 0); tula_on = 0; } return; }
+    tula_on = 1;
+    vicke_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll */
+    tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
+    vicke_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */
+    tula_defpal(n);
+    tula_fg = 16 + (n == 2 ? 7 : (n == 1 || n == 5) ? 3 : 1);
+    tula_bg = 16;
+    tula_ox = tula_oy = 0;
+    memset(tula_x, 0, sizeof tula_x); memset(tula_y, 0, sizeof tula_y);
+    tula_clg();
+}
+static void tula_plot(int k, int x, int y)
+{
+    int c, nx, ny;
+    if (k & 4) { nx = tula_ox + x; ny = tula_oy + y; }
+    else       { nx = tula_x[0] + x; ny = tula_y[0] + y; }
+    tula_x[2] = tula_x[1]; tula_y[2] = tula_y[1];
+    tula_x[1] = tula_x[0]; tula_y[1] = tula_y[0];
+    tula_x[0] = nx;        tula_y[0] = ny;
+    c = k & 3;
+    if (!c || !tula_on) return;          /* move only, or no bitmap up */
+    c = (c == 3) ? tula_bg : tula_fg;    /* 1 = foreground, 2 = invert (drawn as fg), 3 = background */
+    switch (k >> 3) {
+    case 8:                              /* 64-71: a point */
+        tula_pt(0, nx, ny); tula_pt(1, nx, ny); tula_blt(6, c); return;
+    case 10:                             /* 80-87: triangle with the two previous points */
+        tula_pt(0, tula_x[2], tula_y[2]); tula_pt(1, tula_x[1], tula_y[1]); tula_pt(2, nx, ny);
+        tula_blt(7, c); return;
+    case 12:                             /* 96-103: axis-aligned rectangle fill */
+        tula_rect(tula_sx(tula_x[1]), tula_sy(tula_y[1]), tula_sx(nx), tula_sy(ny), c); return;
+    case 18:                             /* 144-151: circle outline, centre = previous point */
+        tula_circle(tula_x[1], tula_y[1], nx, ny, c, 0); return;
+    case 19:                             /* 152-159: filled circle */
+        tula_circle(tula_x[1], tula_y[1], nx, ny, c, 1); return;
+    default:
+        if (k >= 64) return;             /* fancier families: quietly not drawn */
+        tula_pt(0, tula_x[1], tula_y[1]); tula_pt(1, nx, ny);      /* 0-63: a line */
+        tula_blt(6, c); return;
+    }
+}
+static int tula_parse(const char *p, int *a)
+{
+    int n = 0;
+    while (*p && n < 6) {
+        int neg = 0, v = 0;
+        if (*p == '-') { neg = 1; p++; }
+        while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+        a[n++] = neg ? -v : v;
+        if (*p == ',') p++; else break;
+    }
+    return n;
+}
+static void tula_gfx(const char *p)
+{
+    int a[6] = { 0 }, n = tula_parse(p, a);
+    switch (a[0]) {
+    case 16: if (tula_on) tula_clg(); break;
+    case 18: if (n > 2) { if (a[2] & 0x80) tula_bg = 16 + (a[2] & 15); else tula_fg = 16 + (a[2] & 15); } break;
+    case 19: if (n >= 3) { if (a[2] < 16) tula_pphys(a[1], a[2]); else if (n >= 6) tula_pal(a[1], a[3], a[4], a[5]); } break;
+    case 22: if (n > 1) tula_mode(a[1]); break;
+    case 25: if (n >= 4) tula_plot(a[1], a[2], a[3]); break;
+    case 29: if (n >= 3) { tula_ox = a[1]; tula_oy = a[2]; } break;
+    }
+}
+static void tula_snd(const char *p)
+{
+    int a[6] = { 0 };
+    if (*p == 'Q' || *p == 'q') { seq_write(0, 0x80); return; }
+    if (tula_parse(p, a) < 4) return;
+    seq_write(0, (uint8_t)a[0]); seq_write(1, (uint8_t)a[1]);
+    seq_write(2, (uint8_t)a[2]); seq_write(3, (uint8_t)a[3]);
+}
+static void tula_close(void)
+{
+    seq_write(0, 0x80);                          /* flush and silence the sequencer */
+    if (tula_on) { vicke_write(0x20, 0); tula_on = 0; }
+    ula_st = 0; ula_n = 0;
+}
+static void ring_put(uint8_t b) { tube_ring[tube_w++ & 4095] = b; }
+static void tula_in(uint8_t b)                   /* every byte from the co-processor passes here */
+{
+    switch (ula_st) {
+    case 0:
+        if (b == 0x1B) { ula_st = 1; ula_buf[0] = b; ula_n = 1; return; }
+        ring_put(b); return;
+    case 1:
+        if (b == ']') { ula_st = 2; ula_buf[1] = b; ula_n = 2; return; }
+        ring_put(0x1B); ring_put(b); ula_st = 0; return;
+    default:
+        if (b == 7) {
+            ula_st = 0; ula_buf[ula_n] = 0;
+            if (ula_n > 6 && !memcmp(ula_buf + 2, "K4G;", 4)) {
+                tula_gfx((const char *)ula_buf + 6);
+                if (ula_buf[6] != '2' || ula_buf[7] != '2') return;    /* MODE also goes to the console */
+            } else if (ula_n > 6 && !memcmp(ula_buf + 2, "K4S;", 4)) {
+                tula_snd((const char *)ula_buf + 6);
+                return;
+            }
+            for (unsigned i = 0; i < ula_n; i++) ring_put(ula_buf[i]);
+            ring_put(7);
+            return;
+        }
+        if (ula_n < sizeof ula_buf - 2) { ula_buf[ula_n++] = b; return; }
+        for (unsigned i = 0; i < ula_n; i++) ring_put(ula_buf[i]);     /* too long: not ours */
+        ring_put(b); ula_st = 0;
+        return;
+    }
+}
 static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n;
     if (tube_fd < 0) return;
-    while (tube_w - tube_r < sizeof tube_ring - 256 && (n = read (tube_fd, buf, sizeof buf)) > 0)
-        for (ssize_t i = 0; i < n; i++) tube_ring[tube_w++ & 4095] = buf[i];
-    if (tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; }
+    while (tube_w - tube_r < sizeof tube_ring - 600 && (n = read (tube_fd, buf, sizeof buf)) > 0)
+        for (ssize_t i = 0; i < n; i++) tula_in(buf[i]);
+    if (tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); }
 }
 static void tube_start(void)
 {
@@ -377,6 +643,7 @@ static void tube_stop(void)
     if (tube_pid) { kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0;
+    tula_close();
 }
 static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
@@ -459,6 +726,8 @@ void io_reset(void)
     dbg_auto = 1; dbg_auto_next = 900; dbg_rec = 1;      /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
 #endif
     memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
+    memset(seq_q, 0, sizeof seq_q); memset(seq_head, 0, sizeof seq_head); memset(seq_len, 0, sizeof seq_len);
+    memset(seq_reg, 0, sizeof seq_reg); memset(seq_left, 0, sizeof seq_left);
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicke_reset();
@@ -531,6 +800,7 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_MATH:
         math_write(addr & 0xFF, v); return;
     case IO_SYS:
+        if ((addr & 0xFF) >= 0xE0 && (addr & 0xFF) <= 0xE3) seq_write((uint8_t)((addr & 0xFF) - 0xE0), v);
         if ((addr & 0xFF) == 0xF0) { dbg_rec = 1; dbg_dump("DUMP register"); }
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }

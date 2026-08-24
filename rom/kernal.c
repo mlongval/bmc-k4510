@@ -702,6 +702,36 @@ static void video_init(void)
 
 /* the VIDEO system call ($FF92): the text screen's mode and palette back, screen contents kept */
 void k_video(void) { video_init(); }
+/* ---- the Tube's chips ---------------------------------------------------
+ * BBC BASIC's graphics VDU stream and SOUND statements travel down the
+ * Tube as ESC]K4G;... / ESC]K4S;... strings; the Tube ULA (core/io.c)
+ * executes them itself, on the VICKe blitter and the sound sequencer at
+ * $D5E0, before they ever reach this console -- the job the BBC Micro's
+ * I/O processor did for its co-processors. Only MODE (K4G;22) is passed
+ * through as well, because the console must switch its own text geometry
+ * under the ULA's 640x480 bitmap. */
+static uint8_t bgon, oldvm, oldmg;
+static void bbg_mode22(uint8_t n)
+{
+    if (n == 3 || n == 6 || n == 7) {                    /* a text mode: the console mode returns */
+        if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
+        return;
+    }
+    if (!bgon) { oldvm = vmode; oldmg = margin; bgon = 1; }
+    vmode = 0; margin = 0; video_init(); cls();          /* 640x480, 80x60 text under the bitmap */
+    REG(VICKE + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
+}
+static const uint8_t apal[8]  = { 0, 2, 5, 7, 6, 4, 3, 1 };      /* ANSI order -> the C64 palette */
+static const uint8_t apalb[8] = { 11, 10, 13, 7, 14, 4, 3, 1 };  /* the bright set */
+static void sgr(uint8_t v)               /* SGR colours: BBC BASIC's COLOUR comes as ANSI */
+{
+    if (v == 0) { fg = 1; bg = 0; }
+    else if (v >= 30 && v <= 37)   fg = apal[v - 30];
+    else if (v >= 40 && v <= 47)   bg = apal[v - 40];
+    else if (v >= 90 && v <= 97)   fg = apalb[v - 90];
+    else if (v >= 100 && v <= 107) bg = apalb[v - 100];
+}
+
 /* BBCBASIC: the console connected to the Tube co-processor, which runs
  * Richard Russell's BBC BASIC with its own flat 256 MB (PAGE and HIMEM are
  * the co-processor's, far beyond this CPU's 64 KB view). Keys go over,
@@ -709,7 +739,7 @@ void k_video(void) { video_init(); }
  * console edition emits. *QUIT (or the co-processor dying) returns here. */
 static void cmd_bbcbasic(void)
 {
-    uint8_t k, c, esc = 0;
+    uint8_t k, c, esc = 0, ofg = fg, obg = bg;
     REG(TUBE + 3) = 1;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
     if (!(REG(TUBE) & 1)) { error("no Tube fitted (the co-processor runs on the desktop host only, for now)"); return; }
@@ -725,6 +755,11 @@ static void cmd_bbcbasic(void)
                 if (c == 7) {
                     esc = 0; line[oi] = 0;
                     if (oi > 6 && !memcmp(line, "K4510;", 6)) { newline(); shell_line(line + 6); }   /* a star command, handed over */
+                    else if (oi > 7 && !memcmp(line, "K4G;22,", 7)) {     /* MODE, forwarded by the ULA */
+                        uint8_t m22 = 0; const char *q = line + 7;
+                        while (*q >= '0' && *q <= '9') m22 = m22 * 10 + (uint8_t)(*q++ - '0');
+                        bbg_mode22(m22);
+                    }
                     oi = 0;
                 } else if (oi < sizeof line - 1) line[oi++] = (char)c;
                 continue;
@@ -744,6 +779,17 @@ static void cmd_bbcbasic(void)
                         if (r) cy = (r - 1 < ROWS) ? r - 1 : ROWS - 1;
                         if (cc) cx = (cc - 1 < COLS) ? cc - 1 : COLS - 1;
                         draw_cursor(0);
+                    }
+                    if (c == 'J' && seq[0] == '[') cls();
+                    if (c == 'm' && seq[0] == '[') {
+                        /* SGR: the co-processor's COLOUR and MODE colours */
+                        uint8_t v = 0, j = 1;
+                        for (;;) {
+                            if (j < si && seq[j] >= '0' && seq[j] <= '9') { v = (uint8_t)(v * 10 + (seq[j] - '0')); j++; continue; }
+                            sgr(v); v = 0;
+                            if (j < si && seq[j] == ';') { j++; continue; }
+                            break;
+                        }
                     }
                     if (c == 'n' && si == 3 && seq[0] == '[' && seq[1] == '6') {
                         /* "where is the cursor?" -- answer with the real one (1-based) */
@@ -770,7 +816,9 @@ static void cmd_bbcbasic(void)
             else if (k == 0x89) REG(TUBE + 2) = 0x7F;    /* DEL */
         }
     }
-    REG(TUBE + 3) = 2;
+    REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
+    if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
+    fg = ofg; bg = obg;
     newline(); puts_("the Tube co-processor has left."); newline();
 }
 

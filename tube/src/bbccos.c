@@ -353,6 +353,19 @@ void xeqvdu (int code, int data1, int data2)
 			printf ("\033[%im", vdu) ;
 			break ;
 
+		case 16: // CLG [BMC-K4510: to the console's VICKe interpreter]
+			printf ("\033]K4G;16\007") ;
+			break ;
+
+		case 18: // GCOL m,c [BMC-K4510]
+			printf ("\033]K4G;18,%i,%i\007", (data1 >> 24) & 0xFF, code & 0xFF) ;
+			break ;
+
+		case 19: // VDU 19,l,p,r,g,b - PALETTE [BMC-K4510]
+			printf ("\033]K4G;19,%i,%i,%i,%i,%i\007", data1 & 0xFF, (data1 >> 8) & 0xFF,
+				(data1 >> 16) & 0xFF, (data1 >> 24) & 0xFF, code & 0xFF) ;
+			break ;
+
 		case 20: // RESET COLOURS
 			printf ("\033[37m\033[40m") ;
 			break ;
@@ -363,9 +376,22 @@ void xeqvdu (int code, int data1, int data2)
 
 		case 22: // MODE CHANGE
 			modechg (code & 0x7F) ;
+			printf ("\033]K4G;22,%i\007", code & 0x7F) ; // [BMC-K4510]
 			col = 0 ;
 			row = 0 ;
 			rhs = 999 ;
+			break ;
+
+		case 25: // PLOT k,x;y; [BMC-K4510]
+			printf ("\033]K4G;25,%i,%i,%i\007", data1 & 0xFF,
+				(short)(((data1 >> 8) & 0xFF) | ((data1 >> 16) & 0xFF) << 8),
+				(short)(((data1 >> 24) & 0xFF) | ((code & 0xFF) << 8))) ;
+			break ;
+
+		case 29: // GRAPHICS ORIGIN [BMC-K4510]
+			printf ("\033]K4G;29,%i,%i\007",
+				(short)(((data1 >> 8) & 0xFF) | ((data1 >> 16) & 0xFF) << 8),
+				(short)(((data1 >> 24) & 0xFF) | ((code & 0xFF) << 8))) ;
 			break ;
 
 		case 23: // DEFINE CHARACTER ETC.

@@ -428,8 +428,12 @@ void getcsr(int *px, int *py)
 }
 
 // SOUND Channel,Amplitude,Pitch,Duration
+// [BMC-K4510] sent over the Tube; the console queues it on the machine's
+// sound sequencer, which plays it on the SIDs (chan 0 = noise).
 void sound (short chan, signed char ampl, unsigned char pitch, unsigned char duration)
 {
+	printf ("\033]K4S;%i,%i,%u,%u\007", chan & 0xFF, ampl, pitch, duration) ;
+	fflush (stdout) ;
 }
 
 // ENVELOPE N,T,PI1,PI2,PI3,PN1,PN2,PN3,AA,AD,AS,AR,ALA,ALD
@@ -440,6 +444,8 @@ void envel (signed char *env)
 // Disable sound generation:
 void quiet (void)
 {
+	printf ("\033]K4S;Q\007") ;	// [BMC-K4510] flush and silence all channels
+	fflush (stdout) ;
 }
 
 // Get pixel RGB colour:
