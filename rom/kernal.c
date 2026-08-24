@@ -454,7 +454,7 @@ static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
 static void info_version(void)
 {
     uint8_t i;
-    label("SYSTEM"); puts_("BMC-K4510 system ROM " ROM_VERSION ", emulator ");
+    label("SYSTEM"); puts_("K/OS " ROM_VERSION " (the BMC-K4510 operating system), emulator ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
     newline();
 }
