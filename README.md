@@ -1,6 +1,6 @@
 # BMC-K4510
 
-**This is release number alpha-0.1 titled 'Proof-of-concept'.**
+**This is release number alpha-0.2, titled 'Octopodes'.**
 
 A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 **bare metal on a Raspberry Pi 3B+** (and on a Linux desktop under SDL2).
