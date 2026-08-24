@@ -4,10 +4,12 @@
 #   ./install-sd.sh bmc-k4510-pi3.zip /media/you/CARD      unzip onto a mounted FAT32 card
 #   ./install-sd.sh bmc-k4510-pi3.zip /dev/sdX --format    wipe that device, make it FAT32, install
 #
-# Why the fuss: the Pi's boot ROM reads FAT32 only. SDHC cards (32 GB and
-# under) come FAT32 from the factory and just work. SDXC cards (64 GB and
-# up) come exFAT and will NOT boot until reformatted -- that is what
-# --format is for. The machine needs about 5 MB; any old card is plenty.
+# Card choice matters: use an SDHC card (4-32 GB), specifically.
+#  - SDHC comes FAT32 from the factory and just works.
+#  - Old plain SD cards (2 GB and under) do NOT boot -- field-tested.
+#  - SDXC (64 GB+) comes exFAT and will not boot until reformatted FAT32;
+#    that is what --format is for.
+# The machine needs about 5 MB, so the smallest SDHC card you can buy is plenty.
 set -e
 
 ZIP=$1; TARGET=$2; MODE=$3

@@ -42,11 +42,12 @@ card's root yourself, or let the script do it:
 \end{type}
 
 \begin{aside}
-\textbf{Use an SDHC card (32\,GB or less).} The Pi's boot ROM reads only
-FAT32, and SDHC cards are FAT32 from the factory --- they just work. A
-bigger SDXC card (64\,GB+) ships exFAT and will \emph{not} boot until
-reformatted; \verb|./install-sd.sh zip /dev/sdX --format| does that (and
-erases the card). The machine needs about 5\,MB --- any old card is
+\textbf{Use an SDHC card --- 4 to 32\,GB, specifically.} SDHC ships
+FAT32 from the factory and just works. Older plain SD cards (2\,GB and
+under) do \emph{not} boot --- we tested. Bigger SDXC cards (64\,GB+)
+ship exFAT and will not boot until reformatted;
+\verb|./install-sd.sh zip /dev/sdX --format| does that (and erases the
+card). The machine needs about 5\,MB, so the smallest SDHC card sold is
 plenty.
 \end{aside}
 

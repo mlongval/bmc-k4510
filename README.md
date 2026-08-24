@@ -22,16 +22,17 @@ everything, runs the 10-suite test battery and tells you how to start
 the machine (`./sdl/k4510 rom/kernal.bin fs`).
 
 **Raspberry Pi 3B+:** download the SD-card zip from the releases page.
-The card must be **FAT32**, which in practice means: use an **SDHC card
-(32 GB or less)** -- those are FAT32 from the factory and just work. An
-SDXC card (64 GB+) ships exFAT and will not boot until reformatted.
-Then either unzip onto the card's root yourself, or:
+Use an **SDHC card (4-32 GB), specifically**: SDHC ships FAT32 from the
+factory and just works. Old plain SD cards (2 GB and under) do **not**
+boot (field-tested), and SDXC (64 GB+) ships exFAT and will not boot
+until reformatted FAT32. Then either unzip onto the card's root
+yourself, or:
 
     ./install-sd.sh bmc-k4510-pi3.zip /media/$USER/CARD     # mounted card
     ./install-sd.sh bmc-k4510-pi3.zip /dev/sdX --format     # wipe + FAT32 + install
 
-The machine needs ~5 MB; any old card is plenty. Insert, power on, and
-the K4510 boots in about three seconds.
+The machine needs ~5 MB, so the smallest SDHC card sold is plenty.
+Insert, power on, and the K4510 boots in about three seconds.
 
 - **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON`/`WOZ` is the Wozmon-style monitor, `*MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
   XD LOAD SAVE RENAME CP RUN EXEC HUSH INFO MODE COLOR` (`HELP` lists them; the

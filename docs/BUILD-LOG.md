@@ -1812,3 +1812,10 @@ the Tube, CP/M, and the 10-suite battery, with honest reporting of
 what is missing and what it is needed for). README gained an
 Installing section; the guide's chapter 1 gained "Getting one" and an
 SDHC aside before "First boot".
+
+### Erratum (t), from Doc's bench
+
+"Any old card is plenty" — no. Doc tried his 2 GB plain SD (pre-HC)
+cards: they do not boot the Pi. So the guidance everywhere is now
+*SDHC specifically, 4–32 GB*: older SD fails (field-tested), newer
+SDXC ships exFAT and needs the --format treatment. Goldilocks cards.
