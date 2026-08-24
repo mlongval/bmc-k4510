@@ -446,7 +446,7 @@ Ibuffs		= IRQ_vec+$14
 Ibuffe		= Ibuffs+$7E; end of input buffer (K4510: 126 characters)
 
 Ram_base		= $0800	; K4510: start of user RAM
-Ram_top		= $BA00	; K4510 stage 3: the interpreter lives above BASIC's RAM ($BC00 tail, $C000 slice, $E000 half)
+Ram_top		= $C000	; K4510 stage 3: the interpreter lives above BASIC's RAM ($BC00 tail, $C000 slice, $E000 half)
 
 ; This start can be changed to suit your system
 
@@ -5333,11 +5333,6 @@ LAB_244D
 
 ; perform subtraction, FAC1 from (AY)
 
-LAB_2455
-	JSR	LAB_264D		; unpack memory (AY) into FAC2
-
-; perform subtraction, FAC1 from FAC2
-
 LAB_SUBTRACT
 	LDA	FAC1_s		; get FAC1 sign (b7)
 	EOR	#$FF			; complement it
@@ -5368,10 +5363,7 @@ LAB_246C
 
 LAB_ADD
 	JMP	K_ADD		; K4510: MATH unit
-	BNE	LAB_2474		; branch if FAC1 was not zero
-
-; copy FAC2 to FAC1
-
+				; [BMC-K4510] excised#5369: body runs on the MATH unit
 LAB_279B
 	LDA	FAC2_s		; get FAC2 sign (b7)
 
@@ -5390,11 +5382,6 @@ LAB_27A1
 	RTS
 
 					; FAC1 is non zero
-LAB_2474
-	LDX	FAC1_r		; get FAC1 rounding byte
-	STX	FAC2_r		; save as FAC2 rounding byte
-	LDX	#FAC2_e		; set index to FAC2 exponent addr
-	LDA	FAC2_e		; get FAC2 exponent
 LAB_247C
 	TAY				; copy exponent
 	BEQ	LAB_244D		; exit if zero
@@ -5598,8 +5585,6 @@ LAB_2564
 
 ; shift FCAtemp << A+8 times
 
-LAB_2569
-	LDX	#FACt_1-1		; set offset to FACtemp
 LAB_256B
 	LDY	PLUS_3,X		; get FACX mantissa3
 	STY	FAC1_r		; save as FAC1 rounding byte
@@ -5649,100 +5634,12 @@ LAB_259A
 
 LAB_LOG
 	JMP	K_LOG		; K4510: MATH unit
-	JSR	LAB_27CA		; test sign and zero
-	BEQ	LAB_25C4		; if zero do function call error then warm start
-
-	BPL	LAB_25C7		; skip error if +ve
-
-LAB_25C4
-	JMP	LAB_FCER		; do function call error then warm start (-ve)
-
-LAB_25C7
-	LDA	FAC1_e		; get FAC1 exponent
-	SBC	#$7F			; normalise it
-	PHA				; save it
-	LDA	#$80			; set exponent to zero
-	STA	FAC1_e		; save FAC1 exponent
-	LDA	#<LAB_25AD		; set 1/root2 pointer low byte
-	LDY	#>LAB_25AD		; set 1/root2 pointer high byte
-	JSR	LAB_246C		; add (AY) to FAC1 (1/root2)
-	LDA	#<LAB_25B1		; set root2 pointer low byte
-	LDY	#>LAB_25B1		; set root2 pointer high byte
-	JSR	LAB_26CA		; convert AY and do (AY)/FAC1 (root2/(x+(1/root2)))
-	LDA	#<LAB_259C		; set 1 pointer low byte
-	LDY	#>LAB_259C		; set 1 pointer high byte
-	JSR	LAB_2455		; subtract (AY) from FAC1 ((root2/(x+(1/root2)))-1)
-	LDA	#<LAB_25A0		; set pointer low byte to counter
-	LDY	#>LAB_25A0		; set pointer high byte to counter
-	JSR	LAB_2B6E		; ^2 then series evaluation
-	LDA	#<LAB_25B5		; set -0.5 pointer low byte
-	LDY	#>LAB_25B5		; set -0.5 pointer high byte
-	JSR	LAB_246C		; add (AY) to FAC1
-	PLA				; restore FAC1 exponent
-	JSR	LAB_2912		; evaluate new ASCII digit
-	LDA	#<LAB_25B9		; set LOG(2) pointer low byte
-	LDY	#>LAB_25B9		; set LOG(2) pointer high byte
-
+				; [BMC-K4510] excised#5650: body runs on the MATH unit
 ; do convert AY, FCA1*(AY)
 
-LAB_25FB
-	JSR	LAB_264D		; unpack memory (AY) into FAC2
 LAB_MULTIPLY
 	JMP	K_MULTIPLY		; K4510: MATH unit
-	BEQ	LAB_264C		; exit if zero
-
-	JSR	LAB_2673		; test and adjust accumulators
-	LDA	#$00			; clear A
-	STA	FACt_1		; clear temp mantissa1
-	STA	FACt_2		; clear temp mantissa2
-	STA	FACt_3		; clear temp mantissa3
-	LDA	FAC1_r		; get FAC1 rounding byte
-	JSR	LAB_2622		; go do shift/add FAC2
-	LDA	FAC1_3		; get FAC1 mantissa3
-	JSR	LAB_2622		; go do shift/add FAC2
-	LDA	FAC1_2		; get FAC1 mantissa2
-	JSR	LAB_2622		; go do shift/add FAC2
-	LDA	FAC1_1		; get FAC1 mantissa1
-	JSR	LAB_2627		; go do shift/add FAC2
-	JMP	LAB_273C		; copy temp to FAC1, normalise and return
-
-LAB_2622
-	BNE	LAB_2627		; branch if byte <> zero
-
-	JMP	LAB_2569		; shift FCAtemp << A+8 times
-
-					; else do shift and add
-LAB_2627
-	LSR				; shift byte
-	ORA	#$80			; set top bit (mark for 8 times)
-LAB_262A
-	TAY				; copy result
-	BCC	LAB_2640		; skip next if bit was zero
-
-	CLC				; clear carry for add
-	LDA	FACt_3		; get temp mantissa3
-	ADC	FAC2_3		; add FAC2 mantissa3
-	STA	FACt_3		; save temp mantissa3
-	LDA	FACt_2		; get temp mantissa2
-	ADC	FAC2_2		; add FAC2 mantissa2
-	STA	FACt_2		; save temp mantissa2
-	LDA	FACt_1		; get temp mantissa1
-	ADC	FAC2_1		; add FAC2 mantissa1
-	STA	FACt_1		; save temp mantissa1
-LAB_2640
-	ROR	FACt_1		; shift temp mantissa1
-	ROR	FACt_2		; shift temp mantissa2
-	ROR	FACt_3		; shift temp mantissa3
-	ROR	FAC1_r		; shift temp rounding byte
-	TYA				; get byte back
-	LSR				; shift byte
-	BNE	LAB_262A		; loop if all bits not done
-
-LAB_264C
-	RTS
-
-; unpack memory (AY) into FAC2
-
+				; [BMC-K4510] excised#5690: body runs on the MATH unit
 LAB_264D
 	STA	ut1_pl		; save pointer low byte
 	STY	ut1_ph		; save pointer high byte
@@ -5768,8 +5665,6 @@ LAB_264D
 
 ; test and adjust accumulators
 
-LAB_2673
-	LDA	FAC2_e		; get FAC2 exponent
 LAB_2675
 	BEQ	LAB_2696		; branch if FAC2 = $00 (handle underflow)
 
@@ -5798,11 +5693,6 @@ LAB_268F
 
 ; handle overflow and underflow
 
-LAB_2690
-	LDA	FAC1_s		; get FAC1 sign (b7)
-	BPL	LAB_269B		; do overflow error
-
-					; handle underflow
 LAB_2696
 	PLA				; pop return address low byte
 	PLA				; pop return address high byte
@@ -5846,108 +5736,16 @@ LAB_26C2
 					; Perform divide-by
 ; convert AY and do (AY)/FAC1
 
-LAB_26CA
-	JSR	LAB_264D		; unpack memory (AY) into FAC2
-
-					; Perform divide-into
 LAB_DIVIDE
 	JMP	K_DIVIDE		; K4510: MATH unit
-	BEQ	LAB_2737		; if zero go do /0 error
-
-	JSR	LAB_27BA		; round FAC1
-	LDA	#$00			; clear A
-	SEC				; set carry for subtract
-	SBC	FAC1_e		; subtract FAC1 exponent (2s complement)
-	STA	FAC1_e		; save FAC1 exponent
-	JSR	LAB_2673		; test and adjust accumulators
-	INC	FAC1_e		; increment FAC1 exponent
-	BEQ	LAB_269B		; if zero do overflow error
-
-	LDX	#$FF			; set index for pre increment
-	LDA	#$01			; set bit to flag byte save
-LAB_26E4
-	LDY	FAC2_1		; get FAC2 mantissa1
-	CPY	FAC1_1		; compare FAC1 mantissa1
-	BNE	LAB_26F4		; branch if <>
-
-	LDY	FAC2_2		; get FAC2 mantissa2
-	CPY	FAC1_2		; compare FAC1 mantissa2
-	BNE	LAB_26F4		; branch if <>
-
-	LDY	FAC2_3		; get FAC2 mantissa3
-	CPY	FAC1_3		; compare FAC1 mantissa3
-LAB_26F4
-	PHP				; save FAC2-FAC1 compare status
-	ROL				; shift the result byte
-	BCC	LAB_2702		; if no carry skip the byte save
-
-	LDY	#$01			; set bit to flag byte save
-	INX				; else increment the index to FACt
-	CPX	#$02			; compare with the index to FACt_3
-	BMI	LAB_2701		; if not last byte just go save it
-
-	BNE	LAB_272B		; if all done go save FAC1 rounding byte, normalise and
-					; return
-
-	LDY	#$40			; set bit to flag byte save for the rounding byte
-LAB_2701
-	STA	FACt_1,X		; write result byte to FACt_1 + index
-	TYA				; copy the next save byte flag
-LAB_2702
-	PLP				; restore FAC2-FAC1 compare status
-	BCC	LAB_2704		; if FAC2 < FAC1 then skip the subtract
-
-	TAY				; save FAC2-FAC1 compare status
-	LDA	FAC2_3		; get FAC2 mantissa3
-	SBC	FAC1_3		; subtract FAC1 mantissa3
-	STA	FAC2_3		; save FAC2 mantissa3
-	LDA	FAC2_2		; get FAC2 mantissa2
-	SBC	FAC1_2		; subtract FAC1 mantissa2
-	STA	FAC2_2		; save FAC2 mantissa2
-	LDA	FAC2_1		; get FAC2 mantissa1
-	SBC	FAC1_1		; subtract FAC1 mantissa1
-	STA	FAC2_1		; save FAC2 mantissa1
-	TYA				; restore FAC2-FAC1 compare status
-
-					; FAC2 = FAC2*2
-LAB_2704
-	ASL	FAC2_3		; shift FAC2 mantissa3
-	ROL	FAC2_2		; shift FAC2 mantissa2
-	ROL	FAC2_1		; shift FAC2 mantissa1
-	BCS	LAB_26F4		; loop with no compare
-
-	BMI	LAB_26E4		; loop with compare
-
-	BPL	LAB_26F4		; loop always with no compare
-
+				; [BMC-K4510] excised#5853: body runs on the MATH unit
 ; do A<<6, save as FAC1 rounding byte, normalise and return
-
-LAB_272B
-	LSR				; shift b1 - b0 ..
-	ROR				; ..
-	ROR				; .. to b7 - b6
-	STA	FAC1_r		; save FAC1 rounding byte
-	PLP				; dump FAC2-FAC1 compare status
-	JMP	LAB_273C		; copy temp to FAC1, normalise and return
-
-; do "Divide by zero" error
 
 LAB_2737
 	LDX	#$14			; error code $14 ("Divide by zero" error)
 	JMP	LAB_XERR		; do error #X, then warm start
 
 ; copy temp to FAC1 and normalise
-
-LAB_273C
-	LDA	FACt_1		; get temp mantissa1
-	STA	FAC1_1		; save FAC1 mantissa1
-	LDA	FACt_2		; get temp mantissa2
-	STA	FAC1_2		; save FAC1 mantissa2
-	LDA	FACt_3		; get temp mantissa3
-	STA	FAC1_3		; save FAC1 mantissa3
-	JMP	LAB_24D5		; normalise FAC1 and return
-
-; unpack memory (AY) into FAC1
 
 LAB_UFAC
 	STA	ut1_pl		; save pointer low byte
@@ -5970,14 +5768,6 @@ LAB_UFAC
 	RTS
 
 ; pack FAC1 into Adatal
-
-LAB_276E
-	LDX	#<Adatal		; set pointer low byte
-LAB_2770
-	LDY	#>Adatal		; set pointer high byte
-	BEQ	LAB_2778		; pack FAC1 into (XY) and return
-
-; pack FAC1 into (Lvarpl)
 
 LAB_PFAC
 	LDX	Lvarpl		; get destination pointer low byte
@@ -6444,273 +6234,17 @@ LAB_295E
 ; not any more, moved scratchpad to page 0
 
 LAB_296E
-	LDY	#$01			; set index = 1
-	LDA	#$20			; character = " " (assume +ve)
-	BIT	FAC1_s		; test FAC1 sign (b7)
-	BPL	LAB_2978		; branch if +ve
-
-	LDA	#$2D			; else character = "-"
-LAB_2978
-	STA	Decss,Y		; save leading character (" " or "-")
+	JMP	K_FOUT		; K4510: MATH unit
 LAB_297B
-	STA	FAC1_s		; clear FAC1 sign (b7)
-	STY	Sendl			; save index
-	INY				; increment index
-	LDX	FAC1_e		; get FAC1 exponent
-	BNE	LAB_2989		; branch if FAC1<>0
-
-					; exponent was $00 so FAC1 is 0
-	LDA	#'0'			; set character = "0"
-	JMP	LAB_2A89		; save last character, [EOT] and exit
-
-					; FAC1 is some non zero value
-LAB_2989
-	LDA	#$00			; clear (number exponent count)
-	CPX	#$81			; compare FAC1 exponent with $81 (>1.00000)
-
-	BCS	LAB_299A		; branch if FAC1=>1
-
-					; FAC1<1
-	LDA	#<LAB_294F		; set pointer low byte to 1,000,000
-	LDY	#>LAB_294F		; set pointer high byte to 1,000,000
-	JSR	LAB_25FB		; do convert AY, FCA1*(AY)
-	LDA	#$FA			; set number exponent count (-6)
-LAB_299A
-	STA	numexp		; save number exponent count
-LAB_299C
-	LDA	#<LAB_294B		; set pointer low byte to 999999.4375 (max before sci note)
-	LDY	#>LAB_294B		; set pointer high byte to 999999.4375
-	JSR	LAB_27F8		; compare FAC1 with (AY)
-	BEQ	LAB_29C3		; exit if FAC1 = (AY)
-
-	BPL	LAB_29B9		; go do /10 if FAC1 > (AY)
-
-					; FAC1 < (AY)
-LAB_29A7
-	LDA	#<LAB_2947		; set pointer low byte to 99999.9375
-	LDY	#>LAB_2947		; set pointer high byte to 99999.9375
-	JSR	LAB_27F8		; compare FAC1 with (AY)
-	BEQ	LAB_29B2		; branch if FAC1 = (AY) (allow decimal places)
-
-	BPL	LAB_29C0		; branch if FAC1 > (AY) (no decimal places)
-
-					; FAC1 <= (AY)
-LAB_29B2
-	JSR	LAB_269E		; multiply by 10
-	DEC	numexp		; decrement number exponent count
-	BNE	LAB_29A7		; go test again (branch always)
-
-LAB_29B9
-	JSR	LAB_26B9		; divide by 10
-	INC	numexp		; increment number exponent count
-	BNE	LAB_299C		; go test again (branch always)
-
-; now we have just the digits to do
-
-LAB_29C0
-	JSR	LAB_244E		; add 0.5 to FAC1 (round FAC1)
-LAB_29C3
-	JSR	LAB_2831		; convert FAC1 floating-to-fixed
-	LDX	#$01			; set default digits before dp = 1
-	LDA	numexp		; get number exponent count
-	CLC				; clear carry for add
-	ADC	#$07			; up to 6 digits before point
-	BMI	LAB_29D8		; if -ve then 1 digit before dp
-
-	CMP	#$08			; A>=8 if n>=1E6
-	BCS	LAB_29D9		; branch if >= $08
-
-					; carry is clear
-	ADC	#$FF			; take 1 from digit count
-	TAX				; copy to A
-	LDA	#$02			;.set exponent adjust
-LAB_29D8
-	SEC				; set carry for subtract
-LAB_29D9
-	SBC	#$02			; -2
-	STA	expcnt		;.save exponent adjust
-	STX	numexp		; save digits before dp count
-	TXA				; copy to A
-	BEQ	LAB_29E4		; branch if no digits before dp
-
-	BPL	LAB_29F7		; branch if digits before dp
-
-LAB_29E4
-	LDY	Sendl			; get output string index
-	LDA	#$2E			; character "."
-	INY				; increment index
-	STA	Decss,Y		; save to output string
-	TXA				;.
-	BEQ	LAB_29F5		;.
-
-	LDA	#'0'			; character "0"
-	INY				; increment index
-	STA	Decss,Y		; save to output string
-LAB_29F5
-	STY	Sendl			; save output string index
-LAB_29F7
-	LDY	#$00			; clear index (point to 100,000)
-	LDX	#$80			; 
-LAB_29FB
-	LDA	FAC1_3		; get FAC1 mantissa3
-	CLC				; clear carry for add
-	ADC	LAB_2A9C,Y		; add -ve LSB
-	STA	FAC1_3		; save FAC1 mantissa3
-	LDA	FAC1_2		; get FAC1 mantissa2
-	ADC	LAB_2A9B,Y		; add -ve NMSB
-	STA	FAC1_2		; save FAC1 mantissa2
-	LDA	FAC1_1		; get FAC1 mantissa1
-	ADC	LAB_2A9A,Y		; add -ve MSB
-	STA	FAC1_1		; save FAC1 mantissa1
-	INX				; 
-	BCS	LAB_2A18		; 
-
-	BPL	LAB_29FB		; not -ve so try again
-
-	BMI	LAB_2A1A		; 
-
-LAB_2A18
-	BMI	LAB_29FB		; 
-
-LAB_2A1A
-	TXA				; 
-	BCC	LAB_2A21		; 
-
-	EOR	#$FF			; 
-	ADC	#$0A			; 
-LAB_2A21
-	ADC	#'0'-1		; add "0"-1 to result
-	INY				; increment index ..
-	INY				; .. to next less ..
-	INY				; .. power of ten
-	STY	Cvaral		; save as current var address low byte
-	LDY	Sendl			; get output string index
-	INY				; increment output string index
-	TAX				; copy character to X
-	AND	#$7F			; mask out top bit
-	STA	Decss,Y		; save to output string
-	DEC	numexp		; decrement # of characters before the dp
-	BNE	LAB_2A3B		; branch if still characters to do
-
-					; else output the point
-	LDA	#$2E			; character "."
-	INY				; increment output string index
-	STA	Decss,Y		; save to output string
-LAB_2A3B
-	STY	Sendl			; save output string index
-	LDY	Cvaral		; get current var address low byte
-	TXA				; get character back
-	EOR	#$FF			; 
-	AND	#$80			; 
-	TAX				; 
-	CPY	#$12			; compare index with max
-	BNE	LAB_29FB		; loop if not max
-
-					; now remove trailing zeroes
-	LDY	Sendl			; get output string index
-LAB_2A4B
-	LDA	Decss,Y		; get character from output string
-	DEY				; decrement output string index
-	CMP	#'0'			; compare with "0"
-	BEQ	LAB_2A4B		; loop until non "0" character found
-
-	CMP	#'.'			; compare with "."
-	BEQ	LAB_2A58		; branch if was dp
-
-					; restore last character
-	INY				; increment output string index
-LAB_2A58
-	LDA	#$2B			; character "+"
-	LDX	expcnt		; get exponent count
-	BEQ	LAB_2A8C		; if zero go set null terminator and exit
-
-					; exponent isn't zero so write exponent
-	BPL	LAB_2A68		; branch if exponent count +ve
-
-	LDA	#$00			; clear A
-	SEC				; set carry for subtract
-	SBC	expcnt		; subtract exponent count adjust (convert -ve to +ve)
-	TAX				; copy exponent count to X
-	LDA	#'-'			; character "-"
-LAB_2A68
-	STA	Decss+2,Y		; save to output string
-	LDA	#$45			; character "E"
-	STA	Decss+1,Y		; save exponent sign to output string
-	TXA				; get exponent count back
-	LDX	#'0'-1		; one less than "0" character
-	SEC				; set carry for subtract
-LAB_2A74
-	INX				; increment 10's character
-	SBC	#$0A			;.subtract 10 from exponent count
-	BCS	LAB_2A74		; loop while still >= 0
-
-	ADC	#':'			; add character ":" ($30+$0A, result is 10 less that value)
-	STA	Decss+4,Y		; save to output string
-	TXA				; copy 10's character
-	STA	Decss+3,Y		; save to output string
-	LDA	#$00			; set null terminator
-	STA	Decss+5,Y		; save to output string
-	BEQ	LAB_2A91		; go set string pointer (AY) and exit (branch always)
-
-					; save last character, [EOT] and exit
-LAB_2A89
-	STA	Decss,Y		; save last character to output string
-
-					; set null terminator and exit
-LAB_2A8C
-	LDA	#$00			; set null terminator
-	STA	Decss+1,Y		; save after last character
-
-					; set string pointer (AY) and exit
-LAB_2A91
-	LDA	#<Decssp1		; set result string low pointer
-	LDY	#>Decssp1		; set result string high pointer
-	RTS
+	JMP	K_FOUTR		; K4510: MATH unit
+				; [BMC-K4510] excised: number output runs on the MATH unit
 
 ; perform power function
 
 LAB_POWER
-	BEQ	LAB_EXP		; go do  EXP()
+	JMP	K_POWER		; K4510: MATH unit
+				; [BMC-K4510] excised: POWER runs on the MATH unit
 
-	LDA	FAC2_e		; get FAC2 exponent
-	BNE	LAB_2ABF		; branch if FAC2<>0
-
-	JMP	LAB_24F3		; clear FAC1 exponent and sign and return
-
-LAB_2ABF
-	LDX	#<func_l		; set destination pointer low byte
-	LDY	#>func_l		; set destination pointer high byte
-	JSR	LAB_2778		; pack FAC1 into (XY)
-	LDA	FAC2_s		; get FAC2 sign (b7)
-	BPL	LAB_2AD9		; branch if FAC2>0
-
-					; else FAC2 is -ve and can only be raised to an
-					; integer power which gives an x +j0 result
-	JSR	LAB_INT		; perform INT
-	LDA	#<func_l		; set source pointer low byte
-	LDY	#>func_l		; set source pointer high byte
-	JSR	LAB_27F8		; compare FAC1 with (AY)
-	BNE	LAB_2AD9		; branch if FAC1 <> (AY) to allow Function Call error
-					; this will leave FAC1 -ve and cause a Function Call
-					; error when LOG() is called
-
-	TYA				; clear sign b7
-	LDY	Temp3			; save mantissa 3 from INT() function as sign in Y
-					; for possible later negation, b0
-LAB_2AD9
-	JSR	LAB_279D		; save FAC1 sign and copy ABS(FAC2) to FAC1
-	TYA				; copy sign back ..
-	PHA				; .. and save it
-	JSR	LAB_LOG		; do LOG(n)
-	LDA	#<garb_l		; set pointer low byte
-	LDY	#>garb_l		; set pointer high byte
-	JSR	LAB_25FB		; do convert AY, FCA1*(AY) (square the value)
-	JSR	LAB_EXP		; go do EXP(n)
-	PLA				; pull sign from stack
-	LSR				; b0 is to be tested, shift to Cb
-	BCC	LAB_2AF9		; if no bit then exit
-
-					; Perform negation
 ; do - FAC1
 
 LAB_GTHAN
@@ -6727,122 +6261,7 @@ LAB_2AF9
 
 LAB_EXP
 	JMP	K_EXP		; K4510: MATH unit
-	LDA	#<LAB_2AFA		; set 1.443 pointer low byte
-	LDY	#>LAB_2AFA		; set 1.443 pointer high byte
-	JSR	LAB_25FB		; do convert AY, FCA1*(AY)
-	LDA	FAC1_r		; get FAC1 rounding byte
-	ADC	#$50			; +$50/$100
-	BCC	LAB_2B2B		; skip rounding if no carry
-
-	JSR	LAB_27C2		; round FAC1 (no check)
-LAB_2B2B
-	STA	FAC2_r		; save FAC2 rounding byte
-	JSR	LAB_27AE		; copy FAC1 to FAC2
-	LDA	FAC1_e		; get FAC1 exponent
-	CMP	#$88			; compare with EXP limit (256d)
-	BCC	LAB_2B39		; branch if less
-
-LAB_2B36
-	JSR	LAB_2690		; handle overflow and underflow
-LAB_2B39
-	JSR	LAB_INT		; perform INT
-	LDA	Temp3			; get mantissa 3 from INT() function
-	CLC				; clear carry for add
-	ADC	#$81			; normalise +1
-	BEQ	LAB_2B36		; if $00 go handle overflow
-
-	SEC				; set carry for subtract
-	SBC	#$01			; now correct for exponent
-	PHA				; save FAC2 exponent
-
-					; swap FAC1 and FAC2
-	LDX	#$04			; 4 bytes to do
-LAB_2B49
-	LDA	FAC2_e,X		; get FAC2,X
-	LDY	FAC1_e,X		; get FAC1,X
-	STA	FAC1_e,X		; save FAC1,X
-	STY	FAC2_e,X		; save FAC2,X
-	DEX				; decrement count/index
-	BPL	LAB_2B49		; loop if not all done
-
-	LDA	FAC2_r		; get FAC2 rounding byte
-	STA	FAC1_r		; save as FAC1 rounding byte
-	JSR	LAB_SUBTRACT	; perform subtraction, FAC2 from FAC1
-	JSR	LAB_GTHAN		; do - FAC1
-	LDA	#<LAB_2AFE		; set counter pointer low byte
-	LDY	#>LAB_2AFE		; set counter pointer high byte
-	JSR	LAB_2B84		; go do series evaluation
-	LDA	#$00			; clear A
-	STA	FAC_sc		; clear sign compare (FAC1 EOR FAC2)
-	PLA				;.get saved FAC2 exponent
-	JMP	LAB_2675		; test and adjust accumulators and return
-
-; ^2 then series evaluation
-
-LAB_2B6E
-	STA	Cptrl			; save count pointer low byte
-	STY	Cptrh			; save count pointer high byte
-	JSR	LAB_276E		; pack FAC1 into Adatal
-	LDA	#<Adatal		; set pointer low byte (Y already $00)
-	JSR	LAB_25FB		; do convert AY, FCA1*(AY)
-	JSR	LAB_2B88		; go do series evaluation
-	LDA	#<Adatal		; pointer to original # low byte
-	LDY	#>Adatal		; pointer to original # high byte
-	JMP	LAB_25FB		; do convert AY, FCA1*(AY) and return
-
-; series evaluation
-
-LAB_2B84
-	STA	Cptrl			; save count pointer low byte
-	STY	Cptrh			; save count pointer high byte
-LAB_2B88
-	LDX	#<numexp		; set pointer low byte
-	JSR	LAB_2770		; set pointer high byte and pack FAC1 into numexp
-	LDA	(Cptrl),Y		; get constants count
-	STA	numcon		; save constants count
-	LDY	Cptrl			; get count pointer low byte
-	INY				; increment it (now constants pointer)
-	TYA				; copy it
-	BNE	LAB_2B97		; skip next if no overflow
-
-	INC	Cptrh			; else increment high byte
-LAB_2B97
-	STA	Cptrl			; save low byte
-	LDY	Cptrh			; get high byte
-LAB_2B9B
-	JSR	LAB_25FB		; do convert AY, FCA1*(AY)
-	LDA	Cptrl			; get constants pointer low byte
-	LDY	Cptrh			; get constants pointer high byte
-	CLC				; clear carry for add
-	ADC	#$04			; +4 to  low pointer (4 bytes per constant)
-	BCC	LAB_2BA8		; skip next if no overflow
-
-	INY				; increment high byte
-LAB_2BA8
-	STA	Cptrl			; save pointer low byte
-	STY	Cptrh			; save pointer high byte
-	JSR	LAB_246C		; add (AY) to FAC1
-	LDA	#<numexp		; set pointer low byte to partial @ numexp
-	LDY	#>numexp		; set pointer high byte to partial @ numexp
-	DEC	numcon		; decrement constants count
-	BNE	LAB_2B9B		; loop until all done
-
-	RTS
-
-; RND(n), 32 bit Galoise version. make n=0 for 19th next number in sequence or n<>0
-; to get 19th next number in sequence after seed n. This version of the PRNG uses
-; the Galois method and a sample of 65536 bytes produced gives the following values.
-
-; Entropy = 7.997442 bits per byte
-; Optimum compression would reduce these 65536 bytes by 0 percent
-
-; Chi square distribution for 65536 samples is 232.01, and
-; randomly would exceed this value 75.00 percent of the time
-
-; Arithmetic mean value of data bytes is 127.6724, 127.5 would be random
-; Monte Carlo value for Pi is 3.122871269, error 0.60 percent
-; Serial correlation coefficient is -0.000370, totally uncorrelated would be 0.0
-
+				; [BMC-K4510] excised#6728: body runs on the MATH unit
 LAB_RND
 	LDA	FAC1_e		; get FAC1 exponent
 	BEQ	NextPRN		; do next random # if zero
@@ -6887,82 +6306,17 @@ CopyPRNG
 
 LAB_COS
 	JMP	K_COS		; K4510: MATH unit
-	LDA	#<LAB_2C78		; set (pi/2) pointer low byte
-	LDY	#>LAB_2C78		; set (pi/2) pointer high byte
-	JSR	LAB_246C		; add (AY) to FAC1
-
+				; [BMC-K4510] excised#6888: body runs on the MATH unit
 ; perform SIN()
 
 LAB_SIN
 	JMP	K_SIN		; K4510: MATH unit
-	JSR	LAB_27AB		; round and copy FAC1 to FAC2
-	LDA	#<LAB_2C7C		; set (2*pi) pointer low byte
-	LDY	#>LAB_2C7C		; set (2*pi) pointer high byte
-	LDX	FAC2_s		; get FAC2 sign (b7)
-	JSR	LAB_26C2		; divide by (AY) (X=sign)
-	JSR	LAB_27AB		; round and copy FAC1 to FAC2
-	JSR	LAB_INT		; perform INT
-	LDA	#$00			; clear byte
-	STA	FAC_sc		; clear sign compare (FAC1 EOR FAC2)
-	JSR	LAB_SUBTRACT	; perform subtraction, FAC2 from FAC1
-	LDA	#<LAB_2C80		; set 0.25 pointer low byte
-	LDY	#>LAB_2C80		; set 0.25 pointer high byte
-	JSR	LAB_2455		; perform subtraction, (AY) from FAC1
-	LDA	FAC1_s		; get FAC1 sign (b7)
-	PHA				; save FAC1 sign
-	BPL	LAB_2C35		; branch if +ve
-
-					; FAC1 sign was -ve
-	JSR	LAB_244E		; add 0.5 to FAC1
-	LDA	FAC1_s		; get FAC1 sign (b7)
-	BMI	LAB_2C38		; branch if -ve
-
-	LDA	Cflag			; get comparison evaluation flag
-	EOR	#$FF			; toggle flag
-	STA	Cflag			; save comparison evaluation flag
-LAB_2C35
-	JSR	LAB_GTHAN		; do - FAC1
-LAB_2C38
-	LDA	#<LAB_2C80		; set 0.25 pointer low byte
-	LDY	#>LAB_2C80		; set 0.25 pointer high byte
-	JSR	LAB_246C		; add (AY) to FAC1
-	PLA				; restore FAC1 sign
-	BPL	LAB_2C45		; branch if was +ve
-
-					; else correct FAC1
-	JSR	LAB_GTHAN		; do - FAC1
-LAB_2C45
-	LDA	#<LAB_2C84		; set pointer low byte to counter
-	LDY	#>LAB_2C84		; set pointer high byte to counter
-	JMP	LAB_2B6E		; ^2 then series evaluation and return
-
+				; [BMC-K4510] excised#6896: body runs on the MATH unit
 ; perform TAN()
 
 LAB_TAN
 	JMP	K_TAN		; K4510: MATH unit
-	JSR	LAB_276E		; pack FAC1 into Adatal
-	LDA	#$00			; clear byte
-	STA	Cflag			; clear comparison evaluation flag
-	JSR	LAB_SIN		; go do SIN(n)
-	LDX	#<func_l		; set sin(n) pointer low byte
-	LDY	#>func_l		; set sin(n) pointer high byte
-	JSR	LAB_2778		; pack FAC1 into (XY)
-	LDA	#<Adatal		; set n pointer low addr
-	LDY	#>Adatal		; set n pointer high addr
-	JSR	LAB_UFAC		; unpack memory (AY) into FAC1
-	LDA	#$00			; clear byte
-	STA	FAC1_s		; clear FAC1 sign (b7)
-	LDA	Cflag			; get comparison evaluation flag
-	JSR	LAB_2C74		; save flag and go do series evaluation
-
-	LDA	#<func_l		; set sin(n) pointer low byte
-	LDY	#>func_l		; set sin(n) pointer high byte
-	JMP	LAB_26CA		; convert AY and do (AY)/FAC1
-
-LAB_2C74
-	PHA				; save comparison evaluation flag
-	JMP	LAB_2C35		; go do series evaluation
-
+				; [BMC-K4510] excised#6941: body runs on the MATH unit
 ; perform USR()
 
 LAB_USR
@@ -6973,37 +6327,7 @@ LAB_USR
 
 LAB_ATN
 	JMP	K_ATN		; K4510: MATH unit
-	LDA	FAC1_s		; get FAC1 sign (b7)
-	PHA				; save sign
-	BPL	LAB_2CA1		; branch if +ve
-
-	JSR	LAB_GTHAN		; else do - FAC1
-LAB_2CA1
-	LDA	FAC1_e		; get FAC1 exponent
-	PHA				; push exponent
-	CMP	#$81			; compare with 1
-	BCC	LAB_2CAF		; branch if FAC1<1
-
-	LDA	#<LAB_259C		; set 1 pointer low byte
-	LDY	#>LAB_259C		; set 1 pointer high byte
-	JSR	LAB_26CA		; convert AY and do (AY)/FAC1
-LAB_2CAF
-	LDA	#<LAB_2CC9		; set pointer low byte to counter
-	LDY	#>LAB_2CC9		; set pointer high byte to counter
-	JSR	LAB_2B6E		; ^2 then series evaluation
-	PLA				; restore old FAC1 exponent
-	CMP	#$81			; compare with 1
-	BCC	LAB_2CC2		; branch if FAC1<1
-
-	LDA	#<LAB_2C78		; set (pi/2) pointer low byte
-	LDY	#>LAB_2C78		; set (pi/2) pointer high byte
-	JSR	LAB_2455		; perform subtraction, (AY) from FAC1
-LAB_2CC2
-	PLA				; restore FAC1 sign
-	BPL	LAB_2D04		; exit if was +ve
-
-	JMP	LAB_GTHAN		; else do - FAC1 and return
-
+				; [BMC-K4510] excised#6974: body runs on the MATH unit
 ; perform BITSET
 
 LAB_BITSET
@@ -7197,6 +6521,8 @@ LAB_AL2X
 	DEY				; decrement counter
 	RTS
 
+	.include "k4510expr.asm"	; [BMC-K4510] the expression compiler rides in the $E000 half
+
 K4510_SPLIT1				; [BMC-K4510] sideways stage 3: part 1 ends here
 	.assert K4510_SPLIT1 <= $FF00, error, "EhBASIC part 1 overflows the $E000 half"
 	.org	$C000			; the interpreter continues below the I/O page
@@ -7262,23 +6588,6 @@ LAB_EXCH
 ; ctrl-c check routine. includes limited "life" byte save for INGET routine
 ; now also the code that checks to see if an interrupt has occurred
 
-CTRLC
-	LDA	ccflag		; get [CTRL-C] check flag
-	BNE	LAB_FBA2		; exit if inhibited
-
-	JSR	V_INPT		; scan input device
-	BCC	LAB_FBA0		; exit if buffer empty
-
-	STA	ccbyte		; save received byte
-	LDX	#$20			; "life" timer for bytes
-	STX	ccnull		; set countdown
-	JMP	LAB_1636		; return to BASIC
-
-LAB_FBA0
-	LDX	ccnull		; get countdown byte
-	BEQ	LAB_FBA2		; exit if finished
-
-	DEC	ccnull		; else decrement countdown
 LAB_FBA2
 	LDX	#NmiBase		; set pointer to NMI values
 	JSR	LAB_CKIN		; go check interrupt
@@ -7626,104 +6935,7 @@ TabErr
 
 LAB_SQR
 	JMP	K_SQR		; K4510: MATH unit
-	LDA	FAC1_s		; get FAC1 sign
-	BMI	TabErr		; if -ve do function call error
-
-	LDA	FAC1_e		; get exponent
-	BEQ	LAB_NOSQ		; if zero just return
-
-					; else do root
-	JSR	LAB_27AB		; round and copy FAC1 to FAC2
-	LDA	#$00			; clear A
-
-	STA	FACt_3		; clear remainder
-	STA	FACt_2		; ..
-	STA	FACt_1		; ..
-	STA	TempB			; ..
-
-	STA	FAC1_3		; clear root
-	STA	FAC1_2		; ..
-	STA	FAC1_1		; ..
-
-	LDX	#$18			; 24 pairs of bits to do
-	LDA	FAC2_e		; get exponent
-	LSR				; check odd/even
-	BCS	LAB_SQE2		; if odd only 1 shift first time
-
-LAB_SQE1
-	ASL	FAC2_3		; shift highest bit of number ..
-	ROL	FAC2_2		; ..
-	ROL	FAC2_1		; ..
-	ROL	FACt_3		; .. into remainder
-	ROL	FACt_2		; ..
-	ROL	FACt_1		; ..
-	ROL	TempB			; .. never overflows
-LAB_SQE2
-	ASL	FAC2_3		; shift highest bit of number ..
-	ROL	FAC2_2		; ..
-	ROL	FAC2_1		; ..
-	ROL	FACt_3		; .. into remainder
-	ROL	FACt_2		; ..
-	ROL	FACt_1		; ..
-	ROL	TempB			; .. never overflows
-
-	ASL	FAC1_3		; root = root * 2
-	ROL	FAC1_2		; ..
-	ROL	FAC1_1		; .. never overflows
-
-	LDA	FAC1_3		; get root low byte
-	ROL				; *2
-	STA	Temp3			; save partial low byte
-	LDA	FAC1_2		; get root low mid byte
-	ROL				; *2
-	STA	Temp3+1		; save partial low mid byte
-	LDA	FAC1_1		; get root high mid byte
-	ROL				; *2
-	STA	Temp3+2		; save partial high mid byte
-	LDA	#$00			; get root high byte (always $00)
-	ROL				; *2
-	STA	Temp3+3		; save partial high byte
-
-					; carry clear for subtract +1
-	LDA	FACt_3		; get remainder low byte
-	SBC	Temp3			; subtract partial low byte
-	STA	Temp3			; save partial low byte
-
-	LDA	FACt_2		; get remainder low mid byte
-	SBC	Temp3+1		; subtract partial low mid byte
-	STA	Temp3+1		; save partial low mid byte
-
-	LDA	FACt_1		; get remainder high mid byte
-	SBC	Temp3+2		; subtract partial high mid byte
-	TAY				; copy partial high mid byte
-
-	LDA	TempB			; get remainder high byte
-	SBC	Temp3+3		; subtract partial high byte
-	BCC	LAB_SQNS		; skip sub if remainder smaller
-
-	STA	TempB			; save remainder high byte
-
-	STY	FACt_1		; save remainder high mid byte
-
-	LDA	Temp3+1		; get remainder low mid byte
-	STA	FACt_2		; save remainder low mid byte
-
-	LDA	Temp3			; get partial low byte
-	STA	FACt_3		; save remainder low byte
-
-	INC	FAC1_3		; increment root low byte (never any rollover)
-LAB_SQNS
-	DEX				; decrement bit pair count
-	BNE	LAB_SQE1		; loop if not all done
-
-	SEC				; set carry for subtract
-	LDA	FAC2_e		; get exponent
-	SBC	#$80			; normalise
-	ROR				; /2 and re-bias to $80
-	ADC	#$00			; add bit zero back in (allow for half shift)
-	STA	FAC1_e		; save it
-	JMP	LAB_24D5		; normalise FAC1 and return
-
+				; [BMC-K4510] excised#7627: body runs on the MATH unit
 ; perform VARPTR()
 
 LAB_VARPTR
@@ -7850,66 +7062,6 @@ LAB_SMSG
 ; numeric constants and series
 
 					; constants and series for LOG(n)
-LAB_25A0
-	.byte	$02			; counter
-	.byte	$80,$19,$56,$62	; 0.59898
-	.byte	$80,$76,$22,$F3	; 0.96147
-;##	.byte	$80,$76,$22,$F1	; 0.96147
-	.byte	$82,$38,$AA,$40	; 2.88539
-;##	.byte	$82,$38,$AA,$45	; 2.88539
-
-LAB_25AD
-	.byte	$80,$35,$04,$F3	; 0.70711	1/root 2
-LAB_25B1
-	.byte	$81,$35,$04,$F3	; 1.41421	root 2
-LAB_25B5
-	.byte	$80,$80,$00,$00	; -0.5
-LAB_25B9
-	.byte	$80,$31,$72,$18	; 0.69315	LOG(2)
-
-					; numeric PRINT constants
-LAB_2947
-	.byte	$91,$43,$4F,$F8	; 99999.9375 (max value with at least one decimal)
-LAB_294B
-	.byte	$94,$74,$23,$F7	; 999999.4375 (max value before scientific notation)
-LAB_294F
-	.byte	$94,$74,$24,$00	; 1000000
-
-					; EXP(n) constants and series
-LAB_2AFA
-	.byte	$81,$38,$AA,$3B	; 1.4427	(1/LOG base 2 e)
-LAB_2AFE
-	.byte	$06			; counter
-	.byte	$74,$63,$90,$8C	; 2.17023e-4
-	.byte	$77,$23,$0C,$AB	; 0.00124
-	.byte	$7A,$1E,$94,$00	; 0.00968
-	.byte	$7C,$63,$42,$80	; 0.05548
-	.byte	$7E,$75,$FE,$D0	; 0.24023
-	.byte	$80,$31,$72,$15	; 0.69315
-	.byte	$81,$00,$00,$00	; 1.00000
-
-;##	.byte	$07			; counter
-;##	.byte	$74,$94,$2E,$40	; -1/7! (-1/5040)
-;##	.byte	$77,$2E,$4F,$70	;  1/6! ( 1/720)
-;##	.byte	$7A,$88,$02,$6E	; -1/5! (-1/120)
-;##	.byte	$7C,$2A,$A0,$E6	;  1/4! ( 1/24)
-;##	.byte	$7E,$AA,$AA,$50	; -1/3! (-1/6)
-;##	.byte	$7F,$7F,$FF,$FF	;  1/2! ( 1/2)
-;##	.byte	$81,$80,$00,$00	; -1/1! (-1/1)
-;##	.byte	$81,$00,$00,$00	;  1/0! ( 1/1)
-
-					; trigonometric constants and series
-LAB_2C78
-	.byte	$81,$49,$0F,$DB	; 1.570796371 (pi/2) as floating #
-LAB_2C84
-	.byte	$04			; counter
-	.byte	$86,$1E,$D7,$FB	; 39.7109
-;##	.byte	$86,$1E,$D7,$BA	; 39.7109
-	.byte	$87,$99,$26,$65	;-76.575
-;##	.byte	$87,$99,$26,$64	;-76.575
-	.byte	$87,$23,$34,$58	; 81.6022
-	.byte	$86,$A5,$5D,$E1	;-41.3417
-;##	.byte	$86,$A5,$5D,$E0	;-41.3417
 LAB_2C7C
 	.byte	$83,$49,$0F,$DB	; 6.28319 (2*pi) as floating #
 ;##	.byte	$83,$49,$0F,$DA	; 6.28319 (2*pi) as floating #
@@ -7946,8 +7098,6 @@ LAB_1DF7
 	.byte	$90			;-32768 (uses first three bytes from 0.5)
 LAB_2A96
 	.byte	$80,$00,$00,$00	; 0.5
-LAB_2C80
-	.byte	$7F,$00,$00,$00	; 0.25
 LAB_26B5
 	.byte	$84,$20,$00,$00	; 10.0000 divide by 10 constant
 

@@ -90,6 +90,8 @@
 #define MATH_CMP 18
 #define MATH_ITOF 19
 #define MATH_FTOI 20
+#define MATH_FTOA 22         /* F[src] -> MS-BASIC-format ASCII at phys FSPTR ($D730), leading ' '/'-' */
+#define MATH_FTOAR 23        /* same, no leading character for positives */
 #define MATH_FMOD 21
 #define ML_END 0x80
 #define ML_STOPNEG 0x81

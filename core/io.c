@@ -276,6 +276,37 @@ static void math_int_update(void)
     if (b == 0) { m32w(0x6C, 0xFFFFFFFFu); m32w(0x68, 0xFFFFFFFFu); }
     else { uint64_t q = ((uint64_t)a << 32) / b; m32w(0x6C, (uint32_t)(q >> 32)); m32w(0x68, (uint32_t)q); }
 }
+/* MS-BASIC float-to-ASCII, EhBASIC-style: 6 significant digits, fixed
+ * format for 0.01 <= |v| < 1e6, otherwise d.dddddE+xx; ".5" fractions,
+ * trailing zeros stripped -- measured against Lee's own FOUT output. */
+static void ms_ftoa(float vf, char *out, int lead)
+{
+    char *p = out, digits[12]; double v = vf; int e10 = 0, dp, i, n;
+    if (lead) *p++ = vf < 0 ? '-' : ' ';
+    else if (vf < 0) *p++ = '-';
+    if (v < 0) v = -v;
+    if (v == 0) { *p++ = '0'; *p = 0; return; }
+    while (v >= 999999.5) { v /= 10; e10++; }
+    while (v < 99999.95)  { v *= 10; e10--; }
+    snprintf(digits, sizeof digits, "%06lu", (unsigned long)(v + 0.5));
+    if (digits[6]) { digits[6] = 0; e10++; }              /* 999999.5+ rounded up a digit */
+    dp = 6 + e10;                                         /* value = 0.digits * 10^dp */
+    n = 6; while (n > 1 && digits[n - 1] == '0') n--;     /* strip trailing zeros */
+    if (dp >= -1 && dp <= 6) {                            /* fixed: 0.01 <= v < 1e6 */
+        if (dp <= 0) { *p++ = '.'; for (i = 0; i < -dp; i++) *p++ = '0'; for (i = 0; i < n; i++) *p++ = digits[i]; }
+        else {
+            for (i = 0; i < dp; i++) *p++ = i < n ? digits[i] : '0';
+            if (n > dp) { *p++ = '.'; for (i = dp; i < n; i++) *p++ = digits[i]; }
+        }
+    } else {                                                /* E format */
+        *p++ = digits[0];
+        if (n > 1) { *p++ = '.'; for (i = 1; i < n; i++) *p++ = digits[i]; }
+        *p++ = 'E'; *p++ = dp - 1 < 0 ? '-' : '+';
+        i = dp - 1 < 0 ? 1 - dp : dp - 1;
+        *p++ = (char)('0' + i / 10); *p++ = (char)('0' + i % 10);
+    }
+    *p = 0;
+}
 static void math_fop(uint8_t op)
 {
     int d = (math_reg[0x21] >> 4) & 7, sidx = math_reg[0x21] & 7;
@@ -291,6 +322,12 @@ static void math_fop(uint8_t op)
     case MATH_CMP: r = a - b; store = 0; break;
     case MATH_ITOF: r = (float)(int32_t)m32(0x24); break;
     case MATH_FTOI: { float t = truncf(b); int32_t i = (t > 2147483520.0f) ? INT32_MAX : (t < -2147483648.0f) ? INT32_MIN : (int32_t)t; m32w(0x24, (uint32_t)i); r = b; store = 0; break; }
+    case MATH_FTOA: case MATH_FTOAR: {                    /* number output on the MATH unit: the exact */
+        char buf[24]; uint32_t p = m32(0x30); int i;       /* MS-BASIC 9-digit format EhBASIC always used */
+        ms_ftoa(b, buf, op == MATH_FTOA);
+        for (i = 0; buf[i]; i++) k4510_ram[(p + i) & K4510_PHYS_MASK] = (uint8_t)buf[i];
+        k4510_ram[(p + i) & K4510_PHYS_MASK] = 0;
+        store = 0; break; }
     default: store = 0; break;
     }
     if (store) mf_set(d, r);

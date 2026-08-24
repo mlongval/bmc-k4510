@@ -9,13 +9,11 @@ IRQ_vec	= VEC_SV+2		; EhBASIC keeps its page-3 layout (Ibuffs follows)
 NMI_vec	= IRQ_vec+$0A
 k_crx0	= $03B3			; K4510: the crunch start index (the * prefix is only a prefix there)
 
-K4510_TAIL = $BA00			; = Ram_top: BASIC's RAM ends where the interpreter tail begins
-
 ; K4SG header, stage 3 of the memory plan: the interpreter loads in three
 ; segments above BASIC's RAM -- $E000-$FEFF (block 7) + $C000-$CFFF
 ; (block 6) + a tail at $BC00 in the RAM under the sideways window. The
 ; loader sets the bank bases; the launch trampoline engages blocks 5-7.
-; BASIC's program RAM is $0800-$BBFF: 46079 bytes free.
+; BASIC's program RAM is $0800-$BFFF: 47103 bytes free.
 	.byte	"K4SG"
 	.byte	3, 0			; segments, flags
 	.word	k4510_start		; entry
@@ -25,9 +23,9 @@ K4510_TAIL = $BA00			; = Ram_top: BASIC's RAM ends where the interpreter tail be
 	.dword	$C000
 	.dword	K4510_SPLIT2 - $C000
 	.byte	6, 0, 0, 0
-	.dword	K4510_TAIL
-	.dword	K4510_END - K4510_TAIL
-	.byte	$FF, 0, 0, 0		; no bank: lives in the RAM under the window
+	.dword	$0230
+	.dword	K4510_END - $0230
+	.byte	$FF, 0, 0, 0		; the page-2 loan: plain RAM, always visible
 
 	.include "basic.asm"		; .org $E000 / $C000 inside; Ram_base/Ram_top patched for the K4510
 
@@ -141,16 +139,16 @@ k4510_outdone
 	RTS
 
 	.include "k4510math.asm"
-	.include "k4510expr.asm"
-
-K4510_SPLIT2				; [BMC-K4510] the glue tail, in the RAM under the sideways window
-	.assert K4510_SPLIT2 <= $D000, error, "EhBASIC $C000 slice overflows into the I/O page"
-	.org	K4510_TAIL
-
 	.include "k4510file.asm"
 	.include "k4510gfx.asm"
 
-k4510_banner
-	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS SPRITES PLOT LINE TRI  (RUN/STOP: shell)", CR, 0
+K4510_SPLIT2				; [BMC-K4510] end of the $C000 slice (the expression
+					; compiler rides inside basic.asm's $E000 half now)
+	.assert K4510_SPLIT2 <= $D000, error, "EhBASIC $C000 slice overflows into the I/O page"
+	.org	$0230			; the page-2 loan, $0230-$02CF: ROM DATA ends below it
+					; (rom/k4510.cfg pins that), the launch trampoline is
+					; at $02D8; the FOUT/POWER glue + the banner live here
+
+	.include "k4510page2.asm"
 K4510_END
-	.assert K4510_END <= $C000, error, "EhBASIC tail overflows its slice"
+	.assert K4510_END <= $02D0, error, "the page-2 loan overflows into the launch trampoline"

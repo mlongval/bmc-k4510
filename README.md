@@ -94,8 +94,9 @@ Insert, power on, and the K4510 boots in about three seconds.
   **programs own $0800-$CFFF and $E000-$FEFF by default** (a RAM
   trampoline banks the ROM away around every launch; system calls keep
   working through the always-ROM stub page). EhBASIC boots with
-  **45567 Bytes free** (was 25599) -- the interpreter now lives above
-  BASIC's RAM in three K4SG segments; Forth's dictionary grew to
+  **47103 Bytes free** (was 25599) -- the interpreter lives above
+  BASIC's RAM, its number formatting and POWER run on the MATH unit,
+  and the C64's 38911 is a fond memory; Forth's dictionary grew to
   ~31.7 KB;
   `LOAD` understands segmented `K4SG` files (see `demo/segdemo.c`, `demo/far.h`).
 - **VICKe**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from

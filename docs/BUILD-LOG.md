@@ -2622,3 +2622,44 @@ repo root: LICENSES.md is the legal record, CREDITS.md is the thanks
 -- from Gábor Lénárt's CPU core to Wozniak's 256 bytes. And the
 LICENSES.md table gained the row it had always been missing: tube/
 BBCTTY (zlib, R.T. Russell), spotted by the archive session.
+
+## 2026-08-24 (z) — 47103 BYTES FREE: the interpreter goes on the MATH diet
+
+Doc: "do the ehbasic modification to get 47k free." Ram_top is $C000
+now and the machine boots **47103 Bytes free** — from 25599 two days
+ago, via 45567 last night. Getting the last 1.5 KB out was a proper
+archaeology dig:
+
+**The dead code behind the JMPs.** Since the MATH-unit port, SQR SIN
+COS TAN ATN EXP LOG ADD MUL DIV have been `JMP K_x` redirects — with
+Lee's original routine bodies still assembled behind them, plus their
+Taylor-series constant tables, plus POWER still doing LOG-multiply-EXP
+the long way. An automated excision (cut each body to the next section
+comment; let ca65's undefined-symbol errors force back what live code
+still shares) plus a global dead-chunk harvester with fallthrough
+safety (a 0-reference label is only dead if nothing above can fall
+into it) removed ~580 lines. POWER became a 26-byte K_POWER glue —
+MATH_POW was already in the hardware, unused.
+
+**Number output moved into the MATH unit.** The 224-line FOUT
+(float→ASCII) is now `MATH_FTOA` — host-side C that formats in Lee's
+exact style. First attempt printed 9 significant digits, MS-canon;
+the OLD interpreter, tested side by side, prints **6** — so the
+formatter was measured against Lee's own output until byte-identical:
+` .5 .01 5E-03 12345.6 100000 3.14159`, `1.23457E+06` for 1234567,
+LIST's line numbers intact. In the ROM: two 3-byte JMPs.
+
+**The page-2 loan.** Final packing: expression compiler rides inside
+the $E000 half (7880/7936), core tail + math/file/gfx glue fill
+$C000-$CFFF (4083/4096), and the FOUT/POWER glue + banner live in a
+formalized sliver at $0230-$02CF — between the ROM's DATA (which
+rom/k4510.cfg now pins below $0230, so growth fails the LINK, not the
+machine) and the launch trampoline at $02D8. Every region is
+assert-guarded; the night's slicing bug (a python cut whose end
+anchor matched in the K4SG header, duplicating half the file) was
+caught by the duplicate-symbol wall and rebuilt from backup.
+
+All 10 suites green; floats, graphics, LOAD/SAVE chain, star
+commands, DIM A(9300) verified. The settings-menu request from the
+archive session is queued next, after the terminal discussion Doc
+asked for.
