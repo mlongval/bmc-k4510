@@ -18,7 +18,7 @@ window. The 256\,MB of physical memory is reached three ways:
 \begin{tabular}{@{}lll@{}}
 \toprule
 \texttt{\$0000-\$03FF} & system & zero page, stack, vectors, low system state\\
-\texttt{\$0800-\$CFFF} & user   & 50\,KB for programs (the ROM banks away at launch)\\
+\texttt{\$0800-\$CFFF} & user   & 50\,KB for programs, ROM-free at launch\\
 \texttt{\$A000-\$BFFF} & ROM    & \emph{the sideways window; RAM underneath}\\
 \texttt{\$C000-\$CFFF} & ROM    & \emph{RAM underneath, bankable}\\
 \texttt{\$D000-\$DFFF} & I/O    & always I/O, whatever is banked\\
