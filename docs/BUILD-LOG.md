@@ -2663,3 +2663,22 @@ All 10 suites green; floats, graphics, LOAD/SAVE chain, star
 commands, DIM A(9300) verified. The settings-menu request from the
 archive session is queued next, after the terminal discussion Doc
 asked for.
+
+### Addendum (z): the library lands, and Zork answers
+
+The paced mirror on hdieu (fresh IP, four seconds a file, the
+embeddedfolderview trick beating the 50-entry listing cap) finished
+what gdown's sixty rate-limited passes could not: **2,467 files,
+375 MB — Mockba's entire CP/M library, drives A through O** — now
+installed in fs/CPM/ (gitignored; the public repo carries only the
+pointer). Fifteen drives: WordStar 3.3 and 4.0, Turbo Pascal 3.01A
+with source, dBase II, MultiPlan, SuperCalc2, Fortran, COBOL x2,
+PL/I-80, Janus/Ada, two Modula-2s, two LISPs, muSIMP, APL/Z,
+Algol-M, MUMPS, BBC Basic v3 (the machine now owns it twice), three
+more Forths — and the games. Acceptance test: `cpm`, `user 5`,
+`zork1` — "West of House. You are standing in an open field west of
+a white house, with a boarded front door." Opened the mailbox. Read
+the leaflet. 1982 answered on the first try.
+
+The screen-oriented half of that library (WordStar, TP's editor,
+ZDE) now waits on exactly one thing: the terminal.
