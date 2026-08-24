@@ -9,8 +9,13 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   (Q register, 32-bit flat addressing, 28-bit MAP) plus the K4510 MMU — bank
   registers, the far-call gate, RAM under the ROM — at 40.5 MHz. The
   instruction core is Xemu's 45GS02, byte for byte; everything around it is ours.
-- **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON` is the Wozmon-style monitor, `@MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
-  LOAD SAVE RUN INFO MODE COLOR`; files live in a host directory (`fs/`) with
+- **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON`/`WOZ` is the Wozmon-style monitor, `@MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
+  XD LOAD SAVE RENAME CP RUN EXEC HUSH INFO MODE COLOR` (`HELP` lists them; the
+  text lives in the dot-hidden `/.HELP`). An unknown word runs `name.prg` from
+  disk with its arguments readable via the ARGS call ($FF95) -- the REXX rule;
+  `SAY` is the demo. `/!BOOT` runs as a script at power-on (a held key skips
+  it). Names starting with `.` are hidden (`DIR A` shows them). Files live in a
+  host directory (`fs/`) with
   one directory per language -- `/PRG` for machine code, `/EHBASIC` and
   `/BBCBASIC` for the two BASICs, `/SID` for SID tunes -- and each language's
   demos live in its own directory (no separate demos folder); bare names are

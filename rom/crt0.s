@@ -5,7 +5,7 @@
         .import   copydata, zerobss, initlib
         .importzp sp
         .import   incsp4
-        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video
+        .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video, _k_args
         .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _call_prog
 
         .zeropage
@@ -185,6 +185,9 @@ w_shell:  phx                   ; A/X = pointer to a NUL-terminated command line
 w_video:  jsr zp_in
         jsr _k_video
         jmp zp_out
+w_args:   jsr zp_in
+        jsr _k_args
+        jmp zp_out
 
 ; ---- the stub page $FF00-$FFFF: always the ROM, whatever is banked (K-05) ----
 ; A program may bank blocks 5-7 ($A000-$CFFF, $E000-$FEFF; the I/O page stays)
@@ -214,6 +217,9 @@ s_shell:  jsr rom_push
         jmp rom_pop
 s_video:  jsr rom_push
         jsr w_video
+        jmp rom_pop
+s_args:   jsr rom_push
+        jsr w_args
         jmp rom_pop
 s_irq:  pha
         phx
@@ -256,6 +262,7 @@ s_reset: ldx #28                ; a reset clears every bank (F12 does not reset 
         jmp s_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
         jmp s_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
         jmp s_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
+        jmp s_args              ; $FF95  ARGS    $F0/$F1 = the command tail the shell saved, A = its length
 
         .segment "STUB2"
 ; rom_push: called by JSR from an s_ entry. Moves its own return address

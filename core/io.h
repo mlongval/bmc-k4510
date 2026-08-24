@@ -165,6 +165,9 @@
 #define FS_RM         13   /* delete file NAMEPTR (1 absent, 2 is a directory / failed) */
 #define FS_RMDIR      14   /* delete directory NAMEPTR (must be empty) */
 #define FS_GETCWD     15   /* write the current directory ("/..." NUL-terminated) to ADDR; SIZE = length */
+#define FS_RENAME     16   /* rename NAMEPTR to the name string ADDR points at */
+#define FS_COPYFILE   17   /* copy file NAMEPTR to the name string ADDR points at */
+#define FS_DIR_ALL    18   /* DIR_FIRST, dotfiles included (only . and .. stay hidden) */
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
  * work, ".." never leaves the root. Lookups are case-insensitive when the
  * exact name is absent. Reads (OPEN_READ, STAT, LOAD) of a bare name not

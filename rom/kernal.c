@@ -26,8 +26,8 @@
 #define USER_END 0xA000u
 #define MAXCOLS 80
 #define MAXROWS 60
-static uint8_t COLS = 80, ROWS = 60, vmode, margin;   /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240) */
-static uint8_t PCOLS = 80, PROWS = 60;               /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
+static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
+static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
 #define OX margin
 #define OY margin
 #define ROM_VERSION "stage 4"
@@ -40,6 +40,8 @@ static uint8_t PCOLS = 80, PROWS = 60;               /* physical text cells; wit
 
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
+static const char *args_tail;                /* the command tail, for the ARGS system call */
+static char args_none;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
 extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
 uint16_t speed_loop(void);                       /* crt0.s */
@@ -225,10 +227,12 @@ static void dump(uint32_t from, uint32_t to)
 static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; }
 static void put_cwd(void);
 
-static void cmd_dir(void)
+static void cmd_dir(const char *p)
 {
     char name[64]; uint16_t count = 0; uint32_t total = 0, sz;
-    if (fs_cmd(6)) { error("dir: no device"); return; }
+    uint8_t first = 6;                                   /* DIR A: dotfiles too */
+    if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) first = 18;
+    if (fs_cmd(first)) { error("dir: no device"); return; }
     { uint8_t o = fg; fg = C_HI; puts_("directory of "); put_cwd(); fg = o; newline(); }
     for (;;) {
         uint8_t col = cx;
@@ -379,12 +383,21 @@ static void cmd_type(const char *p)
 
 typedef void (*fn_t)(void);
 static void video_init(void);
+#pragma code-name (push, "CODE2")
 static void run_at(uint16_t a)
 {
+    /* snapshot the video controls: a program that drew gets the text mode
+     * put back and a clean screen; one that only printed keeps its output
+     * on screen (so SAY, and disk commands like it, behave like commands) */
+    uint8_t v0 = REG(VICKE + 0), l1 = REG(VICKE + 0x20), l2 = REG(VICKE + 0x30), l3 = REG(VICKE + 0x40), sc = REG(VICKE + 0x0E);
     call_prog(a);
-    video_init();                    /* the program may have reconfigured VICKe */
-    cls();
+    if (v0 != REG(VICKE + 0) || l1 != REG(VICKE + 0x20) || l2 != REG(VICKE + 0x30) ||
+        l3 != REG(VICKE + 0x40) || sc != REG(VICKE + 0x0E)) {
+        video_init();
+        cls();
+    }
 }
+#pragma code-name (pop)
 static void cmd_run(const char *p)
 {
     uint8_t d; uint32_t a; const char *q = p;
@@ -396,6 +409,7 @@ static void cmd_run(const char *p)
         if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
         if (st == 1) { error("run: not found"); return; }
         if (st) { error("run: bad file"); return; }
+        args_tail = p;
         if (!last_run) { error("run: not a program"); return; }
         run_at(last_run); return;
     }
@@ -574,6 +588,7 @@ static void cmd_info(const char *p)
 }
 
 uint8_t k_shell(const char *p);
+static void shell_line(const char *p);
 static void cmd_mon(const char *p);
 static void cmd_bbcbasic(void);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
@@ -591,12 +606,86 @@ static void cmd_dump(const char *p)
 }
 static void cmd_help(void)
 {
-    uint8_t o = fg;
-    fg = C_HI; puts_("monitor: "); fg = o; puts_("MON [line]   then  addr   addr.addr   addr:b b b   addrR   X"); newline();
-    fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
-    pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /EHBASIC...)"); newline();
-    fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
-    fg = C_HI; puts_("system:  "); fg = o; puts_("INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note|ON|OFF]  BBC"); newline();
+    cmd_type("/.HELP");                                  /* the help text lives on disk, dot-hidden */
+}
+
+#pragma code-name (push, "CODE")       /* the new file commands live in the $A000 half */
+/* RENAME old new / CP old new: two names, the second passed via the ADDR reg */
+static void cmd_two(uint8_t cmdno, const char *p)
+{
+    char a[64], b[64];
+    if (!getname(&p, a) || !getname(&p, b)) { error("old new?"); return; }
+    fs_name(a); w32(FS + 8, (uint16_t)b);
+    if (fs_cmd(cmdno)) error("failed");
+}
+
+/* XD name (HEX works too): hex + ASCII, 16 bytes a row; Esc stops it */
+static void cmd_xd(const char *p)
+{
+    char name[64]; uint32_t off = 0, n; uint8_t i, buf[16];
+    if (!getname(&p, name)) { error("xd: name?"); return; }
+    fs_name(name);
+    if (fs_cmd(1)) { error("xd: not found"); return; }
+    for (;;) {
+        w32(FS + 8, (uint16_t)buf); w32(FS + 12, 16);
+        if (fs_cmd(3)) break;
+        n = r32(FS + 12); if (!n) break;
+        puthex(off >> 16); puthex16((uint16_t)off); puts_(": ");
+        for (i = 0; i < 16; i++) { if (i < n) { puthex(buf[i]); k_chrout(' '); } else puts_("   "); }
+        k_chrout(' ');
+        for (i = 0; i < n; i++) k_chrout(buf[i] >= 0x20 && buf[i] < 0x7F ? buf[i] : '.');
+        newline();
+        off += n;
+        if (n < 16 || k_getin() == 27) break;
+    }
+    fs_cmd(5);
+}
+
+#pragma code-name (pop)
+/* HUSH: flush the sequencer, zero every register of all four SIDs */
+static void cmd_hush(void)
+{
+    uint8_t c, r;
+    REG(SYS + 0xE0) = 0x80;
+    for (c = 0; c < 4; c++) for (r = 0; r < 25; r++) REG(SID0 + (uint16_t)c * 32 + r) = 0;
+    puts_("hushed"); newline();
+}
+
+/* EXEC name: run a file of shell lines (and /!BOOT at power-on). The file
+ * is loaded whole into far memory first, so its own commands may use the
+ * filesystem; one level only, lines up to 95 chars. */
+#define EXECBUF 0x0FE00000UL
+static uint8_t exec_busy;
+static void cmd_exec(const char *p)
+{
+    char name[64]; static uint32_t len, off; uint32_t L; uint8_t i;
+    if (exec_busy) { error("exec: no nesting"); return; }
+    if (!getname(&p, name)) { error("exec: name?"); return; }
+    fs_name(name); w32(FS + 8, EXECBUF);
+    if (fs_cmd(9)) { error("exec: not found"); return; }
+    len = r32(FS + 12);
+    exec_busy = 1;
+    for (off = 0; off < len; ) {
+        L = len - off; if (L > sizeof line - 1) L = sizeof line - 1;
+        dma_copy(EXECBUF + off, (uint16_t)line, L);
+        for (i = 0; i < L; i++) if (line[i] == '\n' || line[i] == '\r') break;
+        line[i] = 0;
+        off += (uint32_t)i + 1;
+        if (line[0]) shell_line(line);
+    }
+    exec_busy = 0;
+}
+
+/* the ARGS system call ($FF95): what followed the program name on the
+ * command line. $F0/$F1 = pointer (RAM, valid until the next shell line),
+ * A = length; empty when there was nothing. */
+uint8_t k_args(void)
+{
+    uint8_t n = 0;
+    const char *t = args_tail ? args_tail : (const char *)&args_none;
+    P_NAME = (uint16_t)t;
+    while (t[n]) n++;
+    return n;
 }
 
 static void shell_line(const char *p)
@@ -606,7 +695,7 @@ static void shell_line(const char *p)
     if (!*p) return;
     p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
-    if (is_cmd(&p, "DIR"))   { cmd_dir(); return; }
+    if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
     if (is_cmd(&p, "MKDIR")) { cmd_mkdir(p); return; }
     if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
@@ -614,6 +703,11 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
     if (is_cmd(&p, "SAVE"))  { cmd_save(p); return; }
     if (is_cmd(&p, "TYPE"))  { cmd_type(p); return; }
+    if (is_cmd(&p, "XD") || is_cmd(&p, "HEX")) { cmd_xd(p); return; }
+    if (is_cmd(&p, "RENAME") || is_cmd(&p, "REN") || is_cmd(&p, "MV")) { cmd_two(16, p); return; }
+    if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
+    if (is_cmd(&p, "EXEC"))  { cmd_exec(p); return; }
+    if (is_cmd(&p, "HUSH"))  { cmd_hush(); return; }
     if (is_cmd(&p, "RUN"))   { cmd_run(p); return; }
     if (is_cmd(&p, "FILL"))  { cmd_fill(p); return; }
     if (is_cmd(&p, "COPY"))  { cmd_copy(p); return; }
@@ -626,14 +720,14 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
-    if (is_cmd(&p, "MON"))   { cmd_mon(p); return; }
+    if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(); return; }
     /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
-    { char name[64]; const char *q = p0;
-      if (getname(&q, name) && !*q) {
+    { char name[64]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
+      if (getname(&q, name)) {
           uint8_t st = do_load(name, USER, 0);
           if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
-          if (!st && last_run) { run_at(last_run); return; }
+          if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }
     error("? (HELP lists the commands; MON is the monitor)");
 }
@@ -872,6 +966,15 @@ int main(void)
     video_init();
     fg = C_FG;
     banner();
+    /* /!BOOT: half a second of grace, then run it -- unless a key arrives
+     * first (held or typed; it stays in the queue), the silent skip */
+    { uint8_t n = 30, f0 = REG(SYS + 0x0D);
+      while (n && !(REG(KBDST) & 0x80))
+          if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
+    if (!(REG(KBDST) & 0x80)) {                          /* (the fs device reads names from RAM, so copy the literal out of ROM) */
+        strcpy(line, "!BOOT"); fs_name(line);
+        if (!fs_cmd(8)) cmd_exec(line);
+    }
     for (;;) {
         put_cwd(); puts_("] ");
         readline(line, sizeof line);

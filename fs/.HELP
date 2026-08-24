@@ -1,0 +1,10 @@
+monitor: MON or WOZ [line]  then:  addr  addr.addr  addr:b b b  addrR  X leaves
+files:   DIR [A]  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  XD name
+         LOAD name [addr]  SAVE name from.to  RENAME old new  CP old new
+         RUN [name.prg|addr]  EXEC script   (bare names search /PRG, /EHBASIC)
+         an unknown word runs name.prg from disk, with args (ARGS call $FF95)
+         names starting with . are hidden from DIR (DIR A shows them)
+memory:  FILL from.to value   COPY from.to dest
+system:  INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  HUSH  RESET
+         DUMP [note|ON|OFF]  BBC (the Tube co-processor)
+boot:    /!BOOT runs as an EXEC script at power-on; hold a key to skip it

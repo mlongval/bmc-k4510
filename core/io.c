@@ -84,6 +84,15 @@ static void fs_casefix(char *path, size_t max)
     while ((e = readdir(d))) if (!strcasecmp(e->d_name, base)) { snprintf(path, max, "%s/%s", dir, e->d_name); break; }
     closedir(d);
 }
+static int fs_guest_str(uint32_t p, char *name, size_t max)
+{
+    size_t n = 0;
+    p &= K4510_PHYS_MASK;
+    for (; n < max - 1; n++) { name[n] = k4510_ram[(p + n) & K4510_PHYS_MASK]; if (!name[n]) break; }
+    if (n >= max - 1) return 5;
+    name[n] = 0;
+    return 0;
+}
 static int fs_guest_name(char *name, size_t max)
 {
     uint32_t p = fs_rd32(4) & K4510_PHYS_MASK; size_t n = 0;
@@ -115,7 +124,7 @@ static int fs_path(char *out, size_t max, int search)
 /* directory listing: read, sort, serve */
 static char (*fs_list)[64]; static uint32_t *fs_list_size; static int fs_list_n, fs_list_i;
 static int fs_cmp(const void *a, const void *b) { return strcasecmp((const char *)a, (const char *)b); }
-static int fs_dir_first(void)
+static int fs_dir_first(int all)
 {
     char path[768], rel[256]; DIR *d; struct dirent *e; int n = 0, cap = 64;
     fs_resolve("", rel, sizeof rel, path, sizeof path);
@@ -123,7 +132,7 @@ static int fs_dir_first(void)
     free(fs_list); free(fs_list_size); fs_list = malloc(cap * sizeof *fs_list); fs_list_size = malloc(cap * sizeof *fs_list_size);
     while ((e = readdir(d))) {
         char full[1024]; struct stat sb;
-        if (e->d_name[0] == '.') continue;
+        if (e->d_name[0] == '.' && (!all || !e->d_name[1] || (e->d_name[1] == '.' && !e->d_name[2]))) continue;
         if (n == cap) { cap *= 2; fs_list = realloc(fs_list, cap * sizeof *fs_list); fs_list_size = realloc(fs_list_size, cap * sizeof *fs_list_size); }
         snprintf(fs_list[n], 64, "%s", e->d_name);
         snprintf(full, sizeof full, "%s/%s", path, e->d_name);
@@ -161,7 +170,23 @@ static void fs_run(uint8_t cmd)
     case FS_READ: { if (!fs_file) { st = 2; break; } uint32_t done = 0; int c; while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
     case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } break;
-    case FS_DIR_FIRST: st = fs_dir_first(); break;
+    case FS_DIR_FIRST: st = fs_dir_first(0); break;
+    case FS_DIR_ALL:   st = fs_dir_first(1); break;
+    case FS_RENAME: case FS_COPYFILE: {
+        char n2[128], rel[256], dst[768];
+        if ((st = fs_path(path, sizeof path, 1))) break;                       /* source, searched + case-fixed */
+        if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
+        if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) break;    /* destination, as given */
+        if (cmd == FS_RENAME)
+            st = rename(path, dst) ? 2 : 0;
+        else {
+            FILE *a = fopen(path, "rb"), *b = NULL;
+            if (!a) { st = 1; break; }
+            if (!(b = fopen(dst, "wb"))) { fclose(a); st = 2; break; }
+            { char buf[4096]; size_t k; while ((k = fread(buf, 1, sizeof buf, a)) > 0) if (fwrite(buf, 1, k, b) != k) { st = 2; break; } }
+            fclose(a); fclose(b);
+        }
+        break; }
     case FS_DIR_NEXT: {
         if (!fs_list) { st = 2; break; }
         if (fs_list_i >= fs_list_n) { st = 4; break; }

@@ -33,6 +33,7 @@ int main(int argc, char **argv)
     }
     for (int i = 0; i < 60; i++) { char r[81]; row(i, r); if (*r) printf("%s\n", r); }
     { const char *d = getenv("K4510_DUMP"); if (d) { unsigned long a, n; if (sscanf(d, "%lx,%lx", &a, &n) == 2) { printf("dump $%06lX:", a); for (unsigned long i = 0; i < n; i++) { uint8_t b = mem_peek(a + i); printf(i % 32 ? " %02X" : "\n%02X", b); } printf("\n"); } } }
+    if (getenv("K4510_EXITDUMP")) dbg_dump("headless exit");
     fprintf(stderr, "[%d frames%s]\n", fr, marker ? (seen ? ", marker seen" : ", TIMEOUT") : "");
     return marker && !seen ? 2 : 0;
 }
