@@ -1,4 +1,4 @@
-10 REM THE TUBE DEMOS: LOAD "BBC/NAME.BBC" THEN RUN. ESCAPE STOPS ONE.
+10 REM THE TUBE DEMOS: LOAD "BBCBASIC/NAME.BBC" THEN RUN. ESCAPE STOPS ONE.
 20 PRINT "KALEID   a kaleidoscope of mirrored lines"
 30 PRINT "CIRCLES  random filled circles (any key leaves)"
 40 PRINT "ROSES    rose curves, a new one every few seconds"

@@ -594,7 +594,7 @@ static void cmd_help(void)
     uint8_t o = fg;
     fg = C_HI; puts_("monitor: "); fg = o; puts_("MON [line]   then  addr   addr.addr   addr:b b b   addrR   X"); newline();
     fg = C_HI; puts_("files:   "); fg = o; puts_("DIR  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  LOAD name [addr]"); newline();
-    pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /BASIC)"); newline();
+    pad(9); puts_("SAVE name from.to  RUN [name.prg|addr]    (bare names also look in /PRG, /EHBASIC...)"); newline();
     fg = C_HI; puts_("memory:  "); fg = o; puts_("FILL from.to value   COPY from.to dest"); newline();
     fg = C_HI; puts_("system:  "); fg = o; puts_("INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  RESET  DUMP [note|ON|OFF]  BBC"); newline();
 }

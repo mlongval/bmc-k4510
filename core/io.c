@@ -92,7 +92,7 @@ static int fs_guest_name(char *name, size_t max)
     name[n] = 0;
     return 0;
 }
-/* host path for NAMEPTR; for reads, fall back to /PRG and /BASIC when the
+/* host path for NAMEPTR; for reads, fall back to /PRG, /EHBASIC and /BBCBASIC when the
  * name has no directory part and is not found where we are */
 static int fs_path(char *out, size_t max, int search)
 {
@@ -101,8 +101,8 @@ static int fs_path(char *out, size_t max, int search)
     if ((st = fs_resolve(name, rel, sizeof rel, out, max))) return st;
     fs_casefix(out, max);
     if (search && stat(out, &sb) && !strchr(name, '/') && !strchr(name, '\\')) {
-        static const char *dirs[] = { "PRG", "BASIC" };
-        for (int i = 0; i < 2; i++) {
+        static const char *dirs[] = { "PRG", "EHBASIC", "BBCBASIC" };
+        for (int i = 0; i < 3; i++) {
             char alt[128]; snprintf(alt, sizeof alt, "/%s/%s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
