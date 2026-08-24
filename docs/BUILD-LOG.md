@@ -2682,3 +2682,31 @@ the leaflet. 1982 answered on the first try.
 
 The screen-oriented half of that library (WordStar, TP's editor,
 ZDE) now waits on exactly one thing: the terminal.
+## 2026-08-24 (aa) — the folder says the machine's name, and the scrub finds its stragglers
+
+Housekeeping. The project folder finally says what the machine is:
+`~/Projects/BMC64k4502` became **`~/Projects/BMC-K4510`** on all three
+machines that carry it (ubuntu-s1, the laptop, hdieu), each with a
+compat symlink left at the old name so every old path in this diary
+keeps resolving. ubuntu-s1's Claude project dir (memory + session
+history) moved the same way; CLAUDE.md, the memory files and the
+location tables in these docs were repointed — the Code row here had
+still claimed the machine was a bmc64 fork, which it has not been
+since the VICE route was dropped.
+
+The rename's ripples then surfaced something better hidden: pulling
+the docs fix into ubuntu-s1's k4510-build met "divergent branches" —
+**both k4510-build clones (ubuntu-s1 and hdieu) were still on the
+pre-scrub history**, leaked alpha tags included, missed by the earlier
+remediation sweep because they hang off the mirror, not origin. No
+merge base at all between the histories; but the tree at each stale
+tip proved byte-identical to its rewritten twin, so nothing real was
+at stake: reset to the clean history, tags force-updated, reflogs
+expired, `git gc --prune=now`, and the old objects verified gone
+(`cat-file` on the old heads: not a valid object). hdieu's k4510-build
+had also inherited its origin as a ubuntu-s1 filesystem path from the
+rsync — it now points at the public GitHub URL and can pull for
+itself. p15, unreachable on scrub day, turned out to hold only a
+plain rsync copy (no .git), and its release zips grep clean for
+session URLs. Nothing known still carries the old hashes; the
+pre-scrub bundles in ~/Backups/ remain the only intentional copies.
