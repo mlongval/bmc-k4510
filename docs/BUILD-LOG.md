@@ -1797,3 +1797,18 @@ earlier tonight, all Doc's catches: * not @ as the BASIC shell prefix,
 Memory size ? gone from EhBASIC's boot, the CP/M screenshot that was
 secretly photographing Forth's README (make-shots now refuses to run
 without its co-processors), and a knowing note on the 3 GHz Z80.
+
+## 2026-08-24 (t) — install.sh, twice
+
+Doc: the SD-card zip "will not be obvious to many" — and he is right,
+because the trap is real: the Pi boot ROM reads only FAT32, SDHC cards
+(<=32 GB) ship FAT32 and just work, SDXC cards (64 GB+) ship exFAT and
+produce a silent black screen. So: **install-sd.sh** (unzips onto a
+mounted card, refuses exFAT with an explanation; --format mode wipes a
+device to FAT32 with belt-and-braces guards — whole-device only, never
+the root disk, type-the-name confirmation) and **setup.sh** (desktop:
+apt/dnf/pacman deps — gcc, SDL2, cc65, 64tass, nasm — then make all,
+the Tube, CP/M, and the 10-suite battery, with honest reporting of
+what is missing and what it is needed for). README gained an
+Installing section; the guide's chapter 1 gained "Getting one" and an
+SDHC aside before "First boot".

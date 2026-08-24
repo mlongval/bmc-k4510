@@ -9,6 +9,30 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
   (Q register, 32-bit flat addressing, 28-bit MAP) plus the K4510 MMU — bank
   registers, the far-call gate, RAM under the ROM — at 40.5 MHz. The
   instruction core is Xemu's 45GS02, byte for byte; everything around it is ours.
+
+## Installing
+
+**Desktop (Linux):**
+
+    git clone https://github.com/mlongval/bmc-k4510
+    cd bmc-k4510 && ./setup.sh
+
+installs the dependencies (gcc, SDL2, cc65, 64tass, nasm), builds
+everything, runs the 10-suite test battery and tells you how to start
+the machine (`./sdl/k4510 rom/kernal.bin fs`).
+
+**Raspberry Pi 3B+:** download the SD-card zip from the releases page.
+The card must be **FAT32**, which in practice means: use an **SDHC card
+(32 GB or less)** -- those are FAT32 from the factory and just work. An
+SDXC card (64 GB+) ships exFAT and will not boot until reformatted.
+Then either unzip onto the card's root yourself, or:
+
+    ./install-sd.sh bmc-k4510-pi3.zip /media/$USER/CARD     # mounted card
+    ./install-sd.sh bmc-k4510-pi3.zip /dev/sdX --format     # wipe + FAT32 + install
+
+The machine needs ~5 MB; any old card is plenty. Insert, power on, and
+the K4510 boots in about three seconds.
+
 - **K/OS** (pronounced 'chaos'), the operating system: a shell (`MON`/`WOZ` is the Wozmon-style monitor, `*MON` from BASIC) plus `DIR CD MKDIR RM RMDIR TYPE
   XD LOAD SAVE RENAME CP RUN EXEC HUSH INFO MODE COLOR` (`HELP` lists them; the
   text lives in the dot-hidden `/.HELP`). An unknown word runs `name.prg` from

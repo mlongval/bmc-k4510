@@ -24,9 +24,35 @@ the SID sound chip --- it borrows openly and then outgrows.
   more languages one word away: BBC BASIC on the Tube, Forth, and CP/M.
 \end{itemize}
 
+\section{Getting one}
+On the \textbf{desktop} (Linux), three lines build the whole machine:
+\begin{type}
+git clone https://github.com/mlongval/bmc-k4510
+cd bmc-k4510 && ./setup.sh
+./sdl/k4510 rom/kernal.bin fs
+\end{type}
+\verb|setup.sh| installs the compilers and SDL2, builds everything, and
+runs the machine's ten test suites.
+
+On the \textbf{Raspberry Pi 3B+}, download the SD-card zip from the
+project's releases page and put it on a card --- either unzip it onto the
+card's root yourself, or let the script do it:
+\begin{type}
+./install-sd.sh bmc-k4510-pi3.zip /media/you/CARD
+\end{type}
+
+\begin{aside}
+\textbf{Use an SDHC card (32\,GB or less).} The Pi's boot ROM reads only
+FAT32, and SDHC cards are FAT32 from the factory --- they just work. A
+bigger SDXC card (64\,GB+) ships exFAT and will \emph{not} boot until
+reformatted; \verb|./install-sd.sh zip /dev/sdX --format| does that (and
+erases the card). The machine needs about 5\,MB --- any old card is
+plenty.
+\end{aside}
+
 \section{First boot}
-Switch it on (on the desktop: \verb|./sdl/k4510|; on the Raspberry Pi 3B+:
-insert the card and power up). The machine greets you in yellow on blue:
+Switch it on (on the desktop: \verb|./sdl/k4510 rom/kernal.bin fs|; on the
+Raspberry Pi 3B+: insert the card and power up). The machine greets you in yellow on blue:
 
 \screen{shots/boot.png}{The boot screen: the hourglass, the name, the speed,
 the memory. Everything else is one \texttt{INFO} away.}
