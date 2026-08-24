@@ -23,7 +23,7 @@ rom/demo.bin: rom/demo.a
 
 # System ROM: C with cc65 (65C02 output is a subset of the 45GS02)
 rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
-	cc65 -O -t none --cpu 65c02 -o rom/kernal.s rom/kernal.c
+	cc65 -O -t none --cpu 65c02 --local-strings -o rom/kernal.s rom/kernal.c
 	ca65 --cpu 65c02 -o rom/kernal.o rom/kernal.s
 	ca65 --cpu 65c02 -o rom/crt0.o rom/crt0.s
 	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/kernal.o none.lib -m rom/kernal.map

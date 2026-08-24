@@ -121,6 +121,28 @@ int main(void)
         CHECK(mem_peek(0x800000) == 0x11 && mem_peek(0x800003) == 0x44, "STQ [ptr],Z");
     }
 
+    /* K-06: MAP of block 6 puts RAM under the I/O page; unmapping restores it */
+    {
+        static const uint8_t prog[] = {
+            0xA9,0x00, 0xA2,0x00, 0xA0,0x00, 0xA3,0x44,   /* LDA/LDX/LDY #0, LDZ #$44: mask bit 6, offset $40000 */
+            0x5C, 0xEA,                                    /* MAP, EOM */
+            0xA9,0x5A, 0x8D,0x00,0xDA,                     /* LDA #$5A, STA $DA00 -> RAM at $4DA00 */
+            0xAD,0x00,0xDA, 0x85,0x10,                     /* LDA $DA00, STA $10  (through the map) */
+            0xA3,0x00, 0x5C, 0xEA,                         /* LDZ #0, MAP, EOM: I/O back */
+            0xAD,0x00,0xDA, 0x85,0x11,                     /* LDA $DA00 (unused device page), STA $11 */
+            0x4C,0x1B,0x40                                 /* JMP * */
+        };
+        mem_reset();
+        mem_load(0x4000, prog, sizeof prog);
+        mem_poke(K4510_ROM_PHYS + 0xFFFC, 0x00); mem_poke(K4510_ROM_PHYS + 0xFFFD, 0x40);
+        cpu65_reset();
+        cpu65_step(400);
+        CHECK(mem_peek(0x4DA00) == 0x5A, "K-06: write under the I/O landed in mapped RAM (got %02X)", mem_peek(0x4DA00));
+        CHECK(mem_peek(0x10) == 0x5A, "K-06: read back through the map (got %02X)", mem_peek(0x10));
+        CHECK(mem_peek(0x11) != 0x5A, "K-06: I/O page returned after unmap (got %02X)", mem_peek(0x11));
+        printf("6. RAM under the I/O by MAP of block 6: $DA00 -> phys $4DA00; unmap restores I/O\n");
+    }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

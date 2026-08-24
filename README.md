@@ -85,6 +85,12 @@ Insert, power on, and the K4510 boots in about three seconds.
 - **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms;
   byte-pokeable **bank registers** ($D600) and a **far-call gate** ($DF00)
   so programs bigger than the 64 KB window are overlays, not a puzzle;
+  **sideways ROM**, Beeb-style: the OS pages 8 KB banks through the
+  $A000-$BFFF window (the ROM file is the 24 KB base plus appended
+  banks; INFO and TIME already live in bank 1), so the ROM stopped
+  being full forever; **RAM under the I/O page**: a MAP of block 6
+  hides $D000-$DFFF and exposes RAM -- MAP is an instruction, so the
+  program that hid the I/O can always bring it back;
   `LOAD` understands segmented `K4SG` files (see `demo/segdemo.c`, `demo/far.h`).
 - **VICKe**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from
   24-bit, four layers (bitmap / tile / text), 128 sprites with no per-line

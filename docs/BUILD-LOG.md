@@ -1819,3 +1819,37 @@ SDHC aside before "First boot".
 cards: they do not boot the Pi. So the guidance everywhere is now
 *SDHC specifically, 4–32 GB*: older SD fails (field-tested), newer
 SDXC ships exFAT and needs the --format treatment. Goldilocks cards.
+
+## 2026-08-24 (u) — sideways ROM and RAM under the I/O page
+
+Doc: "couldn't we move the real roms to far memory and just keep jump
+tables in the main 64k?" — which is the BBC Master's sideways ROM,
+rediscovered from first principles. Built tonight, both halves:
+
+**Sideways ROM.** The ROM file is now the 24 KB base plus appended
+8 KB banks living at phys $0FF00000; the $A000-$BFFF window pages
+them via bank register 5. kernal.c was resegmented: resident core
+(console, fs, dispatch, runtime, RODATA) in $C000-$CFFF + the $E000
+half; cold commands in the window (bank 0 = the base image, no shim
+needed); INFO and TIME moved to **bank 1** as proof, called through a
+5-line sw_call() shim. The stub page needed zero changes — rom_push
+already banks 5-7 off around every system call, so syscalls from
+sideways code, and star-commands from inside EhBASIC reaching bank 1,
+just work (verified: *TIME and *INFO from a running BASIC, PRINT 6*7
+still 42 after the round trips). One cc65 landmine: string literals
+pool at end of file and ignore rodata-name pushes unless
+**--local-strings** is set — without it every "moved" command left
+its strings behind. The famine is over: bank 0 has 660 B spare,
+bank 1 has 4.3 KB, resident halves ~2.6 KB combined, and 15 more
+banks are one append away. INFO now cheerfully reports its own bank
+engaged (banks: 5=$0FF00000) while it runs.
+
+**RAM under the I/O page (K-06).** A MAP of block 6 hides $D000-$DFFF
+and exposes RAM — MAP is an instruction, so no register deadlock; the
+bank-register view keeps I/O on top (SID players unaffected), and the
+$D000 address never moves (199 C64 tunes hardcode $D400). With ROM
+banked away too: 61.75 KB contiguous. maptest grew case K-06.
+
+Also: CPM's greeting no longer claims to be BBC BASIC. Parked, next
+stage of the pinned plan: user space to $CFFF by default and EhBASIC
+relocated ("38911 BASIC BYTES FREE"). All 10 suites green.

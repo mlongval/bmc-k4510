@@ -20,7 +20,10 @@
 extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed */
 
 /* ---- spike I/O and ROM, in the CPU's unmapped 64 KB view ------------- */
-#define K4510_ROM_MAX    0x8000u     /* up to 32 KB ROM, write-protected; files load top-aligned at $10000 */
+#define K4510_ROM_MAX    0x26000u    /* base image (24 KB, top-aligned at $10000) + up to 16 sideways banks */
+#define K4510_SW_PHYS    0x0FF00000u  /* sideways ROM: bank 1 at +0, 8 KB per bank (the $A000-$BFFF window) */
+#define K4510_SW_SIZE    0x2000u
+#define K4510_SW_MAX     16
 /* The ROM image lives in the top 64 KB of physical memory and is seen in the
  * unmapped CPU view from mem_rom_base up; the physical RAM at $A000-$FFFF is
  * "RAM under the ROM", revealed by banking blocks 5/7 onto $A000/$E000

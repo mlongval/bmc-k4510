@@ -18,7 +18,7 @@ int main(void)
 {
     uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
     mem_init(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048);
-    CHECK(mem_load_rom("rom/kernal.bin") == 24576, "rom");
+    CHECK(mem_load_rom("rom/kernal.bin") >= 24576, "rom");   /* base 24 KB + any sideways banks */
     cpu65_reset(); frames(40);      /* boot + the !BOOT grace window */
     char r[81]; row(0, r); printf("banner: %s\n", r);
     CHECK(findsub("BMC-K4510") >= 0, "banner");

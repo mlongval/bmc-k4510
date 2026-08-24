@@ -84,11 +84,13 @@ int mem_load_rom(const char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
-    uint8_t buf[K4510_ROM_MAX];
-    size_t n = fread(buf, 1, sizeof buf, f);
+    static uint8_t buf[K4510_ROM_MAX];
+    size_t n = fread(buf, 1, sizeof buf, f), base_n = n > 0x6000 ? 0x6000 : n;
     fclose(f);
-    memcpy(&k4510_ram[K4510_ROM_PHYS + 0x10000 - n], buf, n);
-    mem_rom_base = 0x10000 - n;
+    memcpy(&k4510_ram[K4510_ROM_PHYS + 0x10000 - base_n], buf, base_n);
+    mem_rom_base = 0x10000 - base_n;
+    if (n > base_n)                       /* sideways banks, appended to the base image */
+        memcpy(&k4510_ram[K4510_SW_PHYS], buf + base_n, n - base_n);
     return (int)n;
 }
 
@@ -163,8 +165,11 @@ static uint8_t far_gate(uint16_t addr)
 
 /* ---- the eleven callbacks --------------------------------------------- */
 /* The ROM lives in the unmapped view only (a block MAPped or banked over it
- * shows RAM); the I/O page $D000-$DFFF and the stub page $FF00-$FFFF are
- * always what they are, whatever is mapped (K-05: so block 6 can be RAM). */
+ * shows RAM); the stub page $FF00-$FFFF is always ROM, whatever is mapped.
+ * The I/O page $D000-$DFFF wins in the unmapped and K-01-banked views, but
+ * a MAP of block 6 puts RAM under the I/O (K-06): MAP is an instruction, so
+ * the program that hid the I/O can always bring it back -- no register
+ * deadlock. The far gate is unreachable while block 6 is MAPped. */
 
 int dbg_rec;                             /* the PC recorder costs a store per instruction: armed by DUMP */
 Uint8 cpu65_read_callback(Uint16 addr)
@@ -179,9 +184,13 @@ Uint8 cpu65_read_callback(Uint16 addr)
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return k4510_ram[K4510_ROM_PHYS + addr];
         return k4510_ram[addr];
     }
-    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {        /* banked view: the I/O page still wins */
-        if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);
-        return io_read(addr);
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
+        if (XEMU_LIKELY(bank_on[6])) {                            /* banked (K-01) view: the I/O page still wins */
+            if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);
+            return io_read(addr);
+        }
+        /* block 6 is MAPped (K-06): RAM under the I/O -- the CPU asked for it
+           by instruction, so it can always ask back; no register needed */
     }
     return k4510_ram[cpu_to_phys(addr)];
 }
@@ -195,7 +204,7 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
         k4510_ram[addr] = data;
         return;
     }
-    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }   /* banked view: I/O still wins */
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE) && bank_on[6]) { io_write(addr, data); return; }   /* K-01 banked: I/O wins; MAPped (K-06): RAM under the I/O */
     if (XEMU_UNLIKELY(addr >= 0xFF00)) return;                         /* the stub page: ROM even when banked */
     k4510_ram[cpu_to_phys(addr)] = data;
 }

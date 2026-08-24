@@ -26,6 +26,10 @@
 #define USER_END 0xA000u
 #define MAXCOLS 80
 #define MAXROWS 60
+#pragma code-name ("CODE2")
+/* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
+ * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
+ * banks 1+ are appended 8 KB images called through sw_call(). */
 static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
 static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
 #define OX margin
@@ -227,6 +231,8 @@ static void dump(uint32_t from, uint32_t to)
 static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; }
 static void put_cwd(void);
 
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void cmd_dir(const char *p)
 {
     char name[64]; uint16_t count = 0; uint32_t total = 0, sz;
@@ -279,6 +285,8 @@ static void cmd_rmdir(const char *p)
     if (st == 1) { error("rmdir: not found"); return; }
     if (st) { error("rmdir: not a directory, or not empty"); return; }
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static void put_cwd(void) { char cwd[64]; w32(FS + 8, (uint16_t)cwd); fs_cmd(15); puts_(cwd); }
 
 static uint8_t is_prg(const char *name)
@@ -340,6 +348,8 @@ static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
     return 0;
 }
 
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void cmd_load(const char *p)
 {
     char name[64]; uint8_t d, st, has = 0; uint32_t addr = USER;
@@ -382,6 +392,8 @@ static void cmd_type(const char *p)
 }
 
 typedef void (*fn_t)(void);
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static void video_init(void);
 #pragma code-name (push, "CODE2")
 static void run_at(uint16_t a)
@@ -405,6 +417,8 @@ static void run_at(uint16_t a)
 static uint8_t exec_busy;
 
 #pragma code-name (pop)
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void cmd_run(const char *p)
 {
     uint8_t d; uint32_t a; const char *q = p;
@@ -468,10 +482,13 @@ static void cmd_color(const char *p)
 }
 
 /* ---- INFO ----------------------------------------------------------------- */
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+#pragma code-name (push, "SWCODE1")   /* sideways bank 1: INFO and TIME, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static const char *const daynames[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
 
-#pragma code-name (push, "CODE2")      /* INFO, HELP and the banner live in the $E000 half of the ROM */
 static void info_version(void)
 {
     uint8_t i;
@@ -594,12 +611,28 @@ static void cmd_info(const char *p)
     if (flags & 64) info_time();
 }
 
+static void cmd_time(const char *p) { (void)p; info_time(); }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+/* run a command living in a sideways bank: engage it in the $A000-$BFFF
+ * window (bank register 5), call, restore the ROM view. Syscalls inside
+ * still work (the stub banks 5-7 off and back around every call); the
+ * one rule is that sideways code must not call bank 0's commands. */
+static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
+{
+    w32(BANK + 20, 0x0FF00000UL + ((uint32_t)(bank - 1) << 13));
+    fn(p);
+    REG(BANK + 23) = 0x80;                    /* off: the ROM view returns */
+}
+
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
 static void cmd_mon(const char *p);
 static void cmd_bbcbasic(uint8_t prog);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void cmd_dump(const char *p)
 {
     uint8_t n;
@@ -616,7 +649,6 @@ static void cmd_help(void)
     cmd_type("/.HELP");                                  /* the help text lives on disk, dot-hidden */
 }
 
-#pragma code-name (push, "CODE")       /* the new file commands live in the $A000 half */
 /* RENAME old new / CP old new: two names, the second passed via the ADDR reg */
 static void cmd_two(uint8_t cmdno, const char *p)
 {
@@ -657,7 +689,7 @@ static void cmd_hush(void)
 }
 
 #pragma code-name (pop)
-/* HUSH: flush the sequencer, zero every register of all four SIDs */
+#pragma rodata-name (pop)
 static void cmd_exec(const char *p)
 {
     char name[64]; static uint32_t len, off; uint32_t L; uint8_t i;
@@ -713,8 +745,8 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "RUN"))   { cmd_run(p); return; }
     if (is_cmd(&p, "FILL"))  { cmd_fill(p); return; }
     if (is_cmd(&p, "COPY"))  { cmd_copy(p); return; }
-    if (is_cmd(&p, "INFO"))  { cmd_info(p); return; }
-    if (is_cmd(&p, "TIME"))  { info_time(); return; }
+    if (is_cmd(&p, "INFO"))  { sw_call(1, cmd_info, p); return; }
+    if (is_cmd(&p, "TIME"))  { sw_call(1, cmd_time, p); return; }
     if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { cmd_color(p); return; }
     if (is_cmd(&p, "MODE"))  { cmd_mode(p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
@@ -736,6 +768,8 @@ static void shell_line(const char *p)
 }
 
 /* the Wozmon grammar: addr  addr.addr  addr:b b b  addrR */
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void mon_line(const char *p)
 {
     uint8_t d; uint32_t v;
@@ -772,6 +806,8 @@ static void cmd_mon(const char *p)
     }
 }
 
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static const uint8_t c64pal[16][3] = {
     {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
     {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
@@ -808,6 +844,8 @@ void k_video(void) { video_init(); }
  * through as well, because the console must switch its own text geometry
  * under the ULA's 640x480 bitmap. */
 static uint8_t bgon, oldvm, oldmg;
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void bbg_mode22(uint8_t n)
 {
     if (n == 3 || n == 6 || n == 7) {                    /* a text mode: the console mode returns */
@@ -840,7 +878,8 @@ static void cmd_bbcbasic(uint8_t prog)
     REG(TUBE + 3) = prog;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
     if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
-    puts_("BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
+    puts_(prog == 3 ? "CP/M 2.2 on the Z80 second processor. EXIT returns to the shell."
+                    : "BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
     for (;;) {
         uint8_t st = REG(TUBE);
         if (!(st & 1)) break;                            /* the co-processor ended (*QUIT) */
@@ -920,6 +959,8 @@ static void cmd_bbcbasic(uint8_t prog)
 }
 
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
 
 /* box-drawing glyphs of the CP437 font */
@@ -931,6 +972,8 @@ uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
 #define B_BR 0xD9
 #define B_LT 0xC3
 #define B_RT 0xB4
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
 static void hline(uint8_t l, uint8_t r, uint8_t w) { uint8_t i; k_chrout(l); for (i = 0; i < w; i++) k_chrout(B_H); k_chrout(r); newline(); }
 static void row_open(void) { k_chrout(B_V); k_chrout(' '); }
 static void row_close(uint8_t w) { pad(w + 1); k_chrout(B_V); newline(); }
@@ -963,6 +1006,8 @@ static void banner(void)
     newline();
 }
 
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 int main(void)
 {
     vmode = 1; margin = 1;                   /* MODE 1 1: 640x240, 79x29 with a one-cell margin */
