@@ -1,0 +1,79 @@
+K4510 spike step 1: cpu65 (45GS02) in our wrapper
+1. 6502 counter:   $0200=$FF X=$00 PC=$1008
+2. 65CE02:         Z=$42  INW($10)=$0100
+3. 45GS02 flat:    [$20],Z=0 -> $11   [$20],Z=2 -> $33
+   45GS02 Q:       LDQ $3000 -> A=11 X=22 Y=33 Z=44 ; STQ $0500 -> 11 22 33 44
+
+ALL OK
+after reset: PC=$F032
+
+screen after the session:
+  |
+  |
+  |\
+  |FF00.FF0F
+  |
+  |FF00: 00 00 00 00 00 00 00 00
+  |FF08: 00 00 00 00 00 00 00 00
+  |0300:41 42 43
+  |
+  |0300: 00
+  |300.302
+  |
+  |0300: 41 42 43
+  |0400:A9 99 8D 00 07 4C 05 04
+  |
+  |0400: 00
+
+ALL OK
+K4510 Phase 3: memory system
+0. reserve 256 MB: RSS 23056 KB -> 23124 KB (lazy commit: should barely move)
+1. MAP blk1->$40000: mask=$02 off_lo=$3E000  $2000->$040000  phys[$40000]=$5A phys[$41FFF]=$A5
+2. MB select:       mb_lo=$0500000  $0010->$500010  phys[$500010]=$77
+3. flat to top:     phys[$0FFFFFF0]=$C3  read back from $0FFFFFFF=$3C
+4. after the tests: RSS 23152 KB (touched a few pages across 256 MB)
+5. STQ [$20],Z @8MB: 11 22 33 44
+
+ALL OK
+K4510 C-18: block DMA
+1. copy 64K 1MB->255MB: sample ok=1  idle=$00  status=$01
+2. fill screen $2A:     first=$2A last=$2A after=$00
+3. overlapping scroll:  row0 now=1 row58 now=59 row59 untouched=59
+
+ALL OK
+VICKe step 1
+1. bitmap: px(10,10)=7 hole(150,150)=2 (index 0 transparent -> BGCOL)
+2. text over bitmap: (0,0)=19  (20,0)=7 (space: transparent, bitmap shows)
+3. tiles 16x16 4bpp: cell0 (0,5)=1 (12,5)=2 | cell1 flipped+palofs3 (16,5)=50 (28,5)=49
+4. text32 8x16: cell0 (1,12)=9 (6,12)=4 | reversed cell1 (9,12)=4 (14,12)=9
+5. sprites: s0(100,50)=51  s1 over s0 (110,60)=37  outside=0  colSS=$03 colSL=$03
+6. SHEILA: bg@50=1 bg@150=2 bg@250=3  rasterIRQ@50 sheilaIRQ@300  irq=6
+7. blit keyed+hflip: row0 = 9 4 9 2 1 9 | row1 = 9 8 7 9 5 9
+
+ALL OK
+1. silence: 4096 samples, peak-to-peak 0 (6581 DC offset is normal)
+2. chip 2 sawtooth: energy 4253983, zero crossings 2944
+
+ALL OK
+1. LOAD hello.txt -> status 0, 31 bytes: 'hello from the host '
+2. DIR: 2 entries, out.bin seen=1
+
+ALL OK
+banner: BMC-K4510   system ROM stage 2   45GS02 / VICKe / SHEILA
+screen:
+  |BMC-K4510   system ROM stage 2   45GS02 / VICKe / SHEILA
+  |256 MB   4 x SID   host filesystem at $D300   type HELP
+  |
+  |] E000.E00F
+  |00E000: 78
+  |00E000: 78 D8 A2 FF 9A A9 00 85 02 A9 08 85 03 20 92 EF
+  |] load hello.txt 2000
+  |loaded 31 bytes at 2000
+  |] 2000.2009
+  |002000: 68
+  |002000: 68 65 6C 6C 6F 20 66 72 6F 6D
+  |] 3000:A9 42 8D 00 07 60
+  |003000: 20
+  |] 3000R
+
+ALL OK

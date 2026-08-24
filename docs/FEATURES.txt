@@ -1,0 +1,634 @@
+===============================================================================
+ K4502 FEATURE BALLOT
+ Every VICE/BMC64 C64 capability, one decision each. Edit me.
+ Generated 2026-08-20 from the actual bmc64 tree (third_party/vice-3.3).
+===============================================================================
+
+HOW TO USE THIS FILE
+
+  Each feature is a numbered block. Under it are the possible choices,
+  one per line. Lines starting with ">>" are my suggestion.
+
+  To decide: DELETE the lines you do not want, leaving exactly one
+  choice per block. Delete the ">>" marker or leave it, doesn't matter.
+
+  Add free-text after "NOTE:" on any block. Add your own choice line if
+  none of mine fit. Blocks you don't care about, leave alone and I'll
+  take the ">>" line as the answer.
+
+VERBS
+
+  KEEP    inherit from VICE/BMC64 as-is, little or no work
+  EXTEND  inherit, then push it past what the C64 could do
+  DROP    deliberately not part of this machine
+  DEFER   not in v1, revisit later
+  ASK     I need your input, no default offered
+
+CROSS-REFERENCES
+  PLAN.md sec 0.5   the governing "it only has to work" principle
+  PLAN.md sec 2b    video substrate and what each extension costs
+  CAPABILITIES.md   the prose version of this ballot
+
+
+===============================================================================
+ A. SOUND
+===============================================================================
+
+[A-01] Number of SID chips
+       Fact: src/sound.h defines SOUND_SIDS_MAX 4, so the engine already
+       mixes 4. BMC64's menu only exposes SID2, so 2 is all you can reach.
+   >>  EXTEND  4 SIDs - engine already supports it, menu wiring only
+       NOTE: but perhaps keep stretch goal to 8 SIDs if
+       hardware can support them.
+
+[A-02] SID emulation engine
+   >>  KEEP    ReSID default, FastSID selectable as escape hatch
+
+[A-03] SID models
+   >>  KEEP    6581 and 8580 both selectable, per chip
+
+[A-04] teensy-resid (BMC64's cut-down ReSID for Pi Zero)
+   >>  DROP    We are Pi 3B+ only, this path is dead code for us
+
+[A-05] FM synthesis - OPL2
+       Fact: src/c64/cart/sfx_soundexpander.c already implements YM3812
+       (OPL2) and YM3526 (OPL). Already compiled into the C64 build.
+       No menu entry exposes it. This is nearly free.
+   >>  EXTEND  Built-in fitted chip at a documented I/O address, always present
+
+[A-06] FM synthesis - which Yamaha core
+   >>  KEEP    YM3812 (OPL2) default, YM3526 (OPL) selectable
+       NOTE: I am unsure of the advantages of each
+
+[A-07] FM synthesis - OPL3 (YM262: 18 ch, 4-operator, stereo)
+       Fact: NOT in VICE 3.3. A real port of an external core.
+   >>  DEFER   Post-v1 stretch goal
+       NOTE: again I do not know the difference between
+       OPL, OPL-2 and 3
+
+[A-08] Number of FM chips
+   >>  KEEP    1
+       NOTE: stretch goal 2
+
+[A-09] DigiMAX 4-channel 8-bit PCM DAC
+       Pairs well with 1 MB of RAM to hold samples in.
+   >>  EXTEND  Built-in, always present
+
+[A-10] Sampler input (sfx_soundsampler, userport samplers)
+   >>  DROP    No meaningful audio-in path on bare metal
+
+[A-11] Userport DAC / 8-bit stereo sampler
+   >>  DROP    Superseded by built-in DigiMAX
+
+[A-12] Drive sound emulation
+   >>  KEEP    Costs almost nothing, people like it
+       NOTE:
+
+[A-13] Audio sampling method (fast / interpolation / resampling / fast-resampling)
+   >>  KEEP    All four selectable, as BMC64 does now
+
+[A-14] Simultaneous audio load ceiling
+       4 SIDs + OPL2 + DigiMAX is a lot of per-sample DSP for one A53 core
+       that is also running a fast CPU and a 640x480 video engine.
+   >>  ASK     Benchmark worst-case audio in Phase 0 before committing
+       NOTE: agree must be ajusted to RPi3b+
+       capabilities
+
+
+===============================================================================
+ B. VIDEO
+===============================================================================
+
+[B-01] VIC-II base (viciisc, cycle-exact)
+   >>  KEEP    Substrate for everything else
+       NOTE: Are strict timings really essential here,
+       we are not going to try and run C64 demos with
+       this machine. Could optimizing for functionality
+       over timings improve performance
+
+[B-02] Kawari hires engine
+       Already ported on branch kawari-phase1. 640 px wide today.
+   >>  KEEP
+       NOTE: I would like 640x480 and perhaps 800x600
+       and if Santa Clause comes early perhaps 1024x768
+       but that depends if I've been a good boy or not.
+
+[B-03] Kawari extended register file (extraRegs[])
+       The hook every new feature hangs on.
+   >>  KEEP
+       NOTE:
+
+[B-04] Kawari magic-knock unlock sequence
+       Real Kawari requires a knock sequence to unlock extra registers.
+       On a fantasy machine there is nobody to hide them from.
+   >>  DROP    Registers always live, no unlock needed
+       NOTE:
+
+[B-05] Kawari blitter (width/height already masked to 0x3ff = 1024)
+   >>  EXTEND  Expose it properly to software
+       NOTE: again we are optimizing for functionality
+       not exact timings
+
+[B-06] Kawari private video RAM, 24-bit addressed
+   >>  KEEP    Independent of the machine's 64 KB
+       NOTE:
+
+[B-07] Colour depth
+       Fact: BMC64's framebuffer is palettized - SetPalette(u8 index, u16
+       rgb565) - so 256 matches the hardware path exactly. Beyond that
+       needs BMC64's RGB path (crt_pi_rgb.c exists).
+   >>  EXTEND  256 colours - matches the indexed framebuffer
+       NOTE: can we have programmable palettes on Kawari
+       and VIC-II ???
+
+[B-08] Colour cell storage
+       256 colours needs byte-wide colour cells, not the VIC-II's nibbles.
+   >>  EXTEND  Byte-wide colour cells
+       NOTE:
+
+[B-09] Resolution
+       Fact: 640 wide already exists (VICII_SCREEN_XPIX is already 640).
+       YPIX is still 200 and line count is tied to PAL's 312 lines.
+       KEEP    640x200 - what the port does today
+   >>  EXTEND  640x480 - hires layer gets its own geometry and canvas
+       NOTE: Keep both (640x200, 640x400 and 640x480 and
+       the above Christmas list of 800x600 and above)
+       Also do we have bitplanes for smooth scrolling
+       and paralax effects????
+
+[B-10] How the 480-line layer coexists with VIC-II
+   >>  EXTEND  Hires layer owns its own canvas; composite VIC-II into it
+       NOTE:
+
+[B-11] Number of sprites
+       Fact: VICII_NUM_SPRITES is a #define (8), but 8 is structural -
+       register decode at $D000-$D02E and collision registers are 8-bit
+       masks by definition. This one is real work, not a constant bump.
+   >>  EXTEND  16 sprites
+       NOTE: but aim for max (ajustable once this thing
+       is standing up)
+
+[B-12] Sprite capabilities beyond count
+   >>  EXTEND  Also lift the per-line sprite limit
+       EXTEND  Also add per-sprite 256-colour mode
+       NOTE:
+
+[B-13] VDC (C128 80-column chip)
+   >>  DROP    Kawari hires supersedes it
+       NOTE:
+
+[B-14] CRT / scanline shaders
+   >>  KEEP    Free, already in BMC64
+       NOTE:
+
+[B-15] Colour adjustment (brightness/contrast/gamma/tint/saturation)
+   >>  KEEP    Already in BMC64's menu
+       NOTE:
+
+[B-16] Border modes (normal / full / debug / none)
+   >>  KEEP
+       NOTE:
+
+[B-17] PAL vs NTSC
+       On a fantasy machine this is a character decision, not a technical one.
+       DROP    Single fixed video timing, no PAL/NTSC distinction
+       NOTE:
+
+
+===============================================================================
+ C. CPU AND MEMORY
+===============================================================================
+
+[C-01] 4502 CPU core
+   >>  EXTEND  The project's core work (Phase 2)
+       NOTE:
+
+[C-02] 6510 compatibility mode
+   >>  KEEP    Needed so stock C64 ROMs boot
+       NOTE: I don't know about the Stock C64 Roms... I
+       think Wozmon is the base and then we will have to
+       make a clean room rewrite of the ROMS using
+       either Commodore or perhaps some other style of
+       ROMS.
+
+[C-03] Base RAM
+   >>  EXTEND  1 MB via the 4502's native 20-bit MMU
+       NOTE:
+
+[C-04] 45GS02 28-bit addressing headroom (256 MB ceiling)
+   >>  DEFER   Keep the register layout in mind, don't implement now
+       NOTE:
+
+[C-05] REU (RAM Expansion Unit)
+       Fact: reu.c present and complete, supports 128 KB to 16384 KB.
+   >>  KEEP    Up to 16 MB, as-is
+       NOTE: this is always on, and use does not cost
+       cycles like on the C64, transfer is immediate (or
+       as fast as possible)
+
+[C-06] REU DMA timing
+       VICE faithfully steals CPU cycles during transfers.
+   >>  EXTEND  Make it instant (memcpy-class) - simpler AND faster
+       NOTE:
+
+[C-07] Other RAM expansions (GeoRAM, RamCart, DQBB, +60K, +256K)
+   >>  DROP    Redundant next to 1 MB + REU
+       NOTE:
+
+[C-08] Clock speed
+   >>  EXTEND  Configurable, including unlimited "as fast as it goes"
+       NOTE:
+
+[C-09] Cycle-exact CPU timing
+   >>  DROP    Explicitly not a goal (PLAN.md sec 0.5)
+       NOTE:
+
+[C-10] CPU/video synchronisation granularity
+   >>  EXTEND  Sync at raster-line granularity, not per cycle
+       NOTE:
+
+[C-11] SuperCPU / 65816
+   >>  DROP    We have a better CPU
+       NOTE:
+
+[C-12] C64DTV features
+   >>  DROP    Different machine
+       NOTE:
+
+[C-13] Ultimax mode
+   >>  DROP    Cartridge-era mode, meaningless here
+       KEEP
+       NOTE:
+
+[C-14] C64 model variants (14 of them: PAL/NTSC/C64C/SX/GS/JAP/PET64...)
+   >>  DROP    K4502 is one machine, not fourteen
+       NOTE:
+
+
+===============================================================================
+ D. STORAGE
+===============================================================================
+
+[D-01] D64 / D71 / D81 disk images
+   >>  KEEP    Core usability
+       NOTE:
+
+[D-02] Virtual IEC device (host directory as a drive)
+   >>  KEEP    Fast, instant loading, no 1541 CPU to emulate
+       NOTE:
+
+[D-03] True drive emulation (TDE)
+       Runs the 1541's own 6502 in lockstep - a second complete CPU
+       emulation, a permanent tax at 40 MHz+.
+       DROP    Virtual IEC only
+       NOTE:
+
+[D-04] Drive numbers 8-11
+   >>  KEEP    Already in BMC64's menu
+       NOTE:
+
+[D-05] Drive models (1541, 1541-II, 1571, 1581, CMD-HD)
+   >>  KEEP    Already selectable
+       NOTE:
+
+[D-06] Datasette / tape
+       Free and already working. But a tape deck on a 40 MHz machine with
+       1 MB of RAM is a character decision, not a technical one.
+       DROP    No tape fiction on this machine
+       NOTE:
+
+[D-07] Tapecart / tape dongles / tapelog
+   >>  DROP
+       NOTE:
+
+[D-08] IEEE-488 and TCBM drives
+   >>  DROP    Nothing on this machine speaks them
+       NOTE:
+
+[D-09] A native K4502 mass-storage concept (beyond emulated floppies)
+       Nothing exists for this yet - it would be new design work.
+       ASK     Worth designing something native?
+       NOTE:
+
+
+===============================================================================
+ E. CARTRIDGES AND EXPANSION
+===============================================================================
+
+[E-01] The cartridge subsystem itself
+       Must stay: REU, DigiMAX and the Sound Expander are all implemented
+       as cartridges, and we're keeping all three.
+   >>  Extend
+       NOTE: Make the REU, Digimax and Sound Expander function NOT as a cartridge
+       but as a part of the base system. Always there.
+
+[E-02] The 86 cartridge implementations in src/c64/cart/
+   >>  DROP    Prune to: REU, DigiMAX, Sound Expander, Action Replay-class
+       NOTE:
+
+[E-03] When to prune
+   >>  DEFER   Phase 6 cleanup - it's subtraction, not architecture
+       NOTE:
+
+[E-04] Freezer carts (Action Replay, Retro Replay, Expert, Isepic)
+   >>  KEEP    Genuinely useful for development
+       NOTE: keep as a built in function in ROM
+
+[E-05] Copy-protection dongles (script64, vizawrite, waasoft, paperclip64)
+   >>  DROP    Meaningless on a machine that isn't a C64
+       NOTE:
+
+[E-06] Magic Voice speech cartridge
+       DROP
+       NOTE:
+
+[E-07] A native K4502 expansion mechanism
+   >>  DEFER   The Kawari extended registers already cover near-term needs
+       NOTE:
+
+
+===============================================================================
+ F. INPUT
+===============================================================================
+
+[F-01] USB gamepads (up to 4)
+   >>  KEEP    BMC64's implementation is already good
+       NOTE:
+
+[F-02] Joystick ports 1-4
+   >>  KEEP
+       NOTE:
+
+[F-03] USB keyboard and keymaps
+   >>  KEEP
+       NOTE:
+
+[F-04] Mouse (1351 / NEOS / Amiga / ST / SmartMouse)
+   >>  KEEP    Cheap, and genuinely useful at 640x480
+       NOTE:
+
+[F-05] Paddles
+   >>  KEEP    Free
+       NOTE:
+
+[F-06] Light pen
+   >>  DROP    Needs a CRT to mean anything
+       NOTE:
+
+[F-07] SNES pad adapter
+   >>  KEEP    Free, and USB gamepads map to it naturally
+       NOTE:
+
+[F-08] Keypads and cardkey (CX21, CX85, Coplin, Rushware, Cardkey)
+   >>  DROP    Obscure period peripherals
+       NOTE:
+
+[F-09] Userport joystick adapters
+   >>  DROP    We have 4 USB gamepads
+       NOTE:
+
+
+===============================================================================
+ G. HOST-LEVEL SUBSYSTEMS (bare-metal irrelevant)
+===============================================================================
+ All currently linked by Makefile-C64. Several are already no-op stubs
+ under BMC64, so the size savings are smaller than the list suggests.
+ All of these are Phase 6 cleanup, not now.
+
+[G-01] RS232 / ACIA / Swiftlink / Turbo232 (librs232drv)
+   >>  DROP    No serial host path on bare metal
+       NOTE:
+
+[G-02] Printer emulation (libprinterdrv)
+   >>  DROP
+       NOTE:
+
+[G-03] MIDI (libmididrv, midi.o)
+       Note: a real MIDI-out path would be interesting on a machine with
+       4 SIDs and OPL2 - but there is no hardware path for it today.
+   >>  DROP    For v1
+       NOTE:
+
+[G-04] Ethernet / RR-Net / TFE (librawnet, socket.o, network.o)
+   >>  DROP    No TCP/IP stack under Circle here
+       DEFER   Circle does have a net stack - could be revisited
+       NOTE: I don't understand -> the BMC64 has network
+       support built-in....
+
+[G-05] Hardware SID drivers (CatWeasel, HardSID, ParSID, SSI2001)
+   >>  DROP    PCI and parallel-port cards
+       NOTE:
+
+[G-06] Video/audio capture to file (libgfxoutputdrv)
+   >>  DROP
+       NOTE:
+
+[G-07] Sampler drivers (libsamplerdrv)
+   >>  DROP    No audio input
+       NOTE:
+
+[G-08] OpenCBM (real hardware CBM adapters)
+   >>  DROP
+       NOTE:
+
+[G-09] Event recording / playback
+   >>  DROP    Niche, and complicates the loose-timing CPU
+       NOTE:
+
+[G-10] RTC devices (bbrtc, userport RTC 58321a / DS1307)
+       KEEP    Fit a real-time clock as standard - the Pi has one available
+       NOTE:
+
+[G-11] Diagnostic harnesses (586220 diag, sense dongle)
+   >>  DROP
+       NOTE:
+
+
+===============================================================================
+ H. EMULATOR-LEVEL FEATURES
+===============================================================================
+
+[H-01] VICE monitor / debugger (libmonitor)
+   >>  KEEP    Bringing up a new CPU without it would be self-harm
+       NOTE:
+
+[H-02] Snapshots (save/load state)
+       Every new subsystem needs its own snapshot read/write code: 4502
+       registers, the MMU, 1 MB of RAM, Kawari's extended registers and
+       private video RAM. Unglamorous, easy to forget, real work.
+   >>  KEEP    Budget it as a real Phase 6 line item
+       NOTE:
+
+[H-03] Warp mode
+   >>  KEEP    Still useful even on a fast machine
+       NOTE:
+
+[H-04] Autostart (and autostart-warp)
+   >>  KEEP
+       NOTE:
+
+[H-05] Fliplist
+   >>  KEEP    Free
+       NOTE: I have no Idea what this is
+
+[H-06] ROM swapping (KERNAL / BASIC / CHARGEN from menu)
+   >>  KEEP    Essential while we're bootstrapping on C64 ROMs
+       NOTE:
+
+[H-07] Screenshots
+   >>  KEEP
+       NOTE:
+
+[H-08] Status bar / overlay / demo mode
+   >>  KEEP    Already in BMC64
+       NOTE:
+
+[H-09] Settings save/load
+   >>  KEEP
+       NOTE:
+
+
+===============================================================================
+ I. IDENTITY
+===============================================================================
+
+[I-01] Machine name in menus and docs
+   >>  ASK     "BMC-K4502"? Something with more character? Your call: ____
+       NOTE:
+
+[I-02] Boot ROM strategy (this is Decision C from PLAN.md)
+       EXTEND  New KERNAL/BASIC from an open ROM base
+       NOTE:
+
+[I-03] Boot screen / startup identity
+   >>  DEFER   Once the machine boots, decide what it says
+       NOTE:
+
+[I-04] C64 compatibility mode as a shipped feature
+       The one place where timing still matters at all.
+       DROP    No compatibility mode - reboot into BMC64's C64 instead
+       NOTE:
+
+
+
+===============================================================================
+ J. CHARACTER SET AND TEXT  ->  MOVED
+===============================================================================
+ Section J now lives in K4502-Design.md, Appendix A, so that everything
+ needing your attention is in one file. Edit it there.
+
+ Sections A-I above remain here as the record of what was already
+ decided on 2026-08-20; they are ratified and folded into the design
+ document already.
+
+===============================================================================
+ K. PROGRAMS BIGGER THAN THE WINDOW  (added 2026-08-23; K-01..K-04 BUILT the same day, commit 358592e -- see BUILD-LOG)
+===============================================================================
+ Context: the 45GS02 addresses 256 MB of DATA freely (flat [ptr],Z ops,
+ DMA, VICKe's 28-bit pointers) but its PC is 16 bits, so CODE executes
+ only inside the 64 KB window, repositioned by MAP. MAP is hostile from
+ C and tedious from assembly (A/X/Y/Z setup, megabyte nibbles, 4-block
+ masks, IRQs masked until EOM, "mapping block 0 unmaps $1000"). cc65
+ emits 65C02 code with 16-bit pointers and knows none of this.
+ These four blocks make the code side as honest as the data side
+ already is. None touches the Xemu CPU core. They compose; K-02 and
+ K-03 assume K-01.
+
+[K-01] Bank registers - a byte-pokeable MAP
+       One 4-byte register per 8 KB block of the window, at a device
+       page ($D600 as built -- $D400 is the SIDs; 8 x 4 bytes, top byte
+       don't-care so STQ works). Writing a 28-bit base makes that block show that
+       physical memory. Same MMU underneath; MAP keeps working.
+       From C:   BANK[5] = 0x012000;     From asm:  ldq base / stq BANK5
+       No IRQ masking, no masks, no side effects on other blocks.
+       Block 6/7 ($C000-$FFFF) stay I/O + ROM unless a flag says
+       otherwise; reading a register gives back what is mapped.
+   >>  EXTEND  Add it. ~150 lines in core/mem.c + core/io.h, one test.
+       EXTEND  Add it with 4 KB granularity (16 registers) - finer
+               overlays, same cost in the emulator
+       DROP    MAP is enough, write a macro library instead
+       NOTE:
+
+[K-02] Far-call gate - JSR into a descriptor page
+       A page ($DF00, as built) where EXECUTING a JSR into slot n makes
+       the emulator: read descriptor n from a table in RAM (28-bit
+       entry, window block, flags), save that block's bank, set the
+       bank, redirect PC to the entry, and arrange that the callee's
+       ordinary RTS lands in a trampoline that restores the bank and
+       returns to the caller. For the programmer a far call is
+       "jsr FAR+4*n" and the callee is ordinary code with a normal RTS.
+       cc65 emits it unmodified (it is just a JSR to an absolute).
+       Feasibility: the core sets old_pc before every opcode fetch, so
+       addr == old_pc in the read callback is the fetch. No core change.
+       One rule survives: a far routine must not rebank the block it
+       is running in (MAP has the same rule today).
+   >>  EXTEND  Add it, after the fetch-detection check passes
+       DEFER   Do K-01 first, write trampolines by hand, revisit
+       DROP    Hand-written trampolines are the 8-bit way
+       NOTE:
+
+[K-03] Segment loader - an executable format for LOAD
+       Header: magic "K4SG" (as built), segment count (<= 8), then per segment a 28-bit
+       target + length (+ optional "bank block b to this segment"),
+       then a 16-bit entry. LOAD DMAs every segment into place
+       anywhere in 256 MB, fills the bank registers, RUN jumps to
+       entry. Headerless files keep loading as today (raw, to addr).
+       ACME emits the header with a few directives; cc65 via its
+       linker config (one segment per overlay/data block).
+       ~100 lines of ROM C, plus 20 lines of doc.
+   >>  EXTEND  Add it. This is "programs bigger than 64 KB" end to end.
+       DEFER   Raw LOAD to address plus a user-written loader is fine
+       NOTE:
+
+[K-04] far.h - far pointers for cc65
+       A small runtime: far_peek/far_poke/far_copy (native [ptr],Z
+       and STQ/LDQ), far_fill and far_move via DMA $D200, plus
+       bank_set()/bank_get() for K-01 and a FAR_CALL macro for K-02.
+       Assembly programmers do not need it - the opcodes ARE the
+       library. Nothing in the machine changes; this is demo/ and
+       rom/ code. ~200 lines of asm + a header.
+   >>  EXTEND  Write it; cube/mandel already hand-roll parts of it
+       DEFER   Until a demo needs more than 64 KB
+       NOTE:
+
+ Not on this ballot, recorded for later: (B1) a separate code and data
+ MMU so the whole window is code; (B2) a far C stack/heap; (C1) long
+ JSR/JMP/RTS opcodes in the core; (C2) a 28-bit PC native mode. C1/C2
+ are only worth anything with a compiler that can emit them - check
+ llvm-mos's MEGA65 target before deciding.
+
+[K-05] RAM under the ROM  (added 2026-08-23, Doc's question; BUILT the same day, commit faf0196)
+       Today: ROM $A000-$FFFF (24 KB, I/O hole at $D000), user RAM
+       $0800-$9FFF = 38 KB; EhBASIC has 25.6 KB for programs. The C64
+       trick (the 6510 port banks ROM out to reveal RAM, KERNAL calls
+       bank it back) maps directly onto K-01: the ROM's blocks 5 and 7
+       can be banked to RAM by the program, and a 256-byte stub at
+       $FF00 (jump table, vectors, a trampoline) would bank the ROM in
+       for the duration of every system call and IRQ, then out again.
+       Program space becomes $0800-$CFFF + $E000-$FEFF = ~58 KB.
+       Costs: every CHROUT/GETIN/LOAD pays two bank writes (~20 cycles,
+       invisible at 40 MHz); the IRQ handler must bank in/out too; the
+       ROM must be built position-fixed for its physical home (it is
+       already); programs that bank the ROM out must not be interrupted
+       during a bank write (they are not: a STA is atomic). Block 6
+       ($C000-$DFFF) keeps the I/O page, so $C000-$CFFF stays ROM or
+       becomes RAM only if the ROM fits in blocks 5+7 (20 KB: it does
+       not today, 12 KB code + 4.6 KB CODE2 + 2.7 KB data; a 4 KB diet or
+       accepting $C000-$CFFF as ROM).
+       Honest question first: is RAM actually short? Only the BASIC
+       Sieve (48 KB of floats) has hit it. For BASIC the bigger lever is
+       EhBASIC's own 26 KB workspace, which the C64 trick does not grow
+       unless EhBASIC itself is rebuilt to sit under the ROM.
+       DEFER   Until a real program needs it; then: stub + bank in/out
+               around system calls, ~1 day, no emulator change.
+   >>  EXTEND  Done (Doc: "I can already hear the critics"). As built: the
+               ROM image lives at physical $0FFF0000, $FF00-$FFFF is an
+               always-ROM stub page, rom_out() = banks 5/7 onto $A000/$E000,
+               54 KB for programs; the stub costs ~300 cycles per system
+               call (CHROUT +9%), nothing on compute.
+       DROP    38 KB is the machine; use far memory (K-01..K-04).
+       NOTE:
+
+===============================================================================
+ END - anything you leave untouched, I read as the ">>" line.
+===============================================================================
