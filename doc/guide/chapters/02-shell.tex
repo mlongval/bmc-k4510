@@ -94,6 +94,14 @@ the Ethernet port (DHCP); without a cable the device answers ``not
 fitted'' and URLs are simply absent names. The Pi has no TLS, so
 \texttt{https://} works on the desktop only.
 
+\section{CAPSLOCK}
+\verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
+keyboard come up uppercase, so a language whose keywords are uppercase ---
+BBC BASIC, EhBASIC --- needs no Shift held. Digits and symbols are
+untouched, so it is a caps lock and not a shift lock. \verb|CAPSLOCK ON|
+and \verb|CAPSLOCK OFF| set it explicitly. It works from inside a BASIC
+through the \texttt{*} escape: \verb|*CAPSLOCK| in BBC BASIC or EhBASIC.
+
 \section{Scripts and the boot file}
 \verb|EXEC name| runs a text file as shell commands, one per line. At
 power-on the machine runs \verb|/!BOOT| as such a script, if it exists ---

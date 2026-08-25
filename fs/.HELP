@@ -6,6 +6,7 @@ files:   DIR [A]  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  XD name
          names starting with . are hidden from DIR (DIR A shows them)
 memory:  FILL from.to value   COPY from.to dest
 system:  INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  HUSH  RESET
+         CAPSLOCK [ON|OFF] (toggle; letters typed come up uppercase -- *CAPSLOCK in a BASIC)
          DUMP [note|ON|OFF]
 tongues: BBC (BBC BASIC on the Tube)   CPM (CP/M 2.2, the Z80 second processor)
          FORTH (Tali Forth 2, native)  EHBASIC via RUN EHBASIC

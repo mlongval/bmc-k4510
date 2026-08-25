@@ -3376,3 +3376,42 @@ directory; BBC BASIC's CHAIN wants a tokenised file — LOAD then RUN
 for text — its integers are 64-bit (no wrap at 2^31), and CASE ... OF
 must end its line. Run here on ubuntu-s1 in the guide-build clone
 while the laptop was off the tailnet; committed from here.
+
+## 2026-08-25 (ar) — CAPSLOCK, and the BASIC tests made legible
+
+Doc, after a session on the emulator: EhBASIC "hangs on startup, no dump";
+BBC BASIC's tests pass but he wants them to explain themselves; and no
+Shift-lock on his keyboard, so holding Shift for uppercase keywords is a
+chore.
+
+**The EhBASIC "crash" was a stale build.** EhBASIC starts and computes
+fine at HEAD (headless and the SDL frontend, verified). The tell is in
+Doc's own screenshot: the BBC banner still reads "for Linux Console",
+a string renamed days ago -- his emulator is running old binaries
+(source pulled, `make` not fully re-run; note bbcbasic needs nasm, so a
+partial build keeps the old one). Fix on his side: `make clean && make`,
+delete a stale k4510.cfg, and `git pull ubuntu-s1 master`.
+
+Aside: cc65 built from source into the scratch area so the ROM could be
+rebuilt on ubuntu-s1 at all (the laptop, the only cc65 host, was off the
+tailnet). ubuntu-s1 can now build the ROM -- worth keeping.
+
+**CAPSLOCK** (rom/kernal.c): a one-byte flag and caps(), through which
+every key the ROM reads passes -- k_getin (the shell, EhBASIC and any
+GETIN/CHRIN caller) and the Tube key-forward loop (BBC BASIC). On, a-z
+come up A-Z; digits and symbols untouched (a caps lock, not shift lock).
+`CAPSLOCK` toggles, `CAPSLOCK ON`/`OFF` are explicit; `*CAPSLOCK` reaches
+it from inside either BASIC. Verified: `*capslock` then lowercase
+`print "hi"` -> `PRINT "HI"` -> runs, in both BASICs. BSS still fits.
+
+**The BASIC self-tests, verbose** (fs/EHBASIC/TEST.BAS 34 checks,
+fs/BBCBASIC/TEST.BBC 28): each area now prints its name, goal, expected
+result and a sample computed value, then [PASS]/[FAIL]. At startup a 5s
+window: press a key for step-by-step (a pause between tests), else it
+runs straight through -- EhBASIC times the window on the frame counter
+($D50D), BBC on INKEY(500). The harness presses nothing, so both run
+auto; basictest.sh budgets the wait (3000 / 4200 frames). Two lessons:
+EhBASIC's line-input buffer is short (~72 chars -- the first verbose
+draft overflowed and truncated header lines into syntax errors, so the
+strings are terse and split across lines); and a poll-and-reprint pause
+loop spams its prompt (print once, then poll).

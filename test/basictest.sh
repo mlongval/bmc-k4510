@@ -3,12 +3,16 @@
 # fs/BBCBASIC/TEST.BBC are self-checking programs (arithmetic, the MATH
 # unit's functions, strings, control flow, arrays, the machine's
 # registers, graphics and sound escapes, files, the * escape); each
-# prints a verdict line the harness reads off the screen.
+# prints a verdict line the harness reads off the screen. Each waits 5
+# seconds for a key at startup (step-by-step mode if pressed); the
+# harness presses none, so both run straight through -- but budget the
+# frames for that wait (EhBASIC counts frames; BBC INKEY(500) is ~5s of
+# the co-processor's own clock).
 cd "$(dirname "$0")/.."
 rm -f fs/TESTOUT.BAS fs/TESTOUT.TXT
 out=$(./test/headless rom/kernal.bin "RUN EHBASIC
 ~~~RUN \"TEST.BAS\"
-~~~~~~~~~~~~~~~~~~~~" 1500 2>&1) || { echo "$out"; echo "basictest: FAILED: EhBASIC did not run"; exit 1; }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" 3000 2>&1) || { echo "$out"; echo "basictest: FAILED: EhBASIC did not run"; exit 1; }
 echo "$out" | grep -q "EHTEST PASSED" || { echo "$out"; echo "basictest: FAILED: EhBASIC"; exit 1; }
 echo "$out" | grep -q "STAR OK" || { echo "$out"; echo "basictest: FAILED: EhBASIC * escape"; exit 1; }
 [ -s fs/TESTOUT.BAS ] || { echo "basictest: FAILED: EhBASIC SAVE wrote nothing"; exit 1; }
@@ -18,9 +22,9 @@ TUBE=./test/tubetest; [ -x $TUBE ] || TUBE=./test/headless   # the in-process Tu
 out=$($TUBE rom/kernal.bin "BBC
 ~~~LOAD \"BBCBASIC/TEST.BBC\"
 ~~RUN
-~~~~~~~~~~~~~~~~~~~~~~~~*QUIT
-~~" 2400 2>&1) || { echo "$out"; echo "basictest: FAILED: BBC BASIC did not run"; exit 1; }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*QUIT
+~~" 4200 2>&1) || { echo "$out"; echo "basictest: FAILED: BBC BASIC did not run"; exit 1; }
 echo "$out" | grep -q "BBCTEST PASSED" || { echo "$out"; echo "basictest: FAILED: BBC BASIC"; exit 1; }
 echo "$out" | grep -q "STAR OK" || { echo "$out"; echo "basictest: FAILED: BBC BASIC * escape"; exit 1; }
 rm -f fs/TESTOUT.TXT
-echo "basictest: OK (EhBASIC 32 checks incl. MATH unit, graphics, SAVE and *; BBC BASIC 28 checks incl. files through the Tube, ULA graphics/sound/sprites and *)"
+echo "basictest: OK (EhBASIC 34 checks + SAVE + *, BBC BASIC 28 checks + files + ULA graphics/sound + *; both verbose, both PASSED)"

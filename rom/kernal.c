@@ -128,11 +128,17 @@ static void label(const char *s) { uint8_t o = fg; fg = C_HI; puts_(s); fg = o; 
 static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
 
 /* ---- keyboard ---------------------------------------------------------- */
+/* CAPSLOCK: when on, letters read from the keyboard come up uppercase, so
+ * the language keywords (BBC BASIC, EhBASIC) need no Shift. Digits and
+ * symbols are untouched -- a caps lock, not a shift lock. The flag lives
+ * here and every key the ROM reads passes through caps(). */
+static uint8_t capslock;
+static uint8_t caps(uint8_t k) { return (capslock && k >= 'a' && k <= 'z') ? (uint8_t)(k - 32) : k; }
 /* GETIN shows the cursor while a program waits for a key (BASIC reads this way) */
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
-    if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return REG(KBD); }
+    if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     if (!cursor_vis) draw_cursor(1);
     return 0;
 }
@@ -768,6 +774,15 @@ uint8_t k_args(void)
     return n;
 }
 
+static void cmd_caps(const char *p)
+{
+    skipsp(&p);
+    if (is_cmd(&p, "ON"))       capslock = 1;
+    else if (is_cmd(&p, "OFF")) capslock = 0;
+    else if (!*p)               capslock = !capslock;
+    else { error("caps: ON, OFF, or nothing to toggle"); return; }
+    puts_("caps lock "); puts_(capslock ? "on" : "off"); newline();
+}
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -797,6 +812,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { cmd_mode(p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { cmd_caps(p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
     if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
@@ -964,7 +980,7 @@ static void cmd_bbcbasic(uint8_t prog)
             tube_keys();                                 /* JIM's answers (cursor position reports) go up */
             continue;                                    /* drain output before reading keys */
         }
-        if (REG(KBDST) & 0x80) { REG(TERM + 3) = REG(KBD); tube_keys(); }
+        if (REG(KBDST) & 0x80) { REG(TERM + 3) = caps(REG(KBD)); tube_keys(); }
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
     REG(TERM + 0x0E) = 0;
