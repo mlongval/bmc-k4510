@@ -3287,3 +3287,47 @@ hold it. (3) telnet.prg negotiates: DO NAWS is answered WILL + the
 size from JIM's COLS/ROWS registers, DO TTYPE with WILL and, on the
 server's SEND, IS "ANSI"; everything else still WONT/DONT; IAC IAC
 passes as a byte. nettest's echo leg unchanged.
+
+## 2026-08-25 (an) — WordStar 4 on JIM: already installed, given the whole screen
+
+Item 3. The premise ("WordStar needs a WSCHANGE pass to VT100") was
+wrong in the best way: WSCHANGE on E: user 3 reports *WordStar is
+currently installed for: ANSI Standard*, and `WS` → `D` → `READ.ME`
+opens the editor on JIM — the edit menu, the ruler, the text, all
+there (screenshot sent). The pass that was worth making: Console →
+Monitor → Screen sizing, height 24 → 29, width 80 → 79, so the editor
+uses the console's whole 79×29. WS.COM on E:3 rewritten by WSCHANGE
+(in Doc's CP/M library, fs/CPM is gitignored; the card copy staged;
+hdieu's master untouched — that is Doc's mirror.py). The whole thing
+was driven through test/tubetest with `~` waits, reading the screens
+as text; test/capture learned the same `~` waits on the way, because
+a spawned co-processor is slower to answer than an in-process one and
+keystrokes were outrunning WordStar's opening menu.
+
+## 2026-08-25 (ao) — GRAPH on VICKe
+
+Item 2. lib/graph_k4510.inc + graphh_k4510.inc: Mad Pascal's GRAPH unit
+gets VICKe's layer 1 — the 640×480 8-bit bitmap at $200000 that BBC
+BASIC's ULA draws on — over the console. The primitives the unit
+requires of a target: InitGraph (layer registers, DMA clear, the video
+control byte's line-doubling bits cleared, because the ROM's MODE 1 is
+640×240 doubled — the first shot had every circle twice as tall and
+the colour bars off the bottom), SetColor/SetBkColor, PutPixel/GetPixel
+(bounds-checked in asm; y*640 by the MEGA65 multiplier at $D770, the
+45GS02's [bp],Z store), LineTo (the blitter's LINE op, registers
+$D084-$D08B), CloseGraph (layer off, control byte back), OutTextXY (the
+ROM's font at $010000, pixel by pixel). Added, declared in the header
+include: DrawLine, FillBar (FILL op, clipped), FillTriangle (TRIANGLE
+op, $D084-$D08F), ClearDevice (DMA fill 0). Mad Pascal's generic Line
+funnels into LineTo, so Rectangle/Circle/Ellipse/Bar all end on the
+blitter or on PutPixel. PGRAPH: sixteen bars, a 36-ray star, six
+circles, two triangles, a frame, two text lines, the console's own
+line on top (screenshot sent). Also fixed: the runtime now says `opt
+c+` itself (a program without the CRT unit reached single.asm's `stz`
+before the compiler's own `opt c+` line). pastest runs PGRAPH and
+checks the shell comes back.
+
+Not done: the lower half of the screen under a 480-line picture is
+the text map's uninitialised rows (black cells) — a graphics program
+paints over it or lives with it; a pattern/line-style; FloodFill is
+Mad Pascal's generic one on GetPixel/PutPixel (slow).

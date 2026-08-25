@@ -1,6 +1,6 @@
 mads 2.1.8
 demo/pas/hello.a65 -x -i:/home/doc/Projects/neo6502_dev/Mad-Pascal/base -o:fs/PRG/hello.prg 
-   118 					opt l+
+   119 					opt l+
    106
    107 				.print 'ZPAGE: ',zpage,'..',zpend-1
    107 				ZPAGE: $0022..$00A3
@@ -53,7 +53,7 @@ Source: hello.a65
    149
    150 0940			.local	PARAMCOUNT					; FUNCTION | ASSEMBLER
    151
-   152 				; -------------------  ASM Block 00000046  -------------------
+   152 				; -------------------  ASM Block 00000052  -------------------
    153
    154 0940 8A 48			txa:pha
    155 0942 20 95 FF			jsr k4_args		; A = the length of the tail, $F0/$F1 -> it
@@ -92,7 +92,7 @@ Source: hello.a65
    188 096B			.local	PARAMSTR					; FUNCTION | ASSEMBLER
    189 096B 8D 7D 0A			sta I
    190
-   191 				; -------------------  ASM Block 00000047  -------------------
+   191 				; -------------------  ASM Block 00000053  -------------------
    192
    193 096E 8A 48			txa:pha
    194 0970 20 95 FF			jsr k4_args
@@ -195,7 +195,7 @@ Source: hello.a65
    289 09D7			.local	TEXTCOLOR					; PROCEDURE | ASSEMBLER
    290 09D7 8D 9F 0A			sta A
    291
-   292 				; -------------------  ASM Block 00000061  -------------------
+   292 				; -------------------  ASM Block 00000067  -------------------
    293
    294 09DA AD 9F 0A			lda a
    295 09DD 8D 0B DA			sta k4_term_fg
@@ -375,11 +375,11 @@ Source: hello.a65
    443
    444 0A28 9C A0 0A			stz I
    445
-   446 0A2B			l_00E7
+   446 0A2B			l_00D6
    447 				; --- ForToDoCondition
    448 0A2B AD A0 0A			lda I
    449 0A2E C9 10			cmp #$10
-   450 0A30 B0 0D			jcs l_00F1
+   450 0A30 B0 0D			jcs l_00E0
    451 0A32 20 D7 09			jsr CRT.TEXTCOLOR
    452 					@print #$23
    452 				 LDY# $23\ JSR @PRINT
@@ -388,8 +388,8 @@ Source: hello.a65
    453
    454 				; --- ForToDoEpilog
    455 0A3A EE A0 0A			inc I
-   456 0A3D D0 EC			jne l_00E7
-   457 0A3F			l_00F1
+   456 0A3D D0 EC			jne l_00D6
+   457 0A3F			l_00E0
    458
    459 				; optimize OK (hello.pas), line = 9
    460
@@ -404,7 +404,7 @@ Source: hello.a65
    469
    470 0A47 20 40 09			jsr SYSTEM.PARAMCOUNT
    471 0A4A AD 7C 0A			lda SYSTEM.PARAMCOUNT.RESULT
-   472 0A4D F0 18			jeq l_010A
+   472 0A4D F0 18			jeq l_00F9
    473 					@printSTRING #CODEORIGIN+$0045
    473 				 LDY> CODEORIGIN+$0045\ LDA< CODEORIGIN+$0045\ JSR @PRINTSTRING
    473 0A4F A0 08		 LDY> CODEORIGIN+$0045
@@ -418,7 +418,7 @@ Source: hello.a65
    476 0A5E AD D2 09		 LDA SYSTEM.PARAMSTR.RESULT
    476 0A61 20 5E 08		 JSR @PRINTSTRING
    477 0A64 20 50 08			@printEOL
-   478 0A67			l_010A
+   478 0A67			l_00F9
    479
    480 				; ------------------------------------------------------------
    481

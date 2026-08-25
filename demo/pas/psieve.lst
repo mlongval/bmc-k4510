@@ -1,6 +1,6 @@
 mads 2.1.8
 demo/pas/psieve.a65 -x -i:/home/doc/Projects/neo6502_dev/Mad-Pascal/base -o:fs/PRG/psieve.prg 
-   118 					opt l+
+   119 					opt l+
    106
    107 				.print 'ZPAGE: ',zpage,'..',zpend-1
    107 				ZPAGE: $0022..$00A3
@@ -191,11 +191,11 @@ Source: psieve.a65
    264 09DD 8D 96 2B			sta ITER
    265 09E0 9C 97 2B			stz ITER+1
    266
-   267 09E3			l_00BD
+   267 09E3			l_00AC
    268 				; --- ForToDoCondition
    269 09E3 AD 96 2B			lda ITER
    270 09E6 C9 0B			cmp #$0B
-   271 09E8 90 03 4C 14 0B		jcs l_00C7
+   271 09E8 90 03 4C 14 0B		jcs l_00B6
    272
    273 				; optimize OK (psieve.pas), line = 12
    274
@@ -207,16 +207,16 @@ Source: psieve.a65
    280 09F3 9C 90 2B			stz I
    281 09F6 9C 91 2B			stz I+1
    282
-   283 09F9			l_00D4
+   283 09F9			l_00C3
    284 				; --- ForToDoCondition
    285 09F9 AD 91 2B			lda I+1
    286 09FC C9 1F			cmp #$1F
    287 09FE 90 0B			bcc @+
-   288 0A00 D0 27			jne l_00DE
+   288 0A00 D0 27			jne l_00CD
    289 0A02 AD 90 2B			lda I
    290 0A05 C9 FE			cmp #$FE
    291 0A07 90 02			bcc @+
-   292 0A09 D0 1E			jne l_00DE
+   292 0A09 D0 1E			jne l_00CD
    293 				@
    294 0A0B AD 81 0B			lda FLAGS
    295 0A0E 18 6D 90 2B			add I
@@ -229,26 +229,26 @@ Source: psieve.a65
    302
    303 				; --- ForToDoEpilog
    304 0A1F EE 90 2B			inc I
-   305 0A22 D0 D5			jne l_00D4
+   305 0A22 D0 D5			jne l_00C3
    306 0A24 EE 91 2B			inc I+1
-   307 0A27 D0 D0			jne l_00D4
-   308 0A29			l_00DE
+   307 0A27 D0 D0			jne l_00C3
+   308 0A29			l_00CD
    309
    310 				; optimize OK (psieve.pas), line = 14
    311
    312 0A29 9C 90 2B			stz I
    313 0A2C 9C 91 2B			stz I+1
    314
-   315 0A2F			l_00F1
+   315 0A2F			l_00E0
    316 				; --- ForToDoCondition
    317 0A2F AD 91 2B			lda I+1
    318 0A32 C9 1F			cmp #$1F
    319 0A34 90 12			bcc @+
-   320 0A36 F0 03 4C 0C 0B		jne l_00FB
+   320 0A36 F0 03 4C 0C 0B		jne l_00EA
    321 0A3B AD 90 2B			lda I
    322 0A3E C9 FE			cmp #$FE
    323 0A40 90 06			bcc @+
-   324 0A42 F0 03 4C 0C 0B		jne l_00FB
+   324 0A42 F0 03 4C 0C 0B		jne l_00EA
    325 0A47 18				clc
    326 				@
    327 				; optimize OK (psieve.pas), line = 15
@@ -260,7 +260,7 @@ Source: psieve.a65
    333 0A52 6D 91 2B			adc I+1
    334 0A55 85 23			sta :bp+1
    335 0A57 B1 22			lda (:bp),y
-   336 0A59 D0 03 4C FC 0A		jeq l_0106
+   336 0A59 D0 03 4C FC 0A		jeq l_00F5
    337
    338 				; optimize OK (psieve.pas), line = 16
    339
@@ -277,8 +277,8 @@ Source: psieve.a65
    350 0A78 EE 93 2B			inc K+1
    351
    352 				; --- WhileProlog
-   353 0A7B 4C CD 0A			jmp l_0115
-   354 0A7E			l_0116
+   353 0A7B 4C CD 0A			jmp l_0104
+   354 0A7E			l_0105
    355
    356 				; optimize OK (psieve.pas), line = 17
    357
@@ -313,7 +313,7 @@ Source: psieve.a65
    386 0AC5 8D 92 2B			sta K
    387 0AC8 90 03			scc
    388 0ACA EE 93 2B			inc K+1
-   389 0ACD			l_0115
+   389 0ACD			l_0104
    390 0ACD AD 90 2B			lda I
    391 0AD0 18 6D 92 2B			add K
    392 0AD4 85 6D			sta :STACKORIGIN+9
@@ -330,27 +330,27 @@ Source: psieve.a65
    403 0AEC A5 6D			lda :STACKORIGIN+9
    404 0AEE C9 FE			cmp #$FE
    405 				@
-   406 0AF0 90 8C			jcc l_0116
-   407 0AF2 F0 8A			jeq l_0116
+   406 0AF0 90 8C			jcc l_0105
+   407 0AF2 F0 8A			jeq l_0105
    408
    409 				; optimize FAIL (0, psieve.pas), line = 18
    410
    411 0AF4 EE 94 2B			inc COUNT
    412 0AF7 D0 03			sne
    413 0AF9 EE 95 2B			inc COUNT+1
-   414 0AFC			l_0106
+   414 0AFC			l_00F5
    415
    416 				; --- ForToDoEpilog
    417 0AFC EE 90 2B			inc I
-   418 0AFF F0 03 4C 2F 0A		jne l_00F1
+   418 0AFF F0 03 4C 2F 0A		jne l_00E0
    419 0B04 EE 91 2B			inc I+1
-   420 0B07 F0 03 4C 2F 0A		jne l_00F1
-   421 0B0C			l_00FB
+   420 0B07 F0 03 4C 2F 0A		jne l_00E0
+   421 0B0C			l_00EA
    422
    423 				; --- ForToDoEpilog
    424 0B0C EE 96 2B			inc ITER
-   425 0B0F F0 03 4C E3 09		jne l_00BD
-   426 0B14			l_00C7
+   425 0B0F F0 03 4C E3 09		jne l_00AC
+   426 0B14			l_00B6
    427
    428 				; optimize OK (psieve.pas), line = 21
    429

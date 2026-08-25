@@ -14,4 +14,9 @@ out=$(./test/headless rom/kernal.bin "PFLOAT
 for want in "1.5 + 2.25 = 3.75" "7 / 2 = 3.5" "trunc(-3.7) = -3" "round(2.5) = 3" "1.5 < 2.25: yes" "sqrt(2) = 1.414" "2^10 = 1024" "SYSTEM: sqrt(2) = 1.414" "cos(1) = 0.5403" "exp(1) = 2.7182"; do
   echo "$out" | grep -q -F "$want" || { echo "$out"; echo "pastest: FAILED: pfloat: '$want'"; exit 1; }
 done
-echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, all back to the shell)"
+out=$(./test/headless rom/kernal.bin "PGRAPH
+~~~~x
+~ECHO BACK FROM GRAPH
+~~" 900 2>&1) || { echo "$out"; echo "pastest: FAILED: pgraph"; exit 1; }
+echo "$out" | grep -q "BACK FROM GRAPH" || { echo "$out"; echo "pastest: FAILED: pgraph did not hand the shell back"; exit 1; }
+echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, GRAPH on VICKe, all back to the shell)"

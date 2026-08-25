@@ -1,6 +1,6 @@
 mads 2.1.8
 demo/pas/pfloat.a65 -x -i:/home/doc/Projects/neo6502_dev/Mad-Pascal/base -o:fs/PRG/pfloat.prg 
-   118 					opt l+
+   119 					opt l+
    106
    107 				.print 'ZPAGE: ',zpage,'..',zpend-1
    107 				ZPAGE: $0022..$00A3

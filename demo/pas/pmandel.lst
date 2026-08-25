@@ -1,6 +1,6 @@
 mads 2.1.8
 demo/pas/pmandel.a65 -x -i:/home/doc/Projects/neo6502_dev/Mad-Pascal/base -o:fs/PRG/pmandel.prg 
-   118 					opt l+
+   119 					opt l+
    106
    107 				.print 'ZPAGE: ',zpage,'..',zpend-1
    107 				ZPAGE: $0022..$00A3
@@ -86,7 +86,7 @@ Source: pmandel.a65
    181
    182 0A3C			.local	CURSOROFF					; PROCEDURE
    183
-   184 				; -------------------  ASM Block 00000054  -------------------
+   184 				; -------------------  ASM Block 00000060  -------------------
    185
    186 0A3C 9C 0E DA			stz k4_term_flags
    187 				 
@@ -104,7 +104,7 @@ Source: pmandel.a65
    199
    200 0A40			.local	CURSORON					; PROCEDURE
    201
-   202 				; -------------------  ASM Block 00000055  -------------------
+   202 				; -------------------  ASM Block 00000061  -------------------
    203
    204 0A40 A9 01			lda #1
    205 0A42 8D 0E DA			sta k4_term_flags
@@ -123,7 +123,7 @@ Source: pmandel.a65
    218
    219 0A46			.local	CLRSCR						; PROCEDURE
    220
-   221 				; -------------------  ASM Block 00000056  -------------------
+   221 				; -------------------  ASM Block 00000062  -------------------
    222
    223 0A46 A9 02			lda #2
    224 0A48 8D 04 DA			sta k4_term_ctl
@@ -142,7 +142,7 @@ Source: pmandel.a65
    237
    238 0A4C			.local	READKEY						; FUNCTION | ASSEMBLER
    239
-   240 				; -------------------  ASM Block 00000059  -------------------
+   240 				; -------------------  ASM Block 00000065  -------------------
    241
    242 0A4C 2C 01 D1		getkey	bit k4_kbdst
    243 0A4F 10 FB			bpl getkey
@@ -164,7 +164,7 @@ Source: pmandel.a65
    259 0A58			.local	TEXTBACKGROUND					; PROCEDURE | ASSEMBLER
    260 0A58 8D E5 0D			sta A
    261
-   262 				; -------------------  ASM Block 00000060  -------------------
+   262 				; -------------------  ASM Block 00000066  -------------------
    263
    264 0A5B AD E5 0D			lda a
    265 0A5E 8D 0C DA			sta k4_term_bg
@@ -191,7 +191,7 @@ Source: pmandel.a65
    286 0A62			.local	TEXTCOLOR					; PROCEDURE | ASSEMBLER
    287 0A62 8D E6 0D			sta A
    288
-   289 				; -------------------  ASM Block 00000061  -------------------
+   289 				; -------------------  ASM Block 00000067  -------------------
    290
    291 0A65 AD E6 0D			lda a
    292 0A68 8D 0B DA			sta k4_term_fg
@@ -217,7 +217,7 @@ Source: pmandel.a65
    312
    313 0A6C			.local	GOTOXY						; PROCEDURE | ASSEMBLER
    314
-   315 				; -------------------  ASM Block 00000064  -------------------
+   315 				; -------------------  ASM Block 00000070  -------------------
    316
    317 0A6C AD E7 0D			lda x
    318 0A6F F0 01			beq @+
@@ -251,7 +251,7 @@ Source: pmandel.a65
    346 0A7F			.local	TEXTMODE					; PROCEDURE | ASSEMBLER
    347 0A7F 8D E9 0D			sta MODE
    348
-   349 				; -------------------  ASM Block 00000068  -------------------
+   349 				; -------------------  ASM Block 00000074  -------------------
    350
    351 0A82 8A 48			txa:pha
    352
@@ -445,11 +445,11 @@ Source: pmandel.a65
    533
    534 0AF7 9C EB 0D			stz PY
    535
-   536 0AFA			l_0123
+   536 0AFA			l_0112
    537 				; --- ForToDoCondition
    538 0AFA AD EB 0D			lda PY
    539 0AFD C9 1C			cmp #$1C
-   540 0AFF 90 03 4C 89 0D		jcs l_012D
+   540 0AFF 90 03 4C 89 0D		jcs l_011C
    541
    542 				; optimize OK (pmandel.pas), line = 19
    543
@@ -493,11 +493,11 @@ Source: pmandel.a65
    581
    582 0B4E 9C EA 0D			stz PX
    583
-   584 0B51			l_0149
+   584 0B51			l_0138
    585 				; --- ForToDoCondition
    586 0B51 AD EA 0D			lda PX
    587 0B54 C9 4E			cmp #$4E
-   588 0B56 90 03 4C 81 0D		jcs l_0153
+   588 0B56 90 03 4C 81 0D		jcs l_0142
    589
    590 				; optimize OK (pmandel.pas), line = 22
    591
@@ -541,7 +541,7 @@ Source: pmandel.a65
    629 0BAD 9C 04 0E			stz IT
    630
    631 				; --- RepeatUntilProlog
-   632 0BB0			l_016D
+   632 0BB0			l_015C
    633
    634 				; optimize OK (pmandel.pas), line = 25
    635
@@ -729,13 +729,13 @@ Source: pmandel.a65
    817 				@
    818 0D38 98				tya
    819 0D39 05 6D			ora :STACKORIGIN+9
-   820 0D3B D0 03 4C B0 0B		jeq l_016D
+   820 0D3B D0 03 4C B0 0B		jeq l_015C
    821
    822 				; optimize OK (pmandel.pas), line = 31
    823
    824 0D40 AD 04 0E			lda IT
    825 0D43 C9 20			cmp #$20
-   826 0D45 D0 12			jne l_01D2
+   826 0D45 D0 12			jne l_01C1
    827 0D47 A9 00			lda #$00
    828 0D49 20 62 0A			jsr CRT.TEXTCOLOR
    829 0D4C A9 00			lda #$00
@@ -744,8 +744,8 @@ Source: pmandel.a65
    831 				 LDY# $20\ JSR @PRINT
    831 0D51 A0 20		 LDY# $20
    831 0D53 20 3A 09		 JSR @PRINT
-   832 0D56 4C 79 0D			jmp l_01E0
-   833 0D59			l_01D2
+   832 0D56 4C 79 0D			jmp l_01CF
+   833 0D59			l_01C1
    834
    835 				; optimize OK (pmandel.pas), line = 32
    836
@@ -764,17 +764,17 @@ Source: pmandel.a65
    848 				 LDY# $B1\ JSR @PRINT
    848 0D74 A0 B1		 LDY# $B1
    848 0D76 20 3A 09		 JSR @PRINT
-   849 0D79			l_01E0
+   849 0D79			l_01CF
    850
    851 				; --- ForToDoEpilog
    852 0D79 EE EA 0D			inc PX
-   853 0D7C F0 03 4C 51 0B		jne l_0149
-   854 0D81			l_0153
+   853 0D7C F0 03 4C 51 0B		jne l_0138
+   854 0D81			l_0142
    855
    856 				; --- ForToDoEpilog
    857 0D81 EE EB 0D			inc PY
-   858 0D84 F0 03 4C FA 0A		jne l_0123
-   859 0D89			l_012D
+   858 0D84 F0 03 4C FA 0A		jne l_0112
+   859 0D89			l_011C
    860
    861 				; optimize OK (pmandel.pas), line = 35
    862

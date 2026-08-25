@@ -13,7 +13,7 @@ static uint32_t crc(uint32_t c,const uint8_t*b,size_t n){c=~c;for(size_t i=0;i<n
 static uint32_t adler(const uint8_t*b,size_t n){uint32_t a=1,s=0;for(size_t i=0;i<n;i++){a=(a+b[i])%65521;s=(s+a)%65521;}return (s<<16)|a;}
 static void be32(FILE*f,uint32_t v){fputc(v>>24,f);fputc(v>>16,f);fputc(v>>8,f);fputc(v,f);}
 static void chunk(FILE*f,const char*t,const uint8_t*d,size_t n){be32(f,n);uint8_t*b=malloc(n+4);memcpy(b,t,4);if(n)memcpy(b+4,d,n);fwrite(b,1,n+4,f);be32(f,crc(0,b,n+4));free(b);}
-int main(int argc,char**argv){
+int main(int argc,char**argv){ int kwait=0;
     const char*rom=argc>1?argv[1]:"rom/wozmon.bin"; int frames=argc>2?atoi(argv[2]):60; const char*out=argc>3?argv[3]:"/tmp/k4510.png";
     const char*keys=argc>4?argv[4]:"";
     uint8_t font[2048]; FILE*ff=fopen("data/font8.bin","rb"); if(!ff||fread(font,1,2048,ff)!=2048){fprintf(stderr,"font\n");return 1;} fclose(ff);
@@ -21,7 +21,7 @@ int main(int argc,char**argv){
     cpu65_reset();
     static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){
-        if(fr>=5 && ki<kn){ uint8_t k=(uint8_t)keys[ki++]; kbd_push(k=='\n'?0x0D:k); }   /* one key per frame */
+        if(fr>=5 && ki<kn && fr>=kwait){ uint8_t k=(uint8_t)keys[ki++]; if(k=='~') kwait=fr+30; else kbd_push(k=='\n'?0x0D:k); }   /* one key per frame; ~ waits 30 frames */
         vicke_begin_frame(fb,640);
         for(int y=0;y<480;y++){cpu65.irqLevel=vicke_irq()?1:0;cpu65_step(40500000/60/480);vicke_line(y);}
         vicke_end_frame();

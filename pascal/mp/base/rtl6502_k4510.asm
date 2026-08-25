@@ -1,4 +1,5 @@
 	opt l-
+	opt c+			; the 45GS02 has the 65C02 set: stz, bra, (zp)
 
 /* -----------------------------------------------------------------------
 /*                CPU 6502 runtime library - BMC-K4510  [BMC-K4510]

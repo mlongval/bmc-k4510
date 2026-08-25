@@ -89,9 +89,20 @@ transcendentals are in the \texttt{k4510} unit --- \verb|MathSqrt|,
 unit's own polynomial \verb|Sqrt|, \verb|Sin| and \verb|Cos|, which
 still work and are still slower.
 
-\begin{aside}
-\textbf{Not yet:} a graph unit on VICKe's bitmap layer; SYSTEM's own
-\verb|Sqrt|/\verb|Sin|/\verb|Cos| routed to the unit (they are plain
-Pascal in Mad Pascal's \texttt{system.pas}, and patching that file is a
-step further into the checkout than the installer takes today).
-\end{aside}
+\section{Graphics on VICKe}
+\verb|uses graph| draws on VICKe's layer~1: a 640$\times$480 8-bit bitmap
+at \texttt{\$200000} --- the one BBC BASIC's ULA uses too --- over the
+console, which stays visible wherever the picture is transparent
+(colour~0), as in a BBC MODE. \verb|InitGraph(0)| switches the video to
+480 lines and clears the bitmap; \verb|CloseGraph| puts the console's
+mode back. \verb|PutPixel| and \verb|GetPixel| go through the 45GS02's
+flat addressing (the MEGA65 multiplier does the row arithmetic);
+\verb|Line|, \verb|LineTo| and the K4510 additions \verb|DrawLine|,
+\verb|FillBar| and \verb|FillTriangle| are the blitter's LINE, FILL and
+TRIANGLE operations --- one register write each; \verb|Circle|,
+\verb|Ellipse|, \verb|Rectangle| and the rest of Mad Pascal's generic
+GRAPH build on those; \verb|OutTextXY| writes with the console's font.
+\verb|PGRAPH| is the demonstration. Note that SYSTEM's
+\verb|Sqrt|/\verb|Sin|/\verb|Cos|/\verb|ArcTan|/\verb|Exp|/\verb|Ln| on
+\texttt{single} also run on the MATH unit now: the installer patches
+\texttt{system.pas} under \verb|{$ifdef k4510}|.
