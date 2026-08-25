@@ -308,7 +308,7 @@ static void put_byte(uint8_t c)
         if (c == '?' || c == '>' || c == '=') { T.priv = c; return; }
         if (c >= 0x20 && c <= 0x2F) { T.inter = c; return; }
         if (c == 0x1B) { T.st = 1; return; }
-        if (c < 0x20) { put_byte(c); return; }                     /* a control inside a CSI acts at once */
+        if (c < 0x20) { T.st = 0; put_byte(c); T.st = 2; return; } /* a control inside a CSI acts at once, in the ground state, and the CSI goes on */
         T.st = 0; csi(c); return;
     case 3:                                                         /* an OSC/DCS string: to BEL or ESC \ */
         if (c == 7) T.st = 0; else if (c == 0x1B) T.st = 7; return;

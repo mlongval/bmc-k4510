@@ -30,7 +30,7 @@ void main(void)
 {
     unsigned char n = rom_args(), i = 0, k, iac = 0;
     const char *p = *(const char **)0xF0;
-    unsigned int got;
+    unsigned int got, j;                              /* j indexes the 256-byte read buffer: a byte would wrap on a full one */
     REG(TERM + 4) = 1;                                    /* JIM: defaults, home... */
     REG(TERM + 9) = 0;                                    /* ...at the console's line (run_at handed the row over; the column is 0) */
     if (!n) { say("telnet: host port  (F12 hangs up)\r\n"); return; }
@@ -59,8 +59,8 @@ void main(void)
         w32(NET + 8, (uint16_t)buf); w32(NET + 12, sizeof buf);
         k = net(2);
         got = REG(NET + 12) | ((unsigned int)REG(NET + 13) << 8);
-        for (i = 0; i < got; i++) {
-            unsigned char c = buf[i];
+        for (j = 0; j < got; j++) {
+            unsigned char c = buf[j];
             if (iac == 1) {                               /* after IAC */
                 if (c == 255) { iac = 0; REG(TERM) = 255; continue; }
                 if (c == 250) { iac = 3; sbn = 0; continue; }   /* SB: a subnegotiation follows */
@@ -73,6 +73,13 @@ void main(void)
                     rep[0] = 255; rep[1] = 250; rep[2] = 31; rep[3] = 0; rep[4] = REG(TERM + 5); rep[5] = 0; rep[6] = REG(TERM + 6); rep[7] = 255; rep[8] = 240;
                     net_send(rep, 9);
                 } else if (cmd == 253 && c == 24) { rep[0] = 255; rep[1] = 251; rep[2] = 24; net_send(rep, 3); }   /* DO TTYPE: WILL; the server asks next */
+                else if (c == 0 || c == 1 || c == 3) {   /* BINARY, ECHO, SGA: agreed, not refused -- a BBS echoes for
+                                                         * us, runs character-at-a-time (a Major BBS hangs up
+                                                         * without SGA) and needs 8 bits for its CP437 art */
+                    rep[0] = 255; rep[2] = c;
+                    rep[1] = (cmd == 251) ? 253 : (cmd == 252) ? 254 : (cmd == 253) ? 251 : 252;
+                    net_send(rep, 3);
+                }
                 else { rep[0] = 255; rep[1] = (cmd == 251 || cmd == 252) ? 254 : 252; rep[2] = c; net_send(rep, 3); }
                 continue;
             }

@@ -28,6 +28,8 @@ test/woztest
 dumps/
 !demo/sidplay0.s
 !demo/sidplay-header.s
+!demo/prg0.s
+!demo/romcalls.s
 doc/guide/shots/
 doc/guide/*.aux
 doc/guide/*.log

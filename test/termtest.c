@@ -56,5 +56,13 @@ int main(void)
     send("\xC4\xB3"); CHECK(cell(6, 3)[0] == 0xC4 && cell(7, 3)[0] == 0xB3, "CP437 bytes pass as glyphs");
     W(4, 2); send("\033[2J\033[H\033#8"); CHECK(cell(0, 0)[0] == 'E' && cell(78, 28)[0] == 'E', "DECALN");
     printf("5. keys, DA, dirty bit, cursor, OSC, CP437, DECALN: ok\n");
+    /* A control character inside a CSI is executed at once and the CSI goes on
+     * (The Penalty Box sends ESC [ ! BS BS BS CR mid-banner; JIM used to spin on it). */
+    W(4, 2); send("abcdef\033[!\b\b\b\r");                  /* cursor 6 -> 3 -> 0, the CSI still open */
+    send("mZ");                                              /* m ends it (ESC[!m: nothing), Z lands where CR left the cursor */
+    row(r, 0); CHECK(!strcmp(r, "Zbcdef"), "BS and CR inside a CSI act, the CSI still ends on its final byte ('%s')", r);
+    W(4, 2); send("abc\033[2\bJx");                          /* BS moves 3 -> 2, then ED 2 erases, cursor kept */
+    row(r, 0); CHECK(!strcmp(r, "  x"), "a control among the parameters does not lose the sequence ('%s')", r);
+    printf("6. controls inside a CSI: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }
