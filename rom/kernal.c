@@ -257,10 +257,20 @@ static uint8_t wild(const char *pat, const char *s)
 }
 static void cmd_dir(const char *p)
 {
-    char name[NAMEMAX], pat[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;
-    uint8_t first = 6, haspat;                           /* DIR A: dotfiles too */
+    char name[64], pat[NAMEMAX], back[64]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
+    uint8_t first = 6, haspat, went = 0;                 /* DIR A: dotfiles too */
     if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) { first = 18; p++; }
-    haspat = getname(&p, pat);                           /* anything else is a pattern */
+    haspat = getname(&p, pat);                           /* a pattern, or a directory to look in */
+    if (haspat) {                                        /* no * or ? in it: it names a directory, so go and look */
+        const char *w = pat; went = 1;
+        while (*w) { if (*w == '*' || *w == '?') { went = 0; break; } w++; }
+        if (went) {
+            haspat = 0;
+            w32(FS + 8, (uint16_t)back); fs_cmd(15);      /* remember where we are */
+            fs_name(pat);
+            if (fs_cmd(11)) { error("dir: no such directory"); return; }
+        }
+    }
     if (fs_cmd(first)) { error("dir: no device"); return; }
     { uint8_t o = fg; fg = C_HI; puts_("directory of "); put_cwd(); fg = o; newline(); }
     for (;;) {
@@ -275,6 +285,7 @@ static void cmd_dir(const char *p)
     }
     if (cx) newline();
     putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
+    if (went) { fs_name(back); fs_cmd(11); }             /* and back where we started */
 }
 
 static void cmd_cd(const char *p)
@@ -929,7 +940,7 @@ static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
     skipsp(&p);
-    if (!*p) return;
+    if (!*p || *p == '#') return;                        /* blank, or a comment: EXEC scripts want them */
     p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }

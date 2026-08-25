@@ -1,7 +1,8 @@
 monitor: MON or WOZ [line]  then:  addr  addr.addr
          addr:b b b  addrR  X leaves
-files:   DIR [A] [pattern]
-         (DIR *.PAS, DIR ?.TXT; * any run, ? any one)
+files:   DIR [A] [dir|pattern]
+         (DIR PRG lists it; DIR *.PAS, DIR ?.TXT
+         match here; * any run, ? any one)
          CD [dir]
          MKDIR dir
          RM name
@@ -13,7 +14,7 @@ files:   DIR [A] [pattern]
          RENAME old new
          CP old new
          RUN [name.prg|addr]
-         EXEC script
+         EXEC script  (a # line is a comment)
          (bare names search the language dirs)
          an unknown word runs name.prg from disk, with
          args (ARGS call $FF95)
