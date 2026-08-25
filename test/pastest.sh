@@ -9,4 +9,9 @@ echo "$out" | grep -q "You said: one two" || { echo "$out"; echo "pastest: FAILE
 out=$(./test/headless rom/kernal.bin "PSIEVE
 ~~~~" 900 2>&1) || { echo "$out"; echo "pastest: FAILED: psieve"; exit 1; }
 echo "$out" | grep -q "1899 primes" || { echo "$out"; echo "pastest: FAILED: the sieve's count"; exit 1; }
-echo "pastest: OK (hello + ParamStr, sieve 1899 primes, both back to the shell)"
+out=$(./test/headless rom/kernal.bin "PFLOAT
+~~~~" 900 2>&1) || { echo "$out"; echo "pastest: FAILED: pfloat"; exit 1; }
+for want in "1.5 + 2.25 = 3.75" "7 / 2 = 3.5" "trunc(-3.7) = -3" "round(2.5) = 3" "1.5 < 2.25: yes" "sqrt(2) = 1.414" "2^10 = 1024"; do
+  echo "$out" | grep -q -F "$want" || { echo "$out"; echo "pastest: FAILED: pfloat: '$want'"; exit 1; }
+done
+echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, all back to the shell)"

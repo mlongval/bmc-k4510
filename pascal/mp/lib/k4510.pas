@@ -87,6 +87,20 @@ procedure WaitVBlank; assembler;
 procedure TermWrite(const s: string);
 (* @description: a string straight to JIM (escape sequences included) *)
 
+(* The MATH unit's transcendentals on SINGLE, one register write each
+   (the arithmetic itself -- + - * / compare trunc round frac -- already
+   runs there: the runtime's single routines are wired to $D700). *)
+function MathSqrt(x: single): single;
+function MathSin(x: single): single;
+function MathCos(x: single): single;
+function MathTan(x: single): single;
+function MathAtan(x: single): single;
+function MathAtan2(y, x: single): single;
+function MathExp(x: single): single;
+function MathLn(x: single): single;
+function MathPow(x, y: single): single;
+function MathFloor(x: single): single;
+
 implementation
 
 function FarPeek(a: cardinal): byte; assembler;
@@ -214,5 +228,24 @@ var i: byte;
 begin
 	for i := 1 to length(s) do TERM := byte(s[i]);
 end;
+
+function MathUnary(x: single; op: byte): single;
+begin
+	MATH_F[0] := x; MATH_FARG := 0; MATH_FOP := op; Result := MATH_F[0];
+end;
+function MathBinary(x, y: single; op: byte): single;
+begin
+	MATH_F[0] := x; MATH_F[1] := y; MATH_FARG := 1; MATH_FOP := op; Result := MATH_F[0];
+end;
+function MathSqrt(x: single): single; begin Result := MathUnary(x, 5); end;
+function MathSin(x: single): single; begin Result := MathUnary(x, 6); end;
+function MathCos(x: single): single; begin Result := MathUnary(x, 7); end;
+function MathTan(x: single): single; begin Result := MathUnary(x, 8); end;
+function MathAtan(x: single): single; begin Result := MathUnary(x, 9); end;
+function MathAtan2(y, x: single): single; begin Result := MathBinary(y, x, 10); end;
+function MathExp(x: single): single; begin Result := MathUnary(x, 11); end;
+function MathLn(x: single): single; begin Result := MathUnary(x, 12); end;
+function MathPow(x, y: single): single; begin Result := MathBinary(x, y, 13); end;
+function MathFloor(x: single): single; begin Result := MathUnary(x, 16); end;
 
 end.

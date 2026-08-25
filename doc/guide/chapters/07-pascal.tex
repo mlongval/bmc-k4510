@@ -73,10 +73,25 @@ The compiled \texttt{.prg} files are committed, so a machine without
 the toolchain still runs them, and the test suite (\texttt{test/pastest.sh})
 runs \verb|HELLO| and \verb|PSIEVE| through the ROM.
 
+\section{Floating point on the MATH unit}
+\texttt{single} (IEEE-754, 32-bit) does not run in software here. The
+runtime's add, subtract, multiply, divide, compare, \verb|Trunc|,
+\verb|Round| and \verb|Frac| are the MATH unit at \texttt{\$D700}
+(Chapter~\ref{cha:io}): each is a few register moves and one write to
+FOP, and the unit answers in the next cycle. \texttt{PFLOAT} times five
+thousand rounds of multiply, divide, add and subtract: 5 frames on the
+unit, 24 with the software library (assemble with
+\verb|mads -d:SOFTFLOAT=1| to get it back for comparison). The
+transcendentals are in the \texttt{k4510} unit --- \verb|MathSqrt|,
+\verb|MathSin|, \verb|MathCos|, \verb|MathTan|, \verb|MathAtan|,
+\verb|MathAtan2|, \verb|MathExp|, \verb|MathLn|, \verb|MathPow|,
+\verb|MathFloor| --- one register write each, alongside the SYSTEM
+unit's own polynomial \verb|Sqrt|, \verb|Sin| and \verb|Cos|, which
+still work and are still slower.
+
 \begin{aside}
-\textbf{Not yet:} floating point still runs in software (Mad Pascal's own
-IEEE single). The MATH unit at \texttt{\$D700} does the same arithmetic
-in one register write; wiring the compiler's \texttt{single} to it is
-the next step on this road, and the graph unit on VICKe's bitmap layer
-the one after.
+\textbf{Not yet:} a graph unit on VICKe's bitmap layer; SYSTEM's own
+\verb|Sqrt|/\verb|Sin|/\verb|Cos| routed to the unit (they are plain
+Pascal in Mad Pascal's \texttt{system.pas}, and patching that file is a
+step further into the checkout than the installer takes today).
 \end{aside}

@@ -3201,3 +3201,41 @@ receives (desktop only).
 Guide: chapter 7, Pascal. Not yet: the MATH unit behind `single`
 (the flag-plant), a graph unit on VICKe, sysutils/graph are raw's
 stubs.
+
+## 2026-08-25 (ak) — the flag-plant: Pascal's single on the MATH unit
+
+Doc: "wire the MATH unit into Pascal's single". The runtime's SINGLE
+routines (base/common/single.asm, David Schmenk's IEEE-754 library
+from VM02) have a fixed contract the compiler emits calls against:
+operands in eax (FP1MAN) and edx (FP2MAN), results in ecx (FPMAN);
+@FCMPL answers sign(B - A) in A with B = FPMAN; @F2I/@I2F/@FFRAC in
+place on FPMAN; @FROUND from FP2MAN to an integer in FPMAN (round
+half away from zero). base/k4510/single.asm keeps the names and the
+registers and replaces the bodies: copy to F0/F1 at $D700, one write
+to FOP ($D720: ADD 1, SUB 2, MUL 3, DIV 4, CMP 18, ROUND 17, ITOF
+19, FTOI 20), copy back. FFRAC is FTOI, ITOF into F1, SUB. The
+compiler also addresses @FCMPL.A and @FCMPL.B (the software routine's
+local equates), so those two lines stay.
+
+rtl6502_k4510.asm now carries rtl_default's include list inline with
+the one substitution, under `.ifdef SOFTFLOAT` (a MADS -d symbol; a
+`.ifdef MAIN.@DEFINES.X` there — the compiler's own define mechanism —
+is a forward reference into a .local and half-assembled both branches).
+
+Two bugs on the way, both in the contract: the compare's sense
+(I computed A - B; the answer is B - A: "1.5 < 2.25: NO" until it was
+swapped), and the missing @FCMPL.A/.B equates.
+
+Numbers (demo/pas/pfloat.pas): 5000 rounds of mul, div, add, sub —
+**5 frames on the MATH unit, 24 in software** (4.8x), same results to
+the printed digit; sqrt(2) = 1.414210, ln(10) = 2.302581, 2^10 =
+1024, atan2(1,1)*4 = 3.141589 from the unit's transcendentals, now
+in the k4510 unit as MathSqrt/MathSin/MathCos/MathTan/MathAtan/
+MathAtan2/MathExp/MathLn/MathPow/MathFloor. pastest checks PFLOAT's
+lines. pfloat.prg 2878 bytes against 3271 with the software library:
+the unit is also smaller code.
+
+Not done: SYSTEM's own Sqrt/Sin/Cos (Pascal polynomials in
+lib/system.pas) still run in software — routing them means patching
+system.pas itself, a step further into the checkout than install.py
+takes; a graph unit on VICKe.

@@ -1,0 +1,1061 @@
+mads 2.1.8
+demo/pas/pfloat.a65 -x -i:/home/doc/Projects/neo6502_dev/Mad-Pascal/base -o:fs/PRG/pfloat.prg 
+   118 					opt l+
+   106
+   107 				.print 'ZPAGE: ',zpage,'..',zpend-1
+   107 				ZPAGE: $0022..$00A3
+   108
+   109 				.print 'RTBUF: ',@buf,'..',@buf+255
+   109 				RTBUF: $0300..$03FF
+   110
+   111 				.print 'RTLIB: ',RTLIB,'..',*-1
+   111 				RTLIB: $08EA..$0D0F
+   112
+   113 				; ------------------------------------------------------------
+   114
+   115 0D10			START
+   116 0D10 BA				tsx
+   117 0D11 8E 2F 13			stx MAIN.@halt+1
+   118
+   119 = 005C			VLEN	= VARDATASIZE-VARINITSIZE
+   120 = 133A			VADR	= DATAORIGIN+VARINITSIZE
+   121
+   122 					ift (VLEN > 0) && (VLEN <= 256)
+   123 0D14 A2 A4			ldx #256-VLEN
+   124 0D16 A9 00			lda #$00
+   125 0D18 9D 96 12 E8 D0 FA		sta:rne VADR+VLEN-256,x+
+   126 					eli VLEN>256
+   127 					m@init
+   128 					eif
+   129
+   130 				.ifdef psptr
+   131 					mwa #PROGRAMSTACK psptr
+   132 				.fi
+   133
+   134 0D1E A2 00			ldx #$00
+   135 0D20 86 22			stx bp						; BP = 0
+   136
+   137 0D22 CA				dex						; X = 255
+   138
+   139 					opt c+
+   140 0D23				UNITINITIALIZATION
+Macro: UNITINITIALIZATION [Source: pfloat.a65]
+     3 0D23 20 29 0D			jsr MAIN.SYSTEM.@UnitInit
+Source: pfloat.a65
+   141
+   142 0D26			.local	MAIN						; PROCEDURE
+   143
+   144 0D26 4C 15 0F			jmp l_00EE
+   145
+   146 				; ------------------------------------------------------------
+   147
+   148 0D29			.local	SYSTEM						; UNIT
+   149
+   150 				; ------------------------------------------------------------
+   151 				; ------------------------------------------------------------
+   152 0D29			@UnitInit
+   153
+   154 0D29 60				rts
+   155
+   156 				; ------------------------------------------------------------
+   157
+   158 = 0648			M_PI_2	= $0648
+   159 = 0192			D_PI_2	= $0192
+   160 = 0004			D_PI_180	= $04
+   161 = 0004			FMOPENREAD	= $04
+   162 = 0008			FMOPENWRITE	= $08
+   163 = 0009			FMOPENAPPEND	= $09
+   164 = 000C			FMOPENREADWRITE	= $0C
+   165 = 1332			DATESEPARATOR	= DATAORIGIN+$0000
+   166 = 1333			FILEMODE	= DATAORIGIN+$0001
+   167 = 1334			GRAPHMODE	= DATAORIGIN+$0002
+   168 = 1335			IORESULT	= DATAORIGIN+$0003
+   169 = 1336			EOLN	= DATAORIGIN+$0004
+   170 = 1337			SCREENWIDTH	= DATAORIGIN+$0005
+   171 = 1339			SCREENHEIGHT	= DATAORIGIN+$0007
+   172 = 0000			adr.MEM	= $00
+   173 0D2A			.var MEM	= adr.MEM .word
+   174 = 133B			RNDSEED	= DATAORIGIN+$0009
+   175
+   176 = 0D2A 00 00		MEM
+   176 				.endl							; UNIT SYSTEM
+   177
+   178 				; ------------------------------------------------------------
+   179
+   180 0D2C			.local	K4510						; UNIT
+   181
+   182 0D2C			.local	MATHUNARY					; FUNCTION
+   183
+   184 				; optimize OK (K4510), line = 234
+   185
+   186 0D2C AD 3D 13			lda X
+   187 0D2F 8D 00 D7			sta adr.MATH_F
+   188 0D32 AD 3E 13			lda X+1
+   189 0D35 8D 01 D7			sta adr.MATH_F+1
+   190 0D38 AD 3F 13			lda X+2
+   191 0D3B 8D 02 D7			sta adr.MATH_F+2
+   192 0D3E AD 40 13			lda X+3
+   193 0D41 8D 03 D7			sta adr.MATH_F+3
+   194 0D44 9C 21 D7			stz MATH_FARG
+   195 0D47 AD 41 13			lda OP
+   196 0D4A 8D 20 D7			sta MATH_FOP
+   197 0D4D AD 00 D7			lda adr.MATH_F
+   198 0D50 8D 42 13			sta RESULT
+   199 0D53 AD 01 D7			lda adr.MATH_F+1
+   200 0D56 8D 43 13			sta RESULT+1
+   201 0D59 AD 02 D7			lda adr.MATH_F+2
+   202 0D5C 8D 44 13			sta RESULT+2
+   203 0D5F AD 03 D7			lda adr.MATH_F+3
+   204 0D62 8D 45 13			sta RESULT+3
+   205 0D65			@exit
+   206
+   207 				; ------------------------------------------------------------
+   208
+   209 = 133D			X	= DATAORIGIN+$000B
+   210 = 1341			OP	= DATAORIGIN+$000F
+   211 = 1342			RESULT	= DATAORIGIN+$0010
+   212
+   213 = 133D			@VarData	= X
+   214 = 0009			@VarDataSize	= 9
+   215
+   216 0D65 60				rts						; ret
+   217 				.endl
+   218
+   219 0D66			.local	MATHBINARY					; FUNCTION
+   220
+   221 				; optimize OK (K4510), line = 238
+   222
+   223 0D66 AD 46 13			lda X
+   224 0D69 8D 00 D7			sta adr.MATH_F
+   225 0D6C AD 47 13			lda X+1
+   226 0D6F 8D 01 D7			sta adr.MATH_F+1
+   227 0D72 AD 48 13			lda X+2
+   228 0D75 8D 02 D7			sta adr.MATH_F+2
+   229 0D78 AD 49 13			lda X+3
+   230 0D7B 8D 03 D7			sta adr.MATH_F+3
+   231 0D7E AD 4A 13			lda Y
+   232 0D81 8D 04 D7			sta adr.MATH_F+$04
+   233 0D84 AD 4B 13			lda Y+1
+   234 0D87 8D 05 D7			sta adr.MATH_F+1+$04
+   235 0D8A AD 4C 13			lda Y+2
+   236 0D8D 8D 06 D7			sta adr.MATH_F+2+$04
+   237 0D90 AD 4D 13			lda Y+3
+   238 0D93 8D 07 D7			sta adr.MATH_F+3+$04
+   239 0D96 A9 01			lda #$01
+   240 0D98 8D 21 D7			sta MATH_FARG
+   241 0D9B AD 4E 13			lda OP
+   242 0D9E 8D 20 D7			sta MATH_FOP
+   243 0DA1 AD 00 D7			lda adr.MATH_F
+   244 0DA4 8D 4F 13			sta RESULT
+   245 0DA7 AD 01 D7			lda adr.MATH_F+1
+   246 0DAA 8D 50 13			sta RESULT+1
+   247 0DAD AD 02 D7			lda adr.MATH_F+2
+   248 0DB0 8D 51 13			sta RESULT+2
+   249 0DB3 AD 03 D7			lda adr.MATH_F+3
+   250 0DB6 8D 52 13			sta RESULT+3
+   251 0DB9			@exit
+   252
+   253 				; ------------------------------------------------------------
+   254
+   255 = 1346			X	= DATAORIGIN+$0014
+   256 = 134A			Y	= DATAORIGIN+$0018
+   257 = 134E			OP	= DATAORIGIN+$001C
+   258 = 134F			RESULT	= DATAORIGIN+$001D
+   259
+   260 = 1346			@VarData	= X
+   261 = 000D			@VarDataSize	= 13
+   262
+   263 0DB9 60				rts						; ret
+   264 				.endl
+   265
+   266 0DBA			.local	MATHSQRT					; FUNCTION
+   267
+   268 				; optimize OK (K4510), line = 240
+   269
+   270 0DBA AD 53 13			lda X
+   271 0DBD 8D 3D 13			sta MATHUNARY.X
+   272 0DC0 AD 54 13			lda X+1
+   273 0DC3 8D 3E 13			sta MATHUNARY.X+1
+   274 0DC6 AD 55 13			lda X+2
+   275 0DC9 8D 3F 13			sta MATHUNARY.X+2
+   276 0DCC AD 56 13			lda X+3
+   277 0DCF 8D 40 13			sta MATHUNARY.X+3
+   278 0DD2 A9 05			lda #$05
+   279 0DD4 8D 41 13			sta MATHUNARY.OP
+   280 0DD7 20 2C 0D			jsr MATHUNARY
+   281 0DDA AD 42 13			lda MATHUNARY.RESULT
+   282 0DDD 8D 57 13			sta RESULT
+   283 0DE0 AD 43 13			lda MATHUNARY.RESULT+1
+   284 0DE3 8D 58 13			sta RESULT+1
+   285 0DE6 AD 44 13			lda MATHUNARY.RESULT+2
+   286 0DE9 8D 59 13			sta RESULT+2
+   287 0DEC AD 45 13			lda MATHUNARY.RESULT+3
+   288 0DEF 8D 5A 13			sta RESULT+3
+   289 0DF2			@exit
+   290
+   291 				; ------------------------------------------------------------
+   292
+   293 = 1353			X	= DATAORIGIN+$0021
+   294 = 1357			RESULT	= DATAORIGIN+$0025
+   295
+   296 = 1353			@VarData	= X
+   297 = 0008			@VarDataSize	= 8
+   298
+   299 0DF2 60				rts						; ret
+   300 				.endl
+   301
+   302 0DF3			.local	MATHSIN						; FUNCTION
+   303
+   304 				; optimize OK (K4510), line = 241
+   305
+   306 0DF3 AD 5B 13			lda X
+   307 0DF6 8D 3D 13			sta MATHUNARY.X
+   308 0DF9 AD 5C 13			lda X+1
+   309 0DFC 8D 3E 13			sta MATHUNARY.X+1
+   310 0DFF AD 5D 13			lda X+2
+   311 0E02 8D 3F 13			sta MATHUNARY.X+2
+   312 0E05 AD 5E 13			lda X+3
+   313 0E08 8D 40 13			sta MATHUNARY.X+3
+   314 0E0B A9 06			lda #$06
+   315 0E0D 8D 41 13			sta MATHUNARY.OP
+   316 0E10 20 2C 0D			jsr MATHUNARY
+   317 0E13 AD 42 13			lda MATHUNARY.RESULT
+   318 0E16 8D 5F 13			sta RESULT
+   319 0E19 AD 43 13			lda MATHUNARY.RESULT+1
+   320 0E1C 8D 60 13			sta RESULT+1
+   321 0E1F AD 44 13			lda MATHUNARY.RESULT+2
+   322 0E22 8D 61 13			sta RESULT+2
+   323 0E25 AD 45 13			lda MATHUNARY.RESULT+3
+   324 0E28 8D 62 13			sta RESULT+3
+   325 0E2B			@exit
+   326
+   327 				; ------------------------------------------------------------
+   328
+   329 = 135B			X	= DATAORIGIN+$0029
+   330 = 135F			RESULT	= DATAORIGIN+$002D
+   331
+   332 = 135B			@VarData	= X
+   333 = 0008			@VarDataSize	= 8
+   334
+   335 0E2B 60				rts						; ret
+   336 				.endl
+   337
+   338 0E2C			.local	MATHATAN2					; FUNCTION
+   339
+   340 				; optimize OK (K4510), line = 245
+   341
+   342 0E2C AD 63 13			lda Y
+   343 0E2F 8D 46 13			sta MATHBINARY.X
+   344 0E32 AD 64 13			lda Y+1
+   345 0E35 8D 47 13			sta MATHBINARY.X+1
+   346 0E38 AD 65 13			lda Y+2
+   347 0E3B 8D 48 13			sta MATHBINARY.X+2
+   348 0E3E AD 66 13			lda Y+3
+   349 0E41 8D 49 13			sta MATHBINARY.X+3
+   350 0E44 AD 67 13			lda X
+   351 0E47 8D 4A 13			sta MATHBINARY.Y
+   352 0E4A AD 68 13			lda X+1
+   353 0E4D 8D 4B 13			sta MATHBINARY.Y+1
+   354 0E50 AD 69 13			lda X+2
+   355 0E53 8D 4C 13			sta MATHBINARY.Y+2
+   356 0E56 AD 6A 13			lda X+3
+   357 0E59 8D 4D 13			sta MATHBINARY.Y+3
+   358 0E5C A9 0A			lda #$0A
+   359 0E5E 8D 4E 13			sta MATHBINARY.OP
+   360 0E61 20 66 0D			jsr MATHBINARY
+   361 0E64 AD 4F 13			lda MATHBINARY.RESULT
+   362 0E67 8D 6B 13			sta RESULT
+   363 0E6A AD 50 13			lda MATHBINARY.RESULT+1
+   364 0E6D 8D 6C 13			sta RESULT+1
+   365 0E70 AD 51 13			lda MATHBINARY.RESULT+2
+   366 0E73 8D 6D 13			sta RESULT+2
+   367 0E76 AD 52 13			lda MATHBINARY.RESULT+3
+   368 0E79 8D 6E 13			sta RESULT+3
+   369 0E7C			@exit
+   370
+   371 				; ------------------------------------------------------------
+   372
+   373 = 1363			Y	= DATAORIGIN+$0031
+   374 = 1367			X	= DATAORIGIN+$0035
+   375 = 136B			RESULT	= DATAORIGIN+$0039
+   376
+   377 = 1363			@VarData	= Y
+   378 = 000C			@VarDataSize	= 12
+   379
+   380 0E7C 60				rts						; ret
+   381 				.endl
+   382
+   383 0E7D			.local	MATHLN						; FUNCTION
+   384
+   385 				; optimize OK (K4510), line = 247
+   386
+   387 0E7D AD 6F 13			lda X
+   388 0E80 8D 3D 13			sta MATHUNARY.X
+   389 0E83 AD 70 13			lda X+1
+   390 0E86 8D 3E 13			sta MATHUNARY.X+1
+   391 0E89 AD 71 13			lda X+2
+   392 0E8C 8D 3F 13			sta MATHUNARY.X+2
+   393 0E8F AD 72 13			lda X+3
+   394 0E92 8D 40 13			sta MATHUNARY.X+3
+   395 0E95 A9 0C			lda #$0C
+   396 0E97 8D 41 13			sta MATHUNARY.OP
+   397 0E9A 20 2C 0D			jsr MATHUNARY
+   398 0E9D AD 42 13			lda MATHUNARY.RESULT
+   399 0EA0 8D 73 13			sta RESULT
+   400 0EA3 AD 43 13			lda MATHUNARY.RESULT+1
+   401 0EA6 8D 74 13			sta RESULT+1
+   402 0EA9 AD 44 13			lda MATHUNARY.RESULT+2
+   403 0EAC 8D 75 13			sta RESULT+2
+   404 0EAF AD 45 13			lda MATHUNARY.RESULT+3
+   405 0EB2 8D 76 13			sta RESULT+3
+   406 0EB5			@exit
+   407
+   408 				; ------------------------------------------------------------
+   409
+   410 = 136F			X	= DATAORIGIN+$003D
+   411 = 1373			RESULT	= DATAORIGIN+$0041
+   412
+   413 = 136F			@VarData	= X
+   414 = 0008			@VarDataSize	= 8
+   415
+   416 0EB5 60				rts						; ret
+   417 				.endl
+   418
+   419 0EB6			.local	MATHPOW						; FUNCTION
+   420
+   421 				; optimize OK (K4510), line = 248
+   422
+   423 0EB6 AD 77 13			lda X
+   424 0EB9 8D 46 13			sta MATHBINARY.X
+   425 0EBC AD 78 13			lda X+1
+   426 0EBF 8D 47 13			sta MATHBINARY.X+1
+   427 0EC2 AD 79 13			lda X+2
+   428 0EC5 8D 48 13			sta MATHBINARY.X+2
+   429 0EC8 AD 7A 13			lda X+3
+   430 0ECB 8D 49 13			sta MATHBINARY.X+3
+   431 0ECE AD 7B 13			lda Y
+   432 0ED1 8D 4A 13			sta MATHBINARY.Y
+   433 0ED4 AD 7C 13			lda Y+1
+   434 0ED7 8D 4B 13			sta MATHBINARY.Y+1
+   435 0EDA AD 7D 13			lda Y+2
+   436 0EDD 8D 4C 13			sta MATHBINARY.Y+2
+   437 0EE0 AD 7E 13			lda Y+3
+   438 0EE3 8D 4D 13			sta MATHBINARY.Y+3
+   439 0EE6 A9 0D			lda #$0D
+   440 0EE8 8D 4E 13			sta MATHBINARY.OP
+   441 0EEB 20 66 0D			jsr MATHBINARY
+   442 0EEE AD 4F 13			lda MATHBINARY.RESULT
+   443 0EF1 8D 7F 13			sta RESULT
+   444 0EF4 AD 50 13			lda MATHBINARY.RESULT+1
+   445 0EF7 8D 80 13			sta RESULT+1
+   446 0EFA AD 51 13			lda MATHBINARY.RESULT+2
+   447 0EFD 8D 81 13			sta RESULT+2
+   448 0F00 AD 52 13			lda MATHBINARY.RESULT+3
+   449 0F03 8D 82 13			sta RESULT+3
+   450 0F06			@exit
+   451
+   452 				; ------------------------------------------------------------
+   453
+   454 = 1377			X	= DATAORIGIN+$0045
+   455 = 137B			Y	= DATAORIGIN+$0049
+   456 = 137F			RESULT	= DATAORIGIN+$004D
+   457
+   458 = 1377			@VarData	= X
+   459 = 000C			@VarDataSize	= 12
+   460
+   461 0F06 60				rts						; ret
+   462 				.endl
+   463
+   464 				; ------------------------------------------------------------
+   465
+   466 = D000			VICKE_BASE	= $D000
+   467 = D400			SID_BASE	= $D400
+   468 = D500			SYS_BASE	= $D500
+   469 = D700			MATH_BASE	= $D700
+   470 = DA00			TERM_BASE	= $DA00
+   471 = 0001			FS_OPEN_READ	= $01
+   472 = 0002			FS_OPEN_WRITE	= $02
+   473 = 0003			FS_READ	= $03
+   474 = 0004			FS_WRITE	= $04
+   475 = 0005			FS_CLOSE	= $05
+   476 = 0006			FS_DIR_FIRST	= $06
+   477 = 0007			FS_DIR_NEXT	= $07
+   478 = 0008			FS_STAT	= $08
+   479 = 0009			FS_LOAD	= $09
+   480 = 000A			FS_SAVE	= $0A
+   481 = 000B			FS_CHDIR	= $0B
+   482 = 000C			FS_MKDIR	= $0C
+   483 = 000D			FS_RM	= $0D
+   484 = 000E			FS_RMDIR	= $0E
+   485 = 000F			FS_GETCWD	= $0F
+   486 = D000			adr.VICKE	= $D000
+   487 0F07			.var VICKE	= adr.VICKE .word
+   488 = D100			KBD	= $D100
+   489 = D101			KBDST	= $D101
+   490 = D102			KBDPEEK	= $D102
+   491 = D200			DMA_SRC	= $D200
+   492 = D204			DMA_DST	= $D204
+   493 = D208			DMA_LEN	= $D208
+   494 = D20C			DMA_CMD	= $D20C
+   495 = D300			FS_CMD	= $D300
+   496 = D301			FS_STATUS	= $D301
+   497 = D304			FS_NAMEPTR	= $D304
+   498 = D308			FS_ADDR	= $D308
+   499 = D30C			FS_LEN	= $D30C
+   500 = D310			FS_SIZE	= $D310
+   501 = D400			adr.SIDREG	= $D400
+   502 0F07			.var SIDREG	= adr.SIDREG .word
+   503 = D500			adr.SYS	= $D500
+   504 0F07			.var SYS	= adr.SYS .word
+   505 = D50D			SYS_FRAMES	= $D50D
+   506 = D50D			adr.SYS_FRAMES24	= $D50D
+   507 0F07			.var SYS_FRAMES24	= adr.SYS_FRAMES24 .word
+   508 = D700			adr.MATH_F	= $D700
+   509 0F07			.var MATH_F	= adr.MATH_F .word
+   510 = D720			MATH_FOP	= $D720
+   511 = D721			MATH_FARG	= $D721
+   512 = D722			MATH_FFLAGS	= $D722
+   513 = D724			MATH_FI	= $D724
+   514 = D770			MULTINA	= $D770
+   515 = D774			MULTINB	= $D774
+   516 = D778			MULTOUT	= $D778
+   517 = D76C			DIVOUT	= $D76C
+   518 = D800			adr.TUBE	= $D800
+   519 0F07			.var TUBE	= adr.TUBE .word
+   520 = D900			adr.NET	= $D900
+   521 0F07			.var NET	= adr.NET .word
+   522 = DA00			TERM	= $DA00
+   523 = DA01			TERM_ST	= $DA01
+   524 = DA02			TERM_REP	= $DA02
+   525 = DA03			TERM_KEY	= $DA03
+   526 = DA04			TERM_CTL	= $DA04
+   527 = DA05			TERM_COLS	= $DA05
+   528 = DA06			TERM_ROWS	= $DA06
+   529 = DA09			TERM_CX	= $DA09
+   530 = DA0A			TERM_CY	= $DA0A
+   531 = DA0B			TERM_FG	= $DA0B
+   532 = DA0C			TERM_BG	= $DA0C
+   533 = DA0E			TERM_FLAGS	= $DA0E
+   534
+   535 = 0F07 00 D0		VICKE
+   535 = 0F09 00 D4		SIDREG
+   535 = 0F0B 00 D5		SYS
+   535 = 0F0D 0D D5		SYS_FRAMES24
+   535 = 0F0F 00 D7		MATH_F
+   535 = 0F11 00 D8		TUBE
+   535 = 0F13 00 D9		NET
+   535 				.endl							; UNIT K4510
+   536 0F15			l_00EE
+   537
+   538 				; optimize OK (pfloat.pas), line = 12
+   539
+   540 0F15 9C 83 13			stz A
+   541 0F18 9C 84 13			stz A+1
+   542 0F1B A9 C0			lda #$C0
+   543 0F1D 8D 85 13			sta A+2
+   544 0F20 A9 3F			lda #$3F
+   545 0F22 8D 86 13			sta A+3
+   546 0F25 9C 87 13			stz B
+   547 0F28 9C 88 13			stz B+1
+   548 0F2B A9 10			lda #$10
+   549 0F2D 8D 89 13			sta B+2
+   550 0F30 A9 40			lda #$40
+   551 0F32 8D 8A 13			sta B+3
+   552
+   553 				; optimize FAIL ('@print', pfloat.pas), line = 13
+   554
+   555 					@printSTRING #CODEORIGIN+$0000
+   555 				 LDY> CODEORIGIN+$0000\ LDA< CODEORIGIN+$0000\ JSR @PRINTSTRING
+   555 0F35 A0 08		 LDY> CODEORIGIN+$0000
+   555 0F37 A9 00		 LDA< CODEORIGIN+$0000
+   555 0F39 20 72 0A		 JSR @PRINTSTRING
+   556 0F3C E8				inx
+   557 0F3D E8				inx
+   558 0F3E AD 87 13			lda B
+   559 0F41 85 2A			sta :FP2MAN0
+   560 0F43 AD 88 13			lda B+1
+   561 0F46 85 2B			sta :FP2MAN1
+   562 0F48 AD 89 13			lda B+2
+   563 0F4B 85 2C			sta :FP2MAN2
+   564 0F4D AD 8A 13			lda B+3
+   565 0F50 85 2D			sta :FP2MAN3
+   566 0F52 AD 83 13			lda A
+   567 0F55 85 26			sta :FP1MAN0
+   568 0F57 AD 84 13			lda A+1
+   569 0F5A 85 27			sta :FP1MAN1
+   570 0F5C AD 85 13			lda A+2
+   571 0F5F 85 28			sta :FP1MAN2
+   572 0F61 AD 86 13			lda A+3
+   573 0F64 85 29			sta :FP1MAN3
+   574 0F66 20 04 09			jsr @FADD
+   575 0F69 CA				dex
+   576 0F6A A5 2E			lda :FPMAN0
+   577 0F6C 85 2A			sta @FTOA.I
+   578 0F6E A5 2F			lda :FPMAN1
+   579 0F70 85 2B			sta @FTOA.I+1
+   580 0F72 A5 30			lda :FPMAN2
+   581 0F74 85 2C			sta @FTOA.I+2
+   582 0F76 A5 31			lda :FPMAN3
+   583 0F78 85 2D			sta @FTOA.I+3
+   584 0F7A CA				dex
+   585 0F7B 20 5D 0B			jsr @FTOA
+   586 0F7E 20 64 0A			@printEOL
+   587
+   588 				; optimize FAIL ('@print', pfloat.pas), line = 14
+   589
+   590 					@printSTRING #CODEORIGIN+$000E
+   590 				 LDY> CODEORIGIN+$000E\ LDA< CODEORIGIN+$000E\ JSR @PRINTSTRING
+   590 0F81 A0 08		 LDY> CODEORIGIN+$000E
+   590 0F83 A9 0E		 LDA< CODEORIGIN+$000E
+   590 0F85 20 72 0A		 JSR @PRINTSTRING
+   591 0F88 E8				inx
+   592 0F89 E8				inx
+   593 0F8A AD 87 13			lda B
+   594 0F8D 85 2A			sta :FP2MAN0
+   595 0F8F AD 88 13			lda B+1
+   596 0F92 85 2B			sta :FP2MAN1
+   597 0F94 AD 89 13			lda B+2
+   598 0F97 85 2C			sta :FP2MAN2
+   599 0F99 AD 8A 13			lda B+3
+   600 0F9C 85 2D			sta :FP2MAN3
+   601 0F9E AD 83 13			lda A
+   602 0FA1 85 26			sta :FP1MAN0
+   603 0FA3 AD 84 13			lda A+1
+   604 0FA6 85 27			sta :FP1MAN1
+   605 0FA8 AD 85 13			lda A+2
+   606 0FAB 85 28			sta :FP1MAN2
+   607 0FAD AD 86 13			lda A+3
+   608 0FB0 85 29			sta :FP1MAN3
+   609 0FB2 20 4B 09			jsr @FSUB
+   610 0FB5 CA				dex
+   611 0FB6 A5 2E			lda :FPMAN0
+   612 0FB8 85 2A			sta @FTOA.I
+   613 0FBA A5 2F			lda :FPMAN1
+   614 0FBC 85 2B			sta @FTOA.I+1
+   615 0FBE A5 30			lda :FPMAN2
+   616 0FC0 85 2C			sta @FTOA.I+2
+   617 0FC2 A5 31			lda :FPMAN3
+   618 0FC4 85 2D			sta @FTOA.I+3
+   619 0FC6 CA				dex
+   620 0FC7 20 5D 0B			jsr @FTOA
+   621 0FCA 20 64 0A			@printEOL
+   622
+   623 				; optimize FAIL ('@print', pfloat.pas), line = 15
+   624
+   625 					@printSTRING #CODEORIGIN+$001C
+   625 				 LDY> CODEORIGIN+$001C\ LDA< CODEORIGIN+$001C\ JSR @PRINTSTRING
+   625 0FCD A0 08		 LDY> CODEORIGIN+$001C
+   625 0FCF A9 1C		 LDA< CODEORIGIN+$001C
+   625 0FD1 20 72 0A		 JSR @PRINTSTRING
+   626 0FD4 E8				inx
+   627 0FD5 E8				inx
+   628 0FD6 AD 87 13			lda B
+   629 0FD9 85 2A			sta :FP2MAN0
+   630 0FDB AD 88 13			lda B+1
+   631 0FDE 85 2B			sta :FP2MAN1
+   632 0FE0 AD 89 13			lda B+2
+   633 0FE3 85 2C			sta :FP2MAN2
+   634 0FE5 AD 8A 13			lda B+3
+   635 0FE8 85 2D			sta :FP2MAN3
+   636 0FEA AD 83 13			lda A
+   637 0FED 85 26			sta :FP1MAN0
+   638 0FEF AD 84 13			lda A+1
+   639 0FF2 85 27			sta :FP1MAN1
+   640 0FF4 AD 85 13			lda A+2
+   641 0FF7 85 28			sta :FP1MAN2
+   642 0FF9 AD 86 13			lda A+3
+   643 0FFC 85 29			sta :FP1MAN3
+   644 0FFE 20 92 09			jsr @FMUL
+   645 1001 CA				dex
+   646 1002 A5 2E			lda :FPMAN0
+   647 1004 85 2A			sta @FTOA.I
+   648 1006 A5 2F			lda :FPMAN1
+   649 1008 85 2B			sta @FTOA.I+1
+   650 100A A5 30			lda :FPMAN2
+   651 100C 85 2C			sta @FTOA.I+2
+   652 100E A5 31			lda :FPMAN3
+   653 1010 85 2D			sta @FTOA.I+3
+   654 1012 CA				dex
+   655 1013 20 5D 0B			jsr @FTOA
+   656 1016 20 64 0A			@printEOL
+   657
+   658 				; optimize FAIL ('@print', pfloat.pas), line = 16
+   659
+   660 					@printSTRING #CODEORIGIN+$002A
+   660 				 LDY> CODEORIGIN+$002A\ LDA< CODEORIGIN+$002A\ JSR @PRINTSTRING
+   660 1019 A0 08		 LDY> CODEORIGIN+$002A
+   660 101B A9 2A		 LDA< CODEORIGIN+$002A
+   660 101D 20 72 0A		 JSR @PRINTSTRING
+   661 1020 E8				inx
+   662 1021 A9 80 95 64			mva #$80 :STACKORIGIN,x
+   663 1025 A9 03 95 74			mva #$03 :STACKORIGIN+STACKWIDTH,x
+   664 1029 A9 00 95 84			mva #$00 :STACKORIGIN+STACKWIDTH*2,x
+   665 102D 95 94			sta :STACKORIGIN+STACKWIDTH*3,x
+   666 102F 20 41 0C			jsr @printREAL
+   667 1032 CA				dex
+   668 1033 20 64 0A			@printEOL
+   669
+   670 				; optimize FAIL ('@print', pfloat.pas), line = 17
+   671
+   672 					@printSTRING #CODEORIGIN+$0033
+   672 				 LDY> CODEORIGIN+$0033\ LDA< CODEORIGIN+$0033\ JSR @PRINTSTRING
+   672 1036 A0 08		 LDY> CODEORIGIN+$0033
+   672 1038 A9 33		 LDA< CODEORIGIN+$0033
+   672 103A 20 72 0A		 JSR @PRINTSTRING
+   673 103D E8				inx
+   674 103E A9 FD 95 64			mva #$FD :STACKORIGIN,x
+   675 1042 20 A1 0A			jsr @printSHORTINT
+   676 1045 CA				dex
+   677 					@printSTRING #CODEORIGIN+$0042
+   677 				 LDY> CODEORIGIN+$0042\ LDA< CODEORIGIN+$0042\ JSR @PRINTSTRING
+   677 1046 A0 08		 LDY> CODEORIGIN+$0042
+   677 1048 A9 42		 LDA< CODEORIGIN+$0042
+   677 104A 20 72 0A		 JSR @PRINTSTRING
+   678 104D A9 03			lda #$03
+   679 104F 20 B7 0A			jsr @printBYTE._a
+   680 					@printSTRING #CODEORIGIN+$0052
+   680 				 LDY> CODEORIGIN+$0052\ LDA< CODEORIGIN+$0052\ JSR @PRINTSTRING
+   680 1052 A0 08		 LDY> CODEORIGIN+$0052
+   680 1054 A9 52		 LDA< CODEORIGIN+$0052
+   680 1056 20 72 0A		 JSR @PRINTSTRING
+   681 1059 E8				inx
+   682 105A A9 C0 95 64			mva #$C0 :STACKORIGIN,x
+   683 105E A9 00 95 74			mva #$00 :STACKORIGIN+STACKWIDTH,x
+   684 1062 95 84			sta :STACKORIGIN+STACKWIDTH*2,x
+   685 1064 95 94			sta :STACKORIGIN+STACKWIDTH*3,x
+   686 1066 20 41 0C			jsr @printREAL
+   687 1069 CA				dex
+   688 106A 20 64 0A			@printEOL
+   689
+   690 				; optimize OK (pfloat.pas), line = 18
+   691
+   692 106D AD 87 13			lda B
+   693 1070 85 26			sta @FCMPL.A
+   694 1072 AD 88 13			lda B+1
+   695 1075 85 27			sta @FCMPL.A+1
+   696 1077 AD 89 13			lda B+2
+   697 107A 85 28			sta @FCMPL.A+2
+   698 107C AD 8A 13			lda B+3
+   699 107F 85 29			sta @FCMPL.A+3
+   700 1081 AD 83 13			lda A
+   701 1084 85 2E			sta @FCMPL.B
+   702 1086 AD 84 13			lda A+1
+   703 1089 85 2F			sta @FCMPL.B+1
+   704 108B AD 85 13			lda A+2
+   705 108E 85 30			sta @FCMPL.B+2
+   706 1090 AD 86 13			lda A+3
+   707 1093 85 31			sta @FCMPL.B+3
+   708 1095 20 20 0A			jsr @FCMPL
+   709 1098 10 0D			jpl l_0202
+   710 					@printSTRING #CODEORIGIN+$0062
+   710 				 LDY> CODEORIGIN+$0062\ LDA< CODEORIGIN+$0062\ JSR @PRINTSTRING
+   710 109A A0 08		 LDY> CODEORIGIN+$0062
+   710 109C A9 62		 LDA< CODEORIGIN+$0062
+   710 109E 20 72 0A		 JSR @PRINTSTRING
+   711 10A1 20 64 0A			@printEOL
+   712 10A4 4C B1 10			jmp l_020C
+   713 10A7			l_0202
+   714 					@printSTRING #CODEORIGIN+$0072
+   714 				 LDY> CODEORIGIN+$0072\ LDA< CODEORIGIN+$0072\ JSR @PRINTSTRING
+   714 10A7 A0 08		 LDY> CODEORIGIN+$0072
+   714 10A9 A9 72		 LDA< CODEORIGIN+$0072
+   714 10AB 20 72 0A		 JSR @PRINTSTRING
+   715 10AE 20 64 0A			@printEOL
+   716 10B1			l_020C
+   717
+   718 				; optimize FAIL ('@print', pfloat.pas), line = 19
+   719
+   720 					@printSTRING #CODEORIGIN+$0081
+   720 				 LDY> CODEORIGIN+$0081\ LDA< CODEORIGIN+$0081\ JSR @PRINTSTRING
+   720 10B1 A0 08		 LDY> CODEORIGIN+$0081
+   720 10B3 A9 81		 LDA< CODEORIGIN+$0081
+   720 10B5 20 72 0A		 JSR @PRINTSTRING
+   721 10B8 9C 53 13			stz K4510.MATHSQRT.X
+   722 10BB 9C 54 13			stz K4510.MATHSQRT.X+1
+   723 10BE 9C 55 13			stz K4510.MATHSQRT.X+2
+   724 10C1 A9 40			lda #$40
+   725 10C3 8D 56 13			sta K4510.MATHSQRT.X+3
+   726 10C6 20 BA 0D			jsr K4510.MATHSQRT
+   727 10C9 AD 57 13			lda K4510.MATHSQRT.RESULT
+   728 10CC 85 2A			sta @FTOA.I
+   729 10CE AD 58 13			lda K4510.MATHSQRT.RESULT+1
+   730 10D1 85 2B			sta @FTOA.I+1
+   731 10D3 AD 59 13			lda K4510.MATHSQRT.RESULT+2
+   732 10D6 85 2C			sta @FTOA.I+2
+   733 10D8 AD 5A 13			lda K4510.MATHSQRT.RESULT+3
+   734 10DB 85 2D			sta @FTOA.I+3
+   735 10DD 20 5D 0B			jsr @FTOA
+   736 					@printSTRING #CODEORIGIN+$008C
+   736 				 LDY> CODEORIGIN+$008C\ LDA< CODEORIGIN+$008C\ JSR @PRINTSTRING
+   736 10E0 A0 08		 LDY> CODEORIGIN+$008C
+   736 10E2 A9 8C		 LDA< CODEORIGIN+$008C
+   736 10E4 20 72 0A		 JSR @PRINTSTRING
+   737 10E7 9C 5B 13			stz K4510.MATHSIN.X
+   738 10EA 9C 5C 13			stz K4510.MATHSIN.X+1
+   739 10ED A9 80			lda #$80
+   740 10EF 8D 5D 13			sta K4510.MATHSIN.X+2
+   741 10F2 A9 3F			lda #$3F
+   742 10F4 8D 5E 13			sta K4510.MATHSIN.X+3
+   743 10F7 20 F3 0D			jsr K4510.MATHSIN
+   744 10FA AD 5F 13			lda K4510.MATHSIN.RESULT
+   745 10FD 85 2A			sta @FTOA.I
+   746 10FF AD 60 13			lda K4510.MATHSIN.RESULT+1
+   747 1102 85 2B			sta @FTOA.I+1
+   748 1104 AD 61 13			lda K4510.MATHSIN.RESULT+2
+   749 1107 85 2C			sta @FTOA.I+2
+   750 1109 AD 62 13			lda K4510.MATHSIN.RESULT+3
+   751 110C 85 2D			sta @FTOA.I+3
+   752 110E 20 5D 0B			jsr @FTOA
+   753 					@printSTRING #CODEORIGIN+$0098
+   753 				 LDY> CODEORIGIN+$0098\ LDA< CODEORIGIN+$0098\ JSR @PRINTSTRING
+   753 1111 A0 08		 LDY> CODEORIGIN+$0098
+   753 1113 A9 98		 LDA< CODEORIGIN+$0098
+   753 1115 20 72 0A		 JSR @PRINTSTRING
+   754 1118 9C 6F 13			stz K4510.MATHLN.X
+   755 111B 9C 70 13			stz K4510.MATHLN.X+1
+   756 111E A9 20			lda #$20
+   757 1120 8D 71 13			sta K4510.MATHLN.X+2
+   758 1123 A9 41			lda #$41
+   759 1125 8D 72 13			sta K4510.MATHLN.X+3
+   760 1128 20 7D 0E			jsr K4510.MATHLN
+   761 112B AD 73 13			lda K4510.MATHLN.RESULT
+   762 112E 85 2A			sta @FTOA.I
+   763 1130 AD 74 13			lda K4510.MATHLN.RESULT+1
+   764 1133 85 2B			sta @FTOA.I+1
+   765 1135 AD 75 13			lda K4510.MATHLN.RESULT+2
+   766 1138 85 2C			sta @FTOA.I+2
+   767 113A AD 76 13			lda K4510.MATHLN.RESULT+3
+   768 113D 85 2D			sta @FTOA.I+3
+   769 113F 20 5D 0B			jsr @FTOA
+   770 1142 20 64 0A			@printEOL
+   771
+   772 				; optimize FAIL ('@print', pfloat.pas), line = 20
+   773
+   774 					@printSTRING #CODEORIGIN+$00A4
+   774 				 LDY> CODEORIGIN+$00A4\ LDA< CODEORIGIN+$00A4\ JSR @PRINTSTRING
+   774 1145 A0 08		 LDY> CODEORIGIN+$00A4
+   774 1147 A9 A4		 LDA< CODEORIGIN+$00A4
+   774 1149 20 72 0A		 JSR @PRINTSTRING
+   775 114C 9C 77 13			stz K4510.MATHPOW.X
+   776 114F 9C 78 13			stz K4510.MATHPOW.X+1
+   777 1152 9C 79 13			stz K4510.MATHPOW.X+2
+   778 1155 A9 40			lda #$40
+   779 1157 8D 7A 13			sta K4510.MATHPOW.X+3
+   780 115A 9C 7B 13			stz K4510.MATHPOW.Y
+   781 115D 9C 7C 13			stz K4510.MATHPOW.Y+1
+   782 1160 A9 20			lda #$20
+   783 1162 8D 7D 13			sta K4510.MATHPOW.Y+2
+   784 1165 A9 41			lda #$41
+   785 1167 8D 7E 13			sta K4510.MATHPOW.Y+3
+   786 116A 20 B6 0E			jsr K4510.MATHPOW
+   787 116D AD 7F 13			lda K4510.MATHPOW.RESULT
+   788 1170 85 2A			sta @FTOA.I
+   789 1172 AD 80 13			lda K4510.MATHPOW.RESULT+1
+   790 1175 85 2B			sta @FTOA.I+1
+   791 1177 AD 81 13			lda K4510.MATHPOW.RESULT+2
+   792 117A 85 2C			sta @FTOA.I+2
+   793 117C AD 82 13			lda K4510.MATHPOW.RESULT+3
+   794 117F 85 2D			sta @FTOA.I+3
+   795 1181 20 5D 0B			jsr @FTOA
+   796 					@printSTRING #CODEORIGIN+$00AC
+   796 				 LDY> CODEORIGIN+$00AC\ LDA< CODEORIGIN+$00AC\ JSR @PRINTSTRING
+   796 1184 A0 08		 LDY> CODEORIGIN+$00AC
+   796 1186 A9 AC		 LDA< CODEORIGIN+$00AC
+   796 1188 20 72 0A		 JSR @PRINTSTRING
+   797 118B A9 00			lda #$00
+   798 118D 8D 63 13			sta K4510.MATHATAN2.Y
+   799 1190 8D 67 13			sta K4510.MATHATAN2.X
+   800 1193 8D 64 13			sta K4510.MATHATAN2.Y+1
+   801 1196 8D 68 13			sta K4510.MATHATAN2.X+1
+   802 1199 A9 80			lda #$80
+   803 119B 8D 65 13			sta K4510.MATHATAN2.Y+2
+   804 119E 8D 69 13			sta K4510.MATHATAN2.X+2
+   805 11A1 A9 3F			lda #$3F
+   806 11A3 8D 66 13			sta K4510.MATHATAN2.Y+3
+   807 11A6 8D 6A 13			sta K4510.MATHATAN2.X+3
+   808 11A9 20 2C 0E			jsr K4510.MATHATAN2
+   809 11AC E8				inx
+   810 11AD E8				inx
+   811 11AE A9 00			lda #$00
+   812 11B0 85 2A			sta :FP2MAN0
+   813 11B2 85 2B			sta :FP2MAN1
+   814 11B4 A9 80			lda #$80
+   815 11B6 85 2C			sta :FP2MAN2
+   816 11B8 A9 40			lda #$40
+   817 11BA 85 2D			sta :FP2MAN3
+   818 11BC AD 6B 13			lda K4510.MATHATAN2.RESULT
+   819 11BF 85 26			sta :FP1MAN0
+   820 11C1 AD 6C 13			lda K4510.MATHATAN2.RESULT+1
+   821 11C4 85 27			sta :FP1MAN1
+   822 11C6 AD 6D 13			lda K4510.MATHATAN2.RESULT+2
+   823 11C9 85 28			sta :FP1MAN2
+   824 11CB AD 6E 13			lda K4510.MATHATAN2.RESULT+3
+   825 11CE 85 29			sta :FP1MAN3
+   826 11D0 20 92 09			jsr @FMUL
+   827 11D3 CA				dex
+   828 11D4 A5 2E			lda :FPMAN0
+   829 11D6 85 2A			sta @FTOA.I
+   830 11D8 A5 2F			lda :FPMAN1
+   831 11DA 85 2B			sta @FTOA.I+1
+   832 11DC A5 30			lda :FPMAN2
+   833 11DE 85 2C			sta @FTOA.I+2
+   834 11E0 A5 31			lda :FPMAN3
+   835 11E2 85 2D			sta @FTOA.I+3
+   836 11E4 CA				dex
+   837 11E5 20 5D 0B			jsr @FTOA
+   838 11E8 20 64 0A			@printEOL
+   839
+   840 				; optimize OK (pfloat.pas), line = 21
+   841
+   842 11EB AD 0D D5			lda K4510.SYS_FRAMES
+   843 11EE 8D 91 13			sta F0
+   844 11F1 A9 00			lda #$00
+   845 11F3 8D 8B 13			sta C
+   846 11F6 8D 8D 13			sta C+2
+   847 11F9 8D 8C 13			sta C+1
+   848 11FC 8D 8E 13			sta C+3
+   849
+   850 				; optimize OK (pfloat.pas), line = 22
+   851
+   852 11FF A9 01			lda #$01
+   853 1201 8D 8F 13			sta I
+   854 1204 9C 90 13			stz I+1
+   855
+   856 1207			l_022D
+   857 				; --- ForToDoCondition
+   858 1207 AD 90 13			lda I+1
+   859 120A C9 13			cmp #$13
+   860 120C 90 11			bcc @+
+   861 120E F0 03 4C CF 12		jne l_0237
+   862 1213 AD 8F 13			lda I
+   863 1216 C9 88			cmp #$88
+   864 1218 90 05			bcc @+
+   865 121A F0 03 4C CF 12		jne l_0237
+   866 				@
+   867 121F AD 87 13			lda B
+   868 1222 85 2A			sta :FP2MAN0
+   869 1224 AD 88 13			lda B+1
+   870 1227 85 2B			sta :FP2MAN1
+   871 1229 AD 89 13			lda B+2
+   872 122C 85 2C			sta :FP2MAN2
+   873 122E AD 8A 13			lda B+3
+   874 1231 85 2D			sta :FP2MAN3
+   875 1233 AD 83 13			lda A
+   876 1236 85 26			sta :FP1MAN0
+   877 1238 AD 84 13			lda A+1
+   878 123B 85 27			sta :FP1MAN1
+   879 123D AD 85 13			lda A+2
+   880 1240 85 28			sta :FP1MAN2
+   881 1242 AD 86 13			lda A+3
+   882 1245 85 29			sta :FP1MAN3
+   883 1247 20 92 09			jsr @FMUL
+   884 124A A5 2E			lda :FPMAN0
+   885 124C 85 26			sta :FP1MAN0
+   886 124E A5 2F			lda :FPMAN1
+   887 1250 85 27			sta :FP1MAN1
+   888 1252 A5 30			lda :FPMAN2
+   889 1254 85 28			sta :FP1MAN2
+   890 1256 A5 31			lda :FPMAN3
+   891 1258 85 29			sta :FP1MAN3
+   892 125A 64 2A			stz :FP2MAN0
+   893 125C 64 2B			stz :FP2MAN1
+   894 125E A9 40			lda #$40
+   895 1260 85 2C			sta :FP2MAN2
+   896 1262 85 2D			sta :FP2MAN3
+   897 1264 20 D9 09			jsr @FDIV
+   898 1267 A5 2E			lda :FPMAN0
+   899 1269 85 2A			sta :FP2MAN0
+   900 126B A5 2F			lda :FPMAN1
+   901 126D 85 2B			sta :FP2MAN1
+   902 126F A5 30			lda :FPMAN2
+   903 1271 85 2C			sta :FP2MAN2
+   904 1273 A5 31			lda :FPMAN3
+   905 1275 85 2D			sta :FP2MAN3
+   906 1277 AD 8B 13			lda C
+   907 127A 85 26			sta :FP1MAN0
+   908 127C AD 8C 13			lda C+1
+   909 127F 85 27			sta :FP1MAN1
+   910 1281 AD 8D 13			lda C+2
+   911 1284 85 28			sta :FP1MAN2
+   912 1286 AD 8E 13			lda C+3
+   913 1289 85 29			sta :FP1MAN3
+   914 128B 20 04 09			jsr @FADD
+   915 128E A5 2E			lda :FPMAN0
+   916 1290 85 26			sta :FP1MAN0
+   917 1292 A5 2F			lda :FPMAN1
+   918 1294 85 27			sta :FP1MAN1
+   919 1296 A5 30			lda :FPMAN2
+   920 1298 85 28			sta :FP1MAN2
+   921 129A A5 31			lda :FPMAN3
+   922 129C 85 29			sta :FP1MAN3
+   923 129E 64 2A			stz :FP2MAN0
+   924 12A0 64 2B			stz :FP2MAN1
+   925 12A2 64 2C			stz :FP2MAN2
+   926 12A4 A9 3F			lda #$3F
+   927 12A6 85 2D			sta :FP2MAN3
+   928 12A8 20 4B 09			jsr @FSUB
+   929 12AB A5 2E			lda :FPMAN0
+   930 12AD 8D 8B 13			sta C
+   931 12B0 A5 2F			lda :FPMAN1
+   932 12B2 8D 8C 13			sta C+1
+   933 12B5 A5 30			lda :FPMAN2
+   934 12B7 8D 8D 13			sta C+2
+   935 12BA A5 31			lda :FPMAN3
+   936 12BC 8D 8E 13			sta C+3
+   937
+   938 				; --- ForToDoEpilog
+   939 12BF EE 8F 13			inc I
+   940 12C2 F0 03 4C 07 12		jne l_022D
+   941 12C7 EE 90 13			inc I+1
+   942 12CA F0 03 4C 07 12		jne l_022D
+   943 12CF			l_0237
+   944
+   945 				; optimize OK (pfloat.pas), line = 23
+   946
+   947 12CF AD 0D D5			lda K4510.SYS_FRAMES
+   948 12D2 38 ED 91 13			sub F0
+   949 12D6 8D 92 13			sta N
+   950 12D9 A9 00			lda #$00
+   951 12DB E9 00			sbc #$00
+   952 12DD A0 00			ldy #$00
+   953 12DF 29 00			and #$00
+   954 12E1 10 01			spl
+   955 12E3 88				dey
+   956 12E4 8D 93 13			sta N+1
+   957 12E7 8C 94 13			sty N+2
+   958 12EA 8C 95 13			sty N+3
+   959
+   960 				; optimize FAIL ('@print', pfloat.pas), line = 24
+   961
+   962 					@printSTRING #CODEORIGIN+$00BE
+   962 				 LDY> CODEORIGIN+$00BE\ LDA< CODEORIGIN+$00BE\ JSR @PRINTSTRING
+   962 12ED A0 08		 LDY> CODEORIGIN+$00BE
+   962 12EF A9 BE		 LDA< CODEORIGIN+$00BE
+   962 12F1 20 72 0A		 JSR @PRINTSTRING
+   963 12F4 E8				inx
+   964 12F5 AD 92 13 95 64		mva N :STACKORIGIN,x
+   965 12FA AD 93 13 95 74		mva N+1 :STACKORIGIN+STACKWIDTH,x
+   966 12FF AD 94 13 95 84		mva N+2 :STACKORIGIN+STACKWIDTH*2,x
+   967 1304 AD 95 13 95 94		mva N+3 :STACKORIGIN+STACKWIDTH*3,x
+   968 1309 20 AB 0A			jsr @printINT
+   969 130C CA				dex
+   970 					@printSTRING #CODEORIGIN+$00DC
+   970 				 LDY> CODEORIGIN+$00DC\ LDA< CODEORIGIN+$00DC\ JSR @PRINTSTRING
+   970 130D A0 08		 LDY> CODEORIGIN+$00DC
+   970 130F A9 DC		 LDA< CODEORIGIN+$00DC
+   970 1311 20 72 0A		 JSR @PRINTSTRING
+   971 1314 AD 8B 13			lda C
+   972 1317 85 2A			sta @FTOA.I
+   973 1319 AD 8C 13			lda C+1
+   974 131C 85 2B			sta @FTOA.I+1
+   975 131E AD 8D 13			lda C+2
+   976 1321 85 2C			sta @FTOA.I+2
+   977 1323 AD 8E 13			lda C+3
+   978 1326 85 2D			sta @FTOA.I+3
+   979 1328 20 5D 0B			jsr @FTOA
+   980 132B 20 64 0A			@printEOL
+   981
+   982 				; ------------------------------------------------------------
+   983
+   984 = 1383			A	= DATAORIGIN+$0051
+   985 = 1387			B	= DATAORIGIN+$0055
+   986 = 138B			C	= DATAORIGIN+$0059
+   987 = 138F			I	= DATAORIGIN+$005D
+   988 = 1391			F0	= DATAORIGIN+$005F
+   989 = 1392			N	= DATAORIGIN+$0060
+   990 132E			@exit
+   991
+   992 132E A2 00		@halt	ldx #$00
+   993 1330 9A				txs
+   994
+   995 1331 60				rts
+   996
+   997 				; ------------------------------------------------------------
+   998
+   999 1332			.local	@DEFINES
+  1000 1332			K4510
+  1001 1332			CPU_65C02
+  1002 				.endl
+  1003
+  1004 1332			.local	@RESOURCE
+  1005 				.endl
+  1006
+  1007 				.endl							; MAIN
+  1008
+  1009 				; ------------------------------------------------------------
+  1010 				; ------------------------------------------------------------
+  1011
+  1012 				.macro	UNITINITIALIZATION
+  1013 				
+  1014 					.ifdef MAIN.SYSTEM.@UnitInit
+  1015 					jsr MAIN.SYSTEM.@UnitInit
+  1016 					.fi
+  1017 				
+  1018 					.ifdef MAIN.K4510.@UnitInit
+  1019 					jsr MAIN.K4510.@UnitInit
+  1020 					.fi
+  1021 				.endm
+  1022
+  1023 				; ------------------------------------------------------------
+  1024
+  1025 					ift .SIZEOF(MAIN.SYSTEM) > 0
+  1026 					.print 'SYSTEM: ',MAIN.SYSTEM,'..',MAIN.SYSTEM+.SIZEOF(MAIN.SYSTEM)-1
+  1026 				SYSTEM: $0D29..$0D2B
+  1027 					eif
+  1028
+  1029 					ift .SIZEOF(MAIN.K4510) > 0
+  1030 					.print 'K4510: ',MAIN.K4510,'..',MAIN.K4510+.SIZEOF(MAIN.K4510)-1
+  1030 				K4510: $0D2C..$0F14
+  1031 					eif
+  1032
+  1033 				.nowarn	.print 'CODE: ',CODEORIGIN,'..',MAIN.@RESOURCE-1
+  1033 				CODE: $0800..$1331
+  1034
+  1035 					ift .SIZEOF(MAIN.@RESOURCE)>0
+  1036 				.nowarn	.print 'RESOURCE: ',MAIN.@RESOURCE,'..',MAIN.@RESOURCE+.SIZEOF(MAIN.@RESOURCE)-1
+  1037 					eif
+  1038
+  1039 1332			@end
+  1040
+  1041 				.nowarn	.print 'VARS: ',MAIN.@RESOURCE+.SIZEOF(MAIN.@RESOURCE),'..',@end-1
+  1041 				VARS: $1332..$1331
+  1042
+  1043 				; ------------------------------------------------------------
+  1044
+  1045 = 1332				?adr = *
+  1046 					ift (?adr < ?old_adr) && (?old_adr - ?adr < $120)
+  1047 					?adr = ?old_adr
+  1048 					eif
+  1049
+  1050 					org ?adr
+  1051 = 1332				?old_adr = *
+  1052
+  1053 1332			DATAORIGIN
+  1054 1332 2D 0C 00 00 00 4F + .by  $2D $0C $00 $00 $00 $4F $00 $1D
+  1055
+  1056 = 0008			VARINITSIZE	= *-DATAORIGIN
+  1057 = 0064			VARDATASIZE	= 100
+  1058
+  1059 = 1396			PROGRAMSTACK	= DATAORIGIN+VARDATASIZE
+  1060
+  1061 					.print 'DATA: ',DATAORIGIN,'..',PROGRAMSTACK
+  1061 				DATA: $1332..$1396
+  1062
+  1063 					ert DATAORIGIN<@end,'DATA memory overlap'
+  1064
+  1065 				; ------------------------------------------------------------
+  1066
+  1067 				.macro	STATICDATA
+  1068 				.by  $0D $31 $2E $35 $20 $2B $20 $32  $2E $32 $35 $20 $3D $20 $0D $31  $2E $35 $20 $2D $20 $32 $2E $32
+  1069 				.by  $35 $20 $3D $20 $0D $31 $2E $35  $20 $2A $20 $32 $2E $32 $35 $20  $3D $20 $08 $37 $20 $2F $20 $32
+  1070 				.by  $20 $3D $20 $0E $74 $72 $75 $6E  $63 $28 $2D $33 $2E $37 $29 $20  $3D $20 $0F $20 $20 $72 $6F $75
+  1071 				.by  $6E $64 $28 $32 $2E $35 $29 $20  $3D $20 $0F $20 $20 $66 $72 $61  $63 $28 $33 $2E $37 $35 $29 $20
+  1072 				.by  $3D $20 $0F $31 $2E $35 $20 $3C  $20 $32 $2E $32 $35 $3A $20 $79  $65 $73 $0E $31 $2E $35 $20 $3C
+  1073 				.by  $20 $32 $2E $32 $35 $3A $20 $4E  $4F $0A $73 $71 $72 $74 $28 $32  $29 $20 $3D $20 $0B $20 $20 $73
+  1074 				.by  $69 $6E $28 $31 $29 $20 $3D $20  $0B $20 $20 $6C $6E $28 $31 $30  $29 $20 $3D $20 $07 $32 $5E $31
+  1075 				.by  $30 $20 $3D $20 $11 $20 $20 $61  $74 $61 $6E $32 $28 $31 $2C $31  $29 $2A $34 $20 $3D $20 $1D $35
+  1076 				.by  $30 $30 $30 $20 $78 $20 $28 $6D  $75 $6C $2C $20 $64 $69 $76 $2C  $20 $61 $64 $64 $2C $20 $73 $75
+  1077 				.by  $62 $29 $3A $20 $0D $20 $66 $72  $61 $6D $65 $73 $2C $20 $63 $20  $3D $20
+  1078 				.endm
+  1079
+  1080 					end
