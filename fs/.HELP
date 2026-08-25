@@ -8,6 +8,10 @@ files:   DIR [A] [dir|pattern]
          RM name
          RMDIR dir
          TYPE name
+         EDIT [name]
+         (full-screen editor: arrows Home End PgUp
+         PgDn, Ctrl-O or Ctrl-S saves, Ctrl-X leaves.
+         *SWAP EDIT name edits from inside a BASIC)
          XD name
          LOAD name [addr]
          SAVE name from.to
