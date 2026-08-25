@@ -1,22 +1,61 @@
-monitor: MON or WOZ [line]  then:  addr  addr.addr  addr:b b b  addrR  X leaves
-files:   DIR [A]  CD [dir]  MKDIR dir  RM name  RMDIR dir  TYPE name  XD name
-         LOAD name [addr]  SAVE name from.to  RENAME old new  CP old new
-         RUN [name.prg|addr]  EXEC script   (bare names search the language dirs)
-         an unknown word runs name.prg from disk, with args (ARGS call $FF95)
-         names starting with . are hidden from DIR (DIR A shows them)
-memory:  FILL from.to value   COPY from.to dest
-system:  INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  HUSH  RESET
-         CAPSLOCK [ON|OFF] (toggle; letters typed come up uppercase -- *CAPSLOCK in a BASIC)
+monitor: MON or WOZ [line]  then:  addr  addr.addr
+         addr:b b b  addrR  X leaves
+files:   DIR [A]
+         CD [dir]
+         MKDIR dir
+         RM name
+         RMDIR dir
+         TYPE name
+         XD name
+         LOAD name [addr]
+         SAVE name from.to
+         RENAME old new
+         CP old new
+         RUN [name.prg|addr]
+         EXEC script
+         (bare names search the language dirs)
+         an unknown word runs name.prg from disk, with
+         args (ARGS call $FF95)
+         names starting with . are hidden from DIR
+         (DIR A shows them)
+memory:  FILL from.to value
+         COPY from.to dest
+system:  INFO
+         TIME
+         MODE [0-2] [0|1]
+         COLOR fg [bg]
+         ECHO
+         CLS
+         HUSH
+         RESET
+         CAPSLOCK [ON|OFF]
+         (toggle; letters typed come up uppercase --
+         *CAPSLOCK in a BASIC)
          DUMP [note|ON|OFF]
-tongues: BBC (BBC BASIC on the Tube)   CPM (CP/M 2.2, the Z80 second processor)
-         FORTH (Tali Forth 2, native)  EHBASIC via RUN EHBASIC
-         Mad Pascal: cross-compiled .prg files (pascal/): PMANDEL PSIEVE HELLO
-network: a URL is a file name (Meatloaf): TYPE http://host/file  CP http://host/x.prg x.prg
-         RUN http://host/x.prg  LOAD "http://..." in EhBASIC and BBC BASIC
-         CD tnfs://host/dir puts the current directory on a TNFS server (FujiNet,
-         Meatloaf): DIR lists it, bare names load from it, CD .. climbs, CD - comes home
-         TELNET host port (F12 hangs up) on the N: device at $D900; ANSI/VT100 via JIM
-terminal: JIM at $DA00, a VT100/ANSI in hardware: CP/M programs and BBC BASIC draw
-         through it (install CP/M programs for VT100 or ANSI); TELNET too
-host:    F7 opens the settings menu (border, font, volume, keys, reset); Super+PgUp resets
-boot:    /!BOOT runs as an EXEC script at power-on; hold a key to skip it
+tongues: BBC (BBC BASIC on the Tube)
+         CPM (CP/M 2.2, the Z80 second processor)
+         FORTH (Tali Forth 2, native)
+         EHBASIC
+         Mad Pascal: cross-compiled .prg files
+         (pascal/): PMANDEL PSIEVE HELLO
+network: a URL is a file name (Meatloaf):
+         TYPE http://host/file
+         CP http://host/x.prg x.prg
+         RUN http://host/x.prg
+         LOAD "http://..." in EhBASIC and BBC BASIC
+         CD tnfs://host/dir puts the current directory
+         on a TNFS server (FujiNet, Meatloaf):
+         DIR lists it, bare names load from it,
+         CD .. climbs,
+         CD - comes home
+         TELNET host port (F12 hangs up)
+         on the N: device at $D900; ANSI/VT100 via JIM
+terminal: JIM at $DA00, a VT100/ANSI in hardware:
+         CP/M programs and BBC BASIC draw through it
+         (install CP/M programs for VT100 or ANSI);
+         TELNET too
+host:    F7 opens the settings menu
+         (border, font, volume, keys, reset);
+         Super+PgUp resets
+boot:    /!BOOT runs as an EXEC script at power-on;
+         hold a key to skip it
