@@ -44,7 +44,10 @@ system:  INFO
          *CAPSLOCK in a BASIC)
          DUMP [note|ON|OFF]
 tongues: BBC (BBC BASIC on the Tube)
-         CPM (CP/M 2.2, the Z80 second processor)
+         CPM [command] (CP/M 2.2 on the Z80)
+         (the command runs at boot; a name with no
+         .COM runs its .SUB, so several lines --
+         end with EXIT to leave CP/M as well)
          FORTH (Tali Forth 2, native)
          EHBASIC
          Mad Pascal: cross-compiled .prg files

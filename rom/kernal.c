@@ -732,6 +732,27 @@ static void cmd_dump(const char *p)
 }
 #pragma code-name (pop)
 #pragma rodata-name (pop)
+
+/* CPM [command]: RunCPM reads AUTOEXEC.TXT at boot and runs its first line,
+ * so a command given here is written there, CP/M is started, and the file is
+ * taken away again afterwards -- otherwise it would hijack every later boot.
+ * One line is all the CCP takes, but it auto-submits a .SUB when a .COM is
+ * not found, so CPM GO runs GO.SUB and that may be as long as you like
+ * (ending in EXIT, if you want quitting the program to leave CP/M too). */
+static void cmd_cpm(const char *p)
+{
+    char nm[18], txt[64]; uint8_t n = 0, wrote = 0;
+    if (*p) {
+        while (p[n] && n < sizeof txt - 3) { txt[n] = p[n]; n++; }
+        txt[n++] = '\r'; txt[n++] = '\n'; txt[n] = 0;
+        strcpy(nm, "/CPM/AUTOEXEC.TXT");
+        fs_name(nm); w32(FS + 8, (uint16_t)txt); w32(FS + 12, (uint32_t)n);
+        if (!fs_cmd(10)) wrote = 1; else error("cpm: cannot write /CPM/AUTOEXEC.TXT");
+    }
+    cmd_bbcbasic(3);
+    if (wrote) { fs_name(nm); fs_cmd(13); }
+}
+
 /* ---- SWAP: run a command and give this machine back ------------------------
  * The caller's whole CPU view -- zero page, both stacks, the ROM's own
  * workspace, the program, and the RAM under the ROM and the I/O page -- is
@@ -1014,7 +1035,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "DUMP"))  { sw_call(1, cmd_dump, p); return; }
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
-    if (is_cmd(&p, "CPM"))   { cmd_bbcbasic(3); return; }
+    if (is_cmd(&p, "CPM"))   { cmd_cpm(p); return; }
     /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {
