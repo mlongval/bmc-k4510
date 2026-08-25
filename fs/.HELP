@@ -49,6 +49,9 @@ system:  INFO
          DUMP [note|ON|OFF]
 tongues: BBC (BBC BASIC on the Tube)
          CPM [command] (CP/M 2.2 on the Z80)
+         (K: is the machine's own filesystem, so
+         CP/M and K/OS can pass files both ways;
+         P: is Turbo Pascal, D: is WordStar)
          (the command runs at boot; a name with no
          .COM runs its .SUB, so several lines --
          end with EXIT to leave CP/M as well)

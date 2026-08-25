@@ -7,3 +7,13 @@
 !A/
 !A/0/
 !A/0/README.TXT
+
+# Ours, not DRI's: the K: bridge onto the machine's own filesystem, and the
+# .SUB files the K/OS aliases run. Small, and they must reach every machine.
+!K/
+!K/0
+!P/
+!P/0
+!D/
+!D/0
+!A/0/K-*.SUB

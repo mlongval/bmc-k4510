@@ -742,6 +742,13 @@ static void cmd_dump(const char *p)
 static void cmd_cpm(const char *p)
 {
     char nm[18], txt[64]; uint8_t n = 0, wrote = 0;
+    /* Clear anything a previous session left behind before starting. Stop the
+     * machine while CP/M is up -- or kill the emulator -- and the cleanup at
+     * the bottom never runs, so the old AUTOEXEC.TXT would quietly hijack
+     * every later boot. An abandoned $$$.SUB does the same, being CP/M's
+     * half-finished submit. Neither is ever wanted on a fresh start. */
+    strcpy(nm, "/CPM/AUTOEXEC.TXT"); fs_name(nm); fs_cmd(13);
+    strcpy(txt, "/CPM/A/0/$$$.SUB"); fs_name(txt); fs_cmd(13);
     if (*p) {
         while (p[n] && n < sizeof txt - 3) { txt[n] = p[n]; n++; }
         txt[n++] = '\r'; txt[n++] = '\n'; txt[n] = 0;
