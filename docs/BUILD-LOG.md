@@ -2825,3 +2825,39 @@ table of VDU 23,27 calls. The Pi kernel was rebuilt with the sprite
 ULA in: kernel8.img 1,498,400 bytes, md5 73702ee3, staged in p15
 pkg/. Not done: the guide PDF is not regenerated (that is the
 ubuntu-s1 k4510-build ritual, artifacts synced first).
+
+## 2026-08-24 (ad) — the Z80 joins the second processor: CP/M on the Pi
+
+Doc chose it over Fujinet: "Do the RunCPM port for the RPi3+ tube." An
+evening's work, because the Tube built earlier tonight already had a
+program code for it — `$D803 = 3` — and RunCPM is a single translation
+unit whose every platform assumption lives in one header,
+`abstraction_posix.h`. That header is now generated into
+`abstraction_k4510.h` by `cpm/patch_cpm.py`: byte-identical except at
+four seams. The console (termios, poll, getchar, `system("clear")`)
+became the Tube rings — `_kbhit` peeks one byte, `_getch` waits on
+the ring, `_clrscr` sends the ESC[J the K4510 console already knows.
+The files kept every line of RunCPM's logic but `FILEBASE` is empty
+and fopen/stat/rename/truncate/mkdir route through the co-processor's
+path layer with its cwd set to `/CPM`, so "A/0/ZORK1.COM" lands in
+fs/CPM/A/0 on the desktop and SD:/k4510/fs/CPM/A/0 on the card. The
+directory search, which used glob(3) (Circle has none), walks
+opendir() and sorts as glob sorted — the all-users "?" form scans the
+sixteen user folders. The machine's kill, which BBC BASIC felt in
+trap(), has no equivalent in a Z80 loop, so it longjmps out of the
+emulator from the next console call; `-Dmain=tube_cpm_main` lets
+main.c stay main.c. One symbol surfaced at the Pi link — the CPU
+throttle's usleep — and was routed to the Tube's spin.
+
+Verified on the desktop through the in-process transport: the CCP
+banner and A0> prompt, DIR across the whole A: drive, and Zork
+(user 5) opening the mailbox and reading the leaflet — "WELCOME TO
+ZORK" from the Z80 through the rings. `make tubetest` now has five
+legs. The Pi kernel: **1,571,520 bytes** (BBC BASIC + sprites + CP/M;
+was 1,299,552 this morning), md5 65249308, staged in p15 pkg/. Still
+untested on the Pi itself — Doc said hold the card. When it goes on:
+`CPM`, `DIR`, `USER 5`, `ZORK1`. Open: whether fs/CPM (375 MB) is on
+the card at all; the ROM's "no Tube (desktop host only)" wording is
+now only ever true of an unfitted program; and the terminal (THE
+QUEUE, item 1) is what CP/M's screen programs are waiting for, on the
+Pi as much as on the desktop.

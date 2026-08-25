@@ -28,6 +28,8 @@ should be kept the same.
 
     #ifdef RUNVT_EMBED
         #include "abstraction_runvt.h"
+    #elif defined(K4510_TUBE)
+        #include "abstraction_k4510.h" // [BMC-K4510] the in-process Tube co-processor
     #elif defined(_WIN32)
         #include "abstraction_windows.h"
     #else
@@ -57,6 +59,9 @@ int lst_open = FALSE;
     #endif
 
 int main(int argc, char *argv[]) {
+    #ifdef K4510_TUBE
+    if (setjmp(tube_cpm_env)) return 2;  // [BMC-K4510] the machine stopped the Tube
+    #endif
 
     #ifdef DEBUGLOG
     _sys_deletefile((uint8 *)LogName);

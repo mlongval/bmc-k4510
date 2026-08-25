@@ -18,7 +18,7 @@ TUBE = ../tube/src
 RESID_SRC = $(wildcard $(CORE)/resid/*.cc)
 OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o \
        $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicke.o $(CORE)/sid.o $(CORE)/tube_cp.o \
-       bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o \
+       bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o runcpm.o \
        $(RESID_SRC:.cc=.o)
 
 STANDARD = -std=c++23 -Wno-volatile
@@ -69,6 +69,11 @@ bb_ccon.o: $(TUBE)/bbccon.c $(BBCDEPS)
 # convention); ELF has none, so C's `liston` never meets its `_liston`.
 # The link is repaired mechanically: every global (D/T/U) loses the
 # underscore, locals such as b4fmt are untouched.
+# RunCPM (cpm/src, one translation unit) as Tube program 3
+runcpm.o: ../cpm/src/main.c $(wildcard ../cpm/src/*.h) $(CORE)/tube_cp.h
+	@echo "  CC    $@"
+	@$(CC) $(CFLAGS) $(C_STANDARD) -O2 -Wno-unused-variable -DK4510_TUBE -Dmain=tube_cpm_main -DCCP_INTERNAL -DCPU=\"cpu1.h\" -c -o $@ $<
+
 bb_data.o: $(TUBE)/bbdata_arm_64.s
 	@echo "  AS    $@"
 	@$(CC) $(AFLAGS) -c -o $@.raw $<

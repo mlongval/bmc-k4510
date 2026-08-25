@@ -37,7 +37,7 @@ void tube_cp_usleep(unsigned us) { usleep(us); }
 
 int tube_cp_start(int prog)
 {
-    if (prog != 1) return -1;             /* CP/M on the in-process Tube: later */
+    if (prog != 1 && prog != 3) return -1;   /* 1 = BBC BASIC, 3 = CP/M */
 #ifndef K4510_PI
     if (!cp_thread_up) { if (pthread_create(&cp_thread, NULL, cp_thread_main, NULL)) return -1; cp_thread_up = 1; }
 #endif
@@ -122,7 +122,9 @@ void tube_cp_run(void)
         while (!(prog = atomic_load(&cp_req))) tube_cp_usleep(1000);
         atomic_store(&cp_req, 0);
         atomic_store(&cp_alive, 1);
-        int rc = prog == 1 ? tube_bbc_main() : -1;
+        int rc;
+        if (prog == 3) { static char a0[] = "runcpm"; char *av[] = { a0, NULL }; tube_cp_chdir("/CPM"); rc = tube_cpm_main(1, av); }
+        else { tube_cp_chdir("/"); rc = tube_bbc_main(); }
 #ifndef K4510_PI
         fprintf(stderr, "[tube: program %d exited %d]\n", prog, rc);
 #endif
@@ -183,6 +185,17 @@ int tube_cp_chdir(const char *path)
     if (stat(p, &sb) || !S_ISDIR(sb.st_mode)) return -1;
     strcpy(cp_cwd, rel);
     return 0;
+}
+int tube_cp_stat(const char *path, struct stat *sb) { char p[512]; cp_path(p, sizeof p, path); return stat(p, sb); }
+int tube_cp_truncate(const char *path, long length)
+{
+    char p[512]; cp_path(p, sizeof p, path);
+#ifdef K4510_PI
+    FILE *f = fopen(p, "r+b"); if (!f) return -1;      /* newlib has no truncate(); ftruncate is wrapped */
+    int r = ftruncate(fileno(f), length); fclose(f); return r;
+#else
+    return truncate(p, length);
+#endif
 }
 int tube_cp_chmod(const char *path, unsigned mode)
 {

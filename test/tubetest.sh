@@ -27,4 +27,9 @@ PRINT "MODEOK"
 *QUIT
 ' 900 'has left' 'MODE 2 + PLOT through the ULA'
 grep -q 'MODEOK' test/tubetest.out || { cat test/tubetest.out; echo "tubetest: FAILED: no output after MODE 7"; exit 1; }
-echo "tubetest: OK (PRINT, restart after *QUIT, MODE 2/GCOL/PLOT/MODE 7)"
+run 'CPM
+~DIR
+~EXIT
+' 900 'has left' 'CP/M on the in-process Tube'
+grep -q 'A0>' test/tubetest.out || { cat test/tubetest.out; echo "tubetest: FAILED: no CP/M prompt"; exit 1; }
+echo "tubetest: OK (PRINT, restart after *QUIT, MODE 2/GCOL/PLOT/MODE 7, CP/M DIR/EXIT)"

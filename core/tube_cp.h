@@ -53,11 +53,15 @@ int   tube_cp_rmdir(const char *path);
 int   tube_cp_chdir(const char *path);
 char *tube_cp_getcwd(char *buf, size_t n);
 int   tube_cp_chmod(const char *path, unsigned mode);   /* the Pi's card has no modes: 0 */
+struct stat;
+int   tube_cp_stat(const char *path, struct stat *sb);
+int   tube_cp_truncate(const char *path, long length);
 
 /* ---- what the platform supplies ---------------------------------------- */
 unsigned tube_cp_ticks(void);              /* milliseconds, any origin */
 void     tube_cp_usleep(unsigned us);      /* desktop: usleep; Pi: a spin on the system counter (core 3 has nothing else to do) */
 int      tube_bbc_main(void);              /* the interpreter (bbccon.c); returns BASIC's exit code */
+int      tube_cpm_main(int argc, char **argv);   /* RunCPM's main, renamed (cpm/src/main.c with -Dmain=) */
 const char *fs_get_root(void);             /* io.c: the machine's filesystem root, as a host path */
 
 #ifdef __cplusplus

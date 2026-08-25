@@ -769,7 +769,7 @@ static void tube_pump(void)
     if (alive) tube_was_alive = 1;
     else if (tube_was_alive) { tube_was_alive = 0; tula_close(); }   /* the co-processor ended (*QUIT) */
 }
-static void tube_start(int prog) { tube_cp_start(prog); }             /* 1 = BBC BASIC; 3 (CP/M) is not fitted in-process yet */
+static void tube_start(int prog) { tube_cp_start(prog); }             /* 1 = BBC BASIC, 3 = CP/M, both in-process */
 static void tube_stop(void)
 {
     tube_cp_stop();

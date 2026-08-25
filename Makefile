@@ -147,7 +147,9 @@ TUBE_IP_CFLAGS = -DK4510_TUBE -DK4510_TUBE_INPROC -Icore -Itube/include -Wno-arr
                  -ffast-math -fno-finite-math-only
 TUBE_IP_DEPS = $(wildcard tube/include/*.h) core/tube_cp.h
 TUBE_IP_OBJS = tube/ip_bbmain.o tube/ip_bbexec.o tube/ip_bbeval.o tube/ip_bbasmb.o tube/ip_bbdata.o tube/ip_bbccos.o tube/ip_bbccon.o
-CORE_IP_OBJS = $(filter-out core/io.o,$(CORE_OBJS)) core/io_ip.o core/tube_cp.o
+CORE_IP_OBJS = $(filter-out core/io.o,$(CORE_OBJS)) core/io_ip.o core/tube_cp.o cpm/ip_runcpm.o
+cpm/ip_runcpm.o: cpm/src/main.c $(wildcard cpm/src/*.h) core/tube_cp.h
+	$(CC) -O2 -Wall -Wno-unused-variable -Wno-unused-function -Icore -DK4510_TUBE -Dmain=tube_cpm_main -DCCP_INTERNAL -DCPU=\"cpu1.h\" -c -o $@ $<
 tube/ip_bbmain.o: tube/src/bbmain.c $(TUBE_IP_DEPS)
 	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -c -o $@ $<
 tube/ip_bbexec.o: tube/src/bbexec.c $(TUBE_IP_DEPS)
