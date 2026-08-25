@@ -255,6 +255,7 @@ static uint8_t wild(const char *pat, const char *s)
         return 0;
     }
 }
+
 static void cmd_dir(const char *p)
 {
     char name[64], pat[NAMEMAX], back[64]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
@@ -731,6 +732,45 @@ static void cmd_dump(const char *p)
 }
 #pragma code-name (pop)
 #pragma rodata-name (pop)
+/* ---- SWAP: run a command and give this machine back ------------------------
+ * The caller's whole CPU view -- zero page, both stacks, the ROM's own
+ * workspace, the program, and the RAM under the ROM and the I/O page -- is
+ * physical $0000-$FFFF, so one DMA puts all of it in far memory and one puts
+ * it back. The text screen goes too ($030000), or the caller would return to
+ * the callee's output.
+ *
+ * Nothing needs saving by hand. The bank registers are already on the stack,
+ * pushed by the system-call stub, and the stack is inside what is saved. The
+ * C frame is balanced across the call, so the CPU's own stack pointer is the
+ * same on both sides and comes back by arithmetic rather than by memory. The
+ * DMA is complete before the next instruction runs, so the restore lands
+ * under our feet and the code carries on out of ROM, which never moved.
+ *
+ * What is NOT saved is far memory: a BASIC's K4SG segments live out there and
+ * are simply not touched, which is why EhBASIC survives. The callee must be a
+ * plain program that does not claim far segments of its own, and must not use
+ * MAP. One level deep. */
+#define SWAPRAM 0x0FD00000UL
+#define SWAPSCR 0x0FD10000UL
+static uint8_t swapping;
+static void cmd_swap(const char *p)
+{
+    if (!*p) { error("swap: swap command"); return; }
+    if (swapping) { error("swap: no nesting"); return; }
+    dma_copy(0x00000000UL, SWAPRAM, 0x10000UL);
+    dma_copy(SCREEN, SWAPSCR, 80UL * 60 * 4);
+    swapping = 1;                                     /* set after the save, so the restore clears it again */
+    shell_line(p);
+    dma_copy(SWAPSCR, SCREEN, 80UL * 60 * 4);
+    /* The restore overwrites the stack, so it must not be triggered from
+     * inside a call: the returning JSR would find the SAVED return address
+     * under it and jump back to the save, round and round. Set the registers
+     * up first, then fire with a bare store, when the only frame standing is
+     * this one -- which the saved image matches byte for byte. */
+    w32(DMA, SWAPRAM); w32(DMA + 4, 0x00000000UL); w32(DMA + 8, 0x10000UL);
+    REG(DMA + 12) = 1;
+}
+
 static void cmd_help(void)
 {
     cmd_type("/.HELP");                                  /* the help text lives on disk, dot-hidden */
@@ -965,6 +1005,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "SWAP"))    { cmd_swap(p); return; }
     if (is_cmd(&p, "ALIAS"))   { cmd_alias(p); return; }
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }

@@ -15,6 +15,10 @@ files:   DIR [A] [dir|pattern]
          CP old new
          RUN [name.prg|addr]
          EXEC script  (a # line is a comment)
+         SWAP command
+         (runs it on a clean machine and gives this
+         one back: *SWAP name from a BASIC leaves
+         the program in memory untouched)
          (bare names search the language dirs)
          an unknown word runs name.prg from disk, with
          args (ARGS call $FF95)
