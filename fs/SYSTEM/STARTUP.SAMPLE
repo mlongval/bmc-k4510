@@ -1,4 +1,5 @@
-# STARTUP.BAT -- runs at power-on; hold a key at the banner to skip it.
+# A sample /STARTUP.BAT -- copy it to / and edit. It runs at power-on;
+# hold a key at the banner to skip it. Your own copy is never overwritten.
 # Aliases live in RAM, so they are defined here every boot.
 
 # the CP/M programs, each through a .SUB on A: that ends in EXIT,

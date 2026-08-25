@@ -47,3 +47,6 @@ test/statetest
 k4510-slot*.k4s
 # Commodore's character ROM, if you drop one in /SYSTEM: not ours to publish
 fs/SYSTEM/chargen.bin
+
+# your own startup script: yours, not the repo's (see /SYSTEM/STARTUP.SAMPLE)
+fs/STARTUP.BAT
