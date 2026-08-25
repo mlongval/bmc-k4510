@@ -508,6 +508,8 @@ static void cmd_run(const char *p)
     run_at((uint16_t)a);
 }
 
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_fill(const char *p)
 {
     uint8_t d; uint32_t from, to, v;
@@ -548,6 +550,8 @@ static void cmd_color(const char *p)
     fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKE + 1) = bg;
     cls();
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 /* ---- INFO ----------------------------------------------------------------- */
 #pragma code-name (pop)
@@ -701,6 +705,8 @@ static void cmd_bbcbasic(uint8_t prog);
  * the screen, the PC history and the shell log; the note goes into the log */
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_dump(const char *p)
 {
     uint8_t n;
@@ -712,6 +718,8 @@ static void cmd_dump(const char *p)
     if (n) { puts_("dump "); putdec(n); puts_(" written (dumps/dump-"); if (n < 100) k_chrout('0'); if (n < 10) k_chrout('0'); putdec(n); puts_(".txt)"); newline(); }
     else error("dump: failed");
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static void cmd_help(void)
 {
     cmd_type("/.HELP");                                  /* the help text lives on disk, dot-hidden */
@@ -727,6 +735,8 @@ static void cmd_two(uint8_t cmdno, const char *p)
 }
 
 /* XD name (HEX works too): hex + ASCII, 16 bytes a row; Esc stops it */
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_xd(const char *p)
 {
     char name[NAMEMAX]; uint32_t off = 0, n; uint8_t i, buf[16];
@@ -748,13 +758,15 @@ static void cmd_xd(const char *p)
     fs_cmd(5);
 }
 
-static void cmd_hush(void)
+static void cmd_hush(const char *p)
 {
-    uint8_t c, r;
+    uint8_t c, r; (void)p;
     REG(SYS + 0xE0) = 0x80;
     for (c = 0; c < 4; c++) for (r = 0; r < 25; r++) REG(SID0 + (uint16_t)c * 32 + r) = 0;
     puts_("hushed"); newline();
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 #pragma code-name (pop)
 #pragma rodata-name (pop)
@@ -790,6 +802,8 @@ uint8_t k_args(void)
     return n;
 }
 
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_caps(const char *p)
 {
     skipsp(&p);
@@ -803,14 +817,16 @@ static void cmd_caps(const char *p)
  * Tube ULA's MODE, a program of your own. Layer 1 is the bitmap layer, so
  * its own registers say where the pixels are and how wide a row is; the
  * height comes from the chip's mode, doubled lines meaning half as many. */
-static void cmd_clg(void)
+static void cmd_clg(const char *p)
 {
-    uint32_t addr, len;
+    uint32_t addr, len; (void)p;
     if (!(REG(VICKE + 0x20) & 1)) { error("clg: no bitmap on screen"); return; }
     addr = r32(VICKE + 0x28) & 0x0FFFFFFFUL;
     len = (uint32_t) r16(VICKE + 0x26) * ((REG(VICKE + 0) & 6) ? 240UL : 480UL);
     if (len) dma_fill(0, addr, len);
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 static void shell_line(const char *p)
 {
@@ -827,25 +843,25 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
     if (is_cmd(&p, "SAVE"))  { cmd_save(p); return; }
     if (is_cmd(&p, "TYPE"))  { cmd_type(p); return; }
-    if (is_cmd(&p, "XD") || is_cmd(&p, "HEX")) { cmd_xd(p); return; }
+    if (is_cmd(&p, "XD") || is_cmd(&p, "HEX")) { sw_call(1, cmd_xd, p); return; }
     if (is_cmd(&p, "RENAME") || is_cmd(&p, "REN") || is_cmd(&p, "MV")) { cmd_two(16, p); return; }
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
     if (is_cmd(&p, "EXEC"))  { cmd_exec(p); return; }
-    if (is_cmd(&p, "HUSH"))  { cmd_hush(); return; }
+    if (is_cmd(&p, "HUSH"))  { sw_call(1, cmd_hush, p); return; }
     if (is_cmd(&p, "RUN"))   { cmd_run(p); return; }
-    if (is_cmd(&p, "FILL"))  { cmd_fill(p); return; }
-    if (is_cmd(&p, "COPY"))  { cmd_copy(p); return; }
+    if (is_cmd(&p, "FILL"))  { sw_call(1, cmd_fill, p); return; }
+    if (is_cmd(&p, "COPY"))  { sw_call(1, cmd_copy, p); return; }
     if (is_cmd(&p, "INFO"))  { sw_call(1, cmd_info, p); return; }
     if (is_cmd(&p, "TIME"))  { sw_call(1, cmd_time, p); return; }
-    if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { cmd_color(p); return; }
-    if (is_cmd(&p, "MODE"))  { cmd_mode(p); return; }
+    if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { sw_call(1, cmd_color, p); return; }
+    if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
-    if (is_cmd(&p, "CLG"))   { cmd_clg(); return; }
-    if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { cmd_caps(p); return; }
+    if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
+    if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
-    if (is_cmd(&p, "DUMP"))  { cmd_dump(p); return; }
+    if (is_cmd(&p, "DUMP"))  { sw_call(1, cmd_dump, p); return; }
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
     if (is_cmd(&p, "CPM"))   { cmd_bbcbasic(3); return; }
