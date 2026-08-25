@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <ctype.h>
 #include "bbccon.h"
 #define HISTORY 100  // Number of items in command history
 #define ESCTIME 200  // Milliseconds to wait for escape sequence
@@ -54,7 +55,7 @@ static void *dlsym (void *handle, const char *symbol) { return NULL ; }
 #include "dlfcn.h"
 #define myftell ftell
 #define myfseek fseek
-#define PLATFORM "Linux"
+#define PLATFORM "K4510"	// [BMC-K4510] the banner names the machine, not the host it borrows
 #define WM_TIMER 275
 #endif
 
@@ -1209,13 +1210,29 @@ static FILE *lookup (void *chan)
 }
 
 // Load a file into memory:
+// [BMC-K4510] The machine's programs are NAME.BBC and its desktop host's
+// filesystem is case-sensitive: a read that misses is retried with the
+// extension in capitals, so LOAD "KALEID" finds KALEID.BBC there too.
+static FILE *fopen_rd (char *path, const char *mode)
+{
+	FILE *f = fopen (path, mode) ;
+	char *e ;
+	if ((f == NULL) && ((e = strrchr (path, '.')) != NULL) && (strchr (e, '/') == NULL))
+	    {
+		char *q ;
+		for (q = e; *q; q++) *q = toupper ((unsigned char) *q) ;
+		f = fopen (path, mode) ;
+	    }
+	return f ;
+}
+
 void osload (char *p, void *addr, unsigned int max)
 {
 	int n ;
 	FILE *file ;
 	if (NULL == setup (path, p, ".bbc", '\0', NULL))
 		error (253, "Bad string") ;
-	file = fopen (path, "rb") ;
+	file = fopen_rd (path, "rb") ;
 	if (file == NULL)
 		error (214, "File or path not found") ;
 	n = fread (addr, 1, max, file) ;
@@ -1248,11 +1265,11 @@ void *osopen (int type, char *p)
 	if (setup (path, p, ".bbc", '\0', NULL) == NULL)
 		return 0 ;
 	if (type == 0)
-		file = fopen (path, "rb") ;
+		file = fopen_rd (path, "rb") ;
 	else if (type == 1)
 		file = fopen (path, "w+b") ;
 	else
-		file = fopen (path, "r+b") ;
+		file = fopen_rd (path, "r+b") ;
 	if (file == NULL)
 		return NULL ;
 

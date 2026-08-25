@@ -2861,3 +2861,27 @@ the card at all; the ROM's "no Tube (desktop host only)" wording is
 now only ever true of an unfitted program; and the terminal (THE
 QUEUE, item 1) is what CP/M's screen programs are waiting for, on the
 Pi as much as on the desktop.
+
+## 2026-08-24 (ae) — *DIR sees directories, LOAD forgives case, the banner names the machine
+
+Doc, from the desktop with a screenshot: BBC BASIC's `*DIR` "always
+looks for .BBC files and does NOT show subdirectories — is the problem
+BBC BASIC or K/OS?" BBC BASIC: `*DIR` is one of the star commands the
+interpreter keeps for itself (bbccos.c DIRCMD), and the stock version
+appends `*.bbc` when given nothing and lists only readdir() entries
+matching the pattern — a subdirectory never does, so fs/ root, which
+is all directories, listed as empty. K/OS never saw the command.
+Three [BMC-K4510] alterations, all in the vendored tree and noted in
+ALTERED.md: (1) `*DIR` lists every subdirectory whatever the pattern,
+with a trailing `/` (a stat through the co-processor's path layer in
+the in-process build, `k4_stat`); (2) osload()/osopen() retry a missed
+read with the extension in capitals — `fopen_rd` — so `LOAD "KALEID"`
+finds KALEID.BBC on the case-sensitive desktop as it always would have
+on the Pi's FAT; (3) Doc's second observation, "it says Linux in there
+on startup — confusing": PLATFORM is now "K4510" in every build, so
+the banner reads "BBC BASIC for K4510 Console v0.50". Also the
+in-process `Directory of //*.bbc` lost its doubled slash. Verified on
+both transports (`*DIR` at the root shows PRG/ SID/ EHBASIC/ BBCBASIC/
+FORTH/ CPM/; `*CD BBCBASIC` then `LOAD "TUNE"` loads), tubetest five
+legs green, Pi kernel rebuilt (1,571,536 bytes, md5 889edc7b) and
+staged; the card still on hold.

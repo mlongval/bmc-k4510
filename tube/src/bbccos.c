@@ -19,6 +19,12 @@ extern char *szLoadDir ;  // @dir$
 extern int dirlen;
 #else
 #include <dirent.h>
+#include <sys/stat.h>
+#ifdef K4510_TUBE
+#define k4_stat tube_cp_stat	// [BMC-K4510] through the co-processor's path layer
+#else
+#define k4_stat stat
+#endif
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -792,7 +798,8 @@ void oscli (char *cmd)
 			    }
 			text ("Directory of ") ;
 			text (q) ;
-			outchr (dd) ;
+			if (dd && (*q == 0 || q[strlen (q) - 1] != dd))
+				outchr (dd) ;	// [BMC-K4510] no doubled slash at the root
 			text (p) ;
 			crlf () ;
 
@@ -812,6 +819,25 @@ void oscli (char *cmd)
 				struct dirent *r = readdir (d) ;
 				if (r == NULL)
 					break ;
+				if (strcmp (r -> d_name, ".") && strcmp (r -> d_name, ".."))
+				    {	// [BMC-K4510] a subdirectory is listed whatever the pattern, with a trailing /
+					struct stat sb ; char full[520] ;
+					snprintf (full, sizeof full, "%s%c%s", q, dd ? dd : '/', r -> d_name) ;
+					if ((k4_stat (full, &sb) == 0) && S_ISDIR (sb.st_mode))
+					    {
+						outchr (' ') ;
+						outchr (' ') ;
+						text (r -> d_name) ;
+						outchr ('/') ;
+						do
+							outchr (' ') ;
+						while ( (vcount != 0) && (vcount != 20) &&
+							(vcount != 40) && (vcount < 60)) ;
+						if (vcount > 60)
+							crlf () ;
+						continue ;
+					    }
+				    }
 				if (!wild (p, r -> d_name))
 					continue ;
 				outchr (' ') ;

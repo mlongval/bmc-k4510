@@ -26,6 +26,16 @@ Alterations, all marked with [BMC-K4510] comments:
   `ESC ] K4G ; 23,27,... BEL`; the K4510's Tube ULA keeps VICKe's
   hardware sprites behind it.
 
+- src/bbccos.c: *DIR lists subdirectories (with a trailing /) whatever
+  the file pattern; the stock version hid them behind `*.bbc`.
+
+- src/bbccon.c: osload()/osopen() retry a missed read with the extension
+  in capitals (fopen_rd), so LOAD "KALEID" finds KALEID.BBC on a
+  case-sensitive host.
+
+- src/bbccon.c: PLATFORM is "K4510" in every build, so the banner reads
+  "BBC BASIC for K4510 Console" rather than naming the host.
+
 - src/bbccon.c: sound() and quiet(), empty stubs in the console edition,
   emit `ESC ] K4S ; chan,ampl,pitch,dur BEL` / `ESC ] K4S ; Q BEL`; the
   K4510 console queues these on the machine's sound sequencer ($D5E0),
