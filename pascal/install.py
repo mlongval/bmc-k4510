@@ -82,6 +82,24 @@ if 'STACK_BASE := $64' not in s:
     assert m, 'ZPAGE_BASE default not found'
     s = s.replace(m.group(0), '\n' + m.group(1) + 'if (STACK_BASE < 0) and (targetID = TTargetID.K4510) then STACK_BASE := $64;   // [BMC-K4510]\n' + m.group(0), 1)
     open(p, 'w').write(s); print('   patched src/mp.pas: stack at $64')
+# 3b. lib/system.pas: the SINGLE transcendentals on the MATH unit, the originals kept under {$else}
+p = os.path.join(mp, 'lib', 'system.pas'); s = open(p).read()
+def mathfn(header, op):
+    name = header.split('(')[0].split()[-1]; arg = header.split('(')[1].split(':')[0]
+    return (header + '\nbegin\n asm\n\tlda ' + arg + '\n\tsta $D700\n\tlda ' + arg + '+1\n\tsta $D701\n\tlda ' + arg + '+2\n\tsta $D702\n\tlda ' + arg + '+3\n\tsta $D703\n'
+            '\tstz $D721\n\tlda #' + str(op) + '\n\tsta $D720\t; [BMC-K4510] the MATH unit: ' + name + '\n'
+            '\tlda $D700\n\tsta Result\n\tlda $D701\n\tsta Result+1\n\tlda $D702\n\tsta Result+2\n\tlda $D703\n\tsta Result+3\n end;\nend;\n')
+if '[BMC-K4510] the MATH unit' not in s:
+    for header, op in (('function Sqrt(x: Single): Single; overload;', 5), ('function Sin(x: single): single; overload;', 6),
+                       ('function Cos(x: single): single; overload;', 7), ('function ArcTan(a: single): single; overload;', 9),
+                       ('function Exp(x: Float): Float; overload;', 11), ('function Ln(x: Float): Float; overload;', 12)):
+        i = s.find('\n' + header + '\n')
+        if i < 0: print('   system.pas: no', header); continue
+        i += 1; j = s.index('\nend;\n', i) + len('\nend;\n')
+        s = s[:i] + '{$ifdef k4510}\n' + mathfn(header, op) + '{$else}\n' + s[i:j] + '{$endif}\n' + s[j:]
+    open(p, 'w').write(s); print('   patched lib/system.pas: Sqrt/Sin/Cos/ArcTan/Exp/Ln on the MATH unit')
+else:
+    print('   lib/system.pas already routes the transcendentals to the MATH unit')
 # 4. build
 subprocess.run(['make', 'clean'], cwd=os.path.join(mp, 'src'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)   # FPC keeps stale units otherwise
 r = subprocess.run(['make', '-s'], cwd=os.path.join(mp, 'src'))

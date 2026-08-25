@@ -129,7 +129,7 @@ void menu_key(uint8_t k)
 }
 
 /* ---- drawing ---------------------------------------------------------------- */
-#define WIN_W 44
+#define WIN_W 52
 #define WIN_H 15
 int menu_draw(uint8_t *ov)
 {
@@ -157,8 +157,10 @@ int menu_draw(uint8_t *ov)
         else if (it->kind == MI_SUBMENU) v = ">";
         if (v) ui_text(ov, x0 + WIN_W - 3 - (int) strlen(v), y, it->kind == MI_INFO && !sel ? UIC_DIM : fg, bg, v);
     }
-    const char *legend = depth ? " Esc Back   Enter Select   F7 Close " : " Enter Select   F7/Esc Close ";
-    if (depth == 0 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F7) legend = " Enter Select   Esc Close ";
+    char lg[64]; const set_desc *mk = settings_desc(SET_INPUT_MENU_KEY); const char *key = mk->labels[settings_get(SET_INPUT_MENU_KEY)];
+    if (depth) snprintf(lg, sizeof lg, " Esc Back   Enter Select   %s Close ", key);
+    else snprintf(lg, sizeof lg, " Enter Select   %s/Esc Close   Shift+%s to the machine ", key, key);
+    const char *legend = lg;
     ui_text(ov, x0 + (WIN_W - (int) strlen(legend)) / 2, y0 + WIN_H - 1, UIC_DIM, UIC_PANEL, legend);
     if (popup) {
         const item_t *it = &m->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);

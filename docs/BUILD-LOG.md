@@ -3272,3 +3272,18 @@ end-to-end through the SDL frontend (K4510_KEYS through the menu):
 run one saves slot 1 after ECHO STATE ONE; run two, a cold boot,
 loads it — the screenshot shows STATE ONE on the screen it never
 printed. Pi kernel built (1,631,776 B, md5 60ec4b3b), staged.
+
+## 2026-08-25 (am) — the small ones: SYSTEM's transcendentals, the legend, NAWS
+
+Item 6 of Doc's list. (1) pascal/install.py now also patches Mad
+Pascal's lib/system.pas: Sqrt/Sin/Cos/ArcTan on single and Exp/Ln on
+Float get a `{$ifdef k4510}` body — the argument into F0, one write
+to FOP, F0 back — with the original polynomial kept under `{$else}`;
+`Sqrt(2.0)` from SYSTEM now answers 1.414210 from the unit, and the
+k4510 unit's MathXxx twins remain for the ones SYSTEM lacks (Tan,
+Atan2, Pow, Floor). (2) The menu's legend names the actual menu key
+and says "Shift+F7 to the machine"; the window grew to 52 columns to
+hold it. (3) telnet.prg negotiates: DO NAWS is answered WILL + the
+size from JIM's COLS/ROWS registers, DO TTYPE with WILL and, on the
+server's SEND, IS "ANSI"; everything else still WONT/DONT; IAC IAC
+passes as a byte. nettest's echo leg unchanged.

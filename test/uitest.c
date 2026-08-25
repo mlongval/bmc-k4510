@@ -39,7 +39,7 @@ int main(void)
     kbd_modifiers(0, 0, 0); kbd_push(KEY_F1 + 6); CHECK(menu_is_open(), "F7 opens the menu");
     kbd_push('x'); CHECK(io_read(IO_KBD) == 0, "keys do not reach the machine while open");
     CHECK(menu_draw(ov) == 1 && menu_draw(ov) == 0, "draws once, then clean");
-    { int x0 = (UI_COLS - 44) / 2, y0 = (UI_ROWS - 15) / 2;
+    { int x0 = (UI_COLS - 52) / 2, y0 = (UI_ROWS - 15) / 2;
       CHECK(cell_is(x0, y0, UIC_FRAME) > 0 && cell_is(x0 + 2, y0 + 2, UIC_BAR) > 0, "frame and cursor bar drawn");
       CHECK(ov[0] == 0, "outside the window: see-through"); }
     kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */

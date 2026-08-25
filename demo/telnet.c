@@ -3,9 +3,10 @@
  * arrives goes to JIM, the terminal ($DA00): a VT100/ANSI in hardware, so
  * BBSes get their ANSI art and colours, and cursor and function keys go
  * out as VT sequences. F12 hangs up (Escape is a key the far end wants).
- * Telnet option negotiation (IAC) is answered the minimal way: every
- * DO/WILL gets a WONT/DONT, so plain servers, MUDs and BBSes talk, and a
- * raw TCP echo talks best. */
+ * Telnet option negotiation (IAC): the server is told the terminal type
+ * (ANSI) and the window size (JIM's columns and rows, NAWS), so a BBS
+ * lays its screens out for this screen; every other DO/WILL gets a
+ * WONT/DONT, so plain servers, MUDs and a raw TCP echo talk too. */
 #include "k4510.h"
 
 #define NET      0xD900u
@@ -19,7 +20,7 @@ unsigned char rom_getin(void);
 static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)(); }
 
 static char url[96];
-static unsigned char buf[256];
+static unsigned char buf[256], rep[12], sb[16], sbn, cmd;
 
 static void say(const char *s) { while (*s) REG(TERM) = *s++; }
 static unsigned char net(unsigned char cmd) { REG(NET_CMD) = cmd; return REG(NET_ST); }
@@ -60,8 +61,34 @@ void main(void)
         got = REG(NET + 12) | ((unsigned int)REG(NET + 13) << 8);
         for (i = 0; i < got; i++) {
             unsigned char c = buf[i];
-            if (iac == 1) { iac = (c >= 251 && c <= 254) ? 2 : 0; if (iac == 2) buf[0] = 255, buf[1] = (c == 251 || c == 252) ? 254 : 252; continue; }
-            if (iac == 2) { iac = 0; buf[2] = c; net_send(buf, 3); continue; }
+            if (iac == 1) {                               /* after IAC */
+                if (c == 255) { iac = 0; REG(TERM) = 255; continue; }
+                if (c == 250) { iac = 3; sbn = 0; continue; }   /* SB: a subnegotiation follows */
+                iac = (c >= 251 && c <= 254) ? 2 : 0; cmd = c; continue;
+            }
+            if (iac == 2) {                               /* DO/DONT/WILL/WONT + option */
+                iac = 0;
+                if (cmd == 253 && c == 31) {              /* DO NAWS: WILL, then the size */
+                    rep[0] = 255; rep[1] = 251; rep[2] = 31; net_send(rep, 3);
+                    rep[0] = 255; rep[1] = 250; rep[2] = 31; rep[3] = 0; rep[4] = REG(TERM + 5); rep[5] = 0; rep[6] = REG(TERM + 6); rep[7] = 255; rep[8] = 240;
+                    net_send(rep, 9);
+                } else if (cmd == 253 && c == 24) { rep[0] = 255; rep[1] = 251; rep[2] = 24; net_send(rep, 3); }   /* DO TTYPE: WILL; the server asks next */
+                else { rep[0] = 255; rep[1] = (cmd == 251 || cmd == 252) ? 254 : 252; rep[2] = c; net_send(rep, 3); }
+                continue;
+            }
+            if (iac == 3) {                               /* inside SB ... IAC SE */
+                if (c == 255) { iac = 4; continue; }
+                if (sbn < sizeof sb) sb[sbn++] = c;
+                continue;
+            }
+            if (iac == 4) {
+                if (c == 240) {                           /* SE: TTYPE SEND -> IS "ANSI" */
+                    iac = 0;
+                    if (sbn >= 2 && sb[0] == 24 && sb[1] == 1) { rep[0] = 255; rep[1] = 250; rep[2] = 24; rep[3] = 0; rep[4] = 'A'; rep[5] = 'N'; rep[6] = 'S'; rep[7] = 'I'; rep[8] = 255; rep[9] = 240; net_send(rep, 10); }
+                    continue;
+                }
+                if (sbn < sizeof sb) sb[sbn++] = c; iac = 3; continue;
+            }
             if (c == 255) { iac = 1; continue; }
             REG(TERM) = c;
         }
