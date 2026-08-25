@@ -1,6 +1,7 @@
 *.o
 test/cputest
 sdl/k4510
+/k4510
 rom/*.bin
 rom/*.lst
 test/maptest

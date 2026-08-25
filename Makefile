@@ -80,6 +80,7 @@ core/resid/%.o: core/resid/%.cc
 
 sdl/k4510: sdl/main.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS) $(LDLIBS)
+	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
 
 test/cputest: test/cputest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -127,7 +128,7 @@ clean: clean-demos
 clean-demos:
 	rm -f $(DEMOS) demo/*.o demo/*.s demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vicketest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 

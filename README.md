@@ -19,7 +19,7 @@ A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 
 installs the dependencies (gcc, SDL2, cc65, 64tass, nasm), builds
 everything, runs the 10-suite test battery and tells you how to start
-the machine (`./sdl/k4510 rom/kernal.bin fs`).
+the machine (`./k4510`, run from the repo root).
 
 **Raspberry Pi 3B+:** download the SD-card zip from the releases page.
 Use an **SDHC card (4-32 GB), specifically**: SDHC ships FAT32 from the
@@ -131,7 +131,7 @@ Insert, power on, and the K4510 boots in about three seconds.
 
     make            # needs gcc, SDL2, cc65, and ACME for the two asm ROMs
     make test       # ten test suites
-    ./sdl/k4510     # the machine; then DIR, RUN balls.prg, RUN ehbasic.prg ...
+    ./k4510         # the machine (from the repo root); then DIR, RUN balls.prg, RUN ehbasic.prg ...
 
 ## Raspberry Pi 3B+
 

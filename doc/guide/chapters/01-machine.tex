@@ -29,7 +29,7 @@ On the \textbf{desktop} (Linux), three lines build the whole machine:
 \begin{type}
 git clone https://github.com/mlongval/bmc-k4510
 cd bmc-k4510 && ./setup.sh
-./sdl/k4510 rom/kernal.bin fs
+./k4510
 \end{type}
 \verb|setup.sh| installs the compilers and SDL2, builds everything, and
 runs the machine's ten test suites.
@@ -52,7 +52,7 @@ plenty.
 \end{aside}
 
 \section{First boot}
-Switch it on (on the desktop: \verb|./sdl/k4510 rom/kernal.bin fs|; on the
+Switch it on (on the desktop: \verb|./k4510|; on the
 Raspberry Pi 3B+: insert the card and power up). The machine greets you in yellow on blue:
 
 \screen{shots/boot.png}{The boot screen: the hourglass, the name, the speed,
