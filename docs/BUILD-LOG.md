@@ -3136,3 +3136,68 @@ a Restore-key chord for the GPIO keyboard is a future row).
 Not done: save-state slots, palette editor, CRT effects, per-machine
 profiles (the hooks the design listed as "design for, don't build");
 the ~50 % dim is a shift, not a blend with the panel colour.
+
+## 2026-08-25 (aj) — Mad Pascal: the K4510 is a target
+
+Doc: "then mad pascal". The pinned plan (a cross-toolchain like cc65,
+the target modelled on the Neo6502 one, a k4510 unit, a Mandelbrot,
+the MATH unit later) — built as planned, with one change of model.
+
+**The shape.** Mad Pascal is not vendored: `pascal/mp/` holds only
+the K4510 target as it lives inside a Mad-Pascal checkout, and
+`pascal/install.py` copies it in, patches `src/Targets.pas` (the
+target's id, cpu 65c02, zpage $22, buffer $0300, code $0800, the
+.prg header), `src/include/syntax.inc` (the -target parser),
+`src/mp.pas` (the expression stack at $64 unless -stack says
+otherwise) and the seven `lib/targets/*.inc` dispatchers, then
+rebuilds `mp` with FPC. Idempotent, `make clean` first (FPC kept a
+stale Targets unit once, and the "new" compiler compiled the old
+header — an hour's lesson). Doc's checkout is
+~/Projects/neo6502_dev/Mad-Pascal (from the Neo6502 guide work);
+MADS beside it. `make pascal-install`, `make pascal`.
+
+**The model changed.** The plan said Neo6502; the Neo target routes
+everything through the Neo's mailbox API. The C64 target is the
+true relative — a KERNAL jump table, CHROUT with A = char — and the
+K4510 has the same shape at $FF80. Then the better idea: `@putchar`
+does not go to the ROM's CHROUT at all but to JIM ($DA00). Write and
+WriteLn land on a VT100, so the CRT unit is real: GotoXY and
+TextColor are register stores (JIM's CX/CY/FG/BG), ClrEol/InsLine/
+DelLine are escapes, ReadKey/KeyPressed read the keyboard device,
+Pause/Delay count frames at $D50D, Sound plays SID 0. The ROM's
+run_at hands the console cursor to JIM before the program and takes
+it back after (the JIM dirty bit — built for telnet.prg yesterday,
+now earning its keep), so `HELLO` prints and the prompt follows on
+the next line.
+
+**The .prg header, the day's bug.** `org [a($0800),a(START)],$0800`
+(the C64 target's idiom for its 2-byte load address) emitted the
+four header bytes at the *current* address — inside the zero-page
+block at $22 — and `opt f+` then filled $FF up to $0800: a 2647-byte
+file whose code the ROM loaded 2010 bytes too high; JIM saw nothing,
+the machine came back to the prompt (the ROM's stack discipline
+held). Seven MADS experiments to see what actually happens; the fix
+is the plain form: `org $07FC / dta a($0800),a(START) / org $0800`,
+so the first emitted byte is the header. hello.prg: 637 bytes.
+
+**system_k4510.inc / crt_k4510.inc.** The interface declarations in
+lib/system.pas and lib/crt.pas fix each routine's modifiers
+(`assembler` or not), so ParamCount/ParamStr are assembler
+(ParamStr builds its string[32] at adr.Result, from the ROM's ARGS
+call: A = length, $F0/$F1 the tail), Random(byte) is an 8-bit LFSR
+stirred by the frame counter, ClrScr & co are Pascal with asm
+blocks. The k4510 unit: no arrays of records (Mad Pascal supports
+only arrays of ^record), so the SIDs are a byte array; FarPeek/
+FarPoke are the 45GS02's `NOP + LDA/STA (zp),Z` on :bp/:bp2.
+
+**Demos** (demo/pas/, committed as fs/PRG/*.prg): HELLO (colours,
+ParamStr), PSIEVE (1899 primes × 10 in 46 frames = 736 ms at 40.5
+MHz), PMANDEL (78×28, 16 colours through JIM, 22.10 fixed point in
+32-bit integers, 250 frames). test/pastest.sh (14th leg of make
+test) runs HELLO and PSIEVE through the ROM and checks the text.
+Debug knob added on the way: K4510_TERMLOG=file logs every byte JIM
+receives (desktop only).
+
+Guide: chapter 7, Pascal. Not yet: the MATH unit behind `single`
+(the flag-plant), a graph unit on VICKe, sysutils/graph are raw's
+stubs.

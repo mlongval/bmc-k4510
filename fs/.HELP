@@ -9,6 +9,7 @@ system:  INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  HUSH  RESET
          DUMP [note|ON|OFF]
 tongues: BBC (BBC BASIC on the Tube)   CPM (CP/M 2.2, the Z80 second processor)
          FORTH (Tali Forth 2, native)  EHBASIC via RUN EHBASIC
+         Mad Pascal: cross-compiled .prg files (pascal/): PMANDEL PSIEVE HELLO
 network: a URL is a file name (Meatloaf): TYPE http://host/file  CP http://host/x.prg x.prg
          RUN http://host/x.prg  LOAD "http://..." in EhBASIC and BBC BASIC
          CD tnfs://host/dir puts the current directory on a TNFS server (FujiNet,

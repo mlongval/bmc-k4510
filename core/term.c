@@ -3,6 +3,8 @@
 #include "mem.h"
 #include "io.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define NPAR 16
 static struct {
@@ -361,7 +363,13 @@ uint8_t term_read(uint8_t r)
 void term_write(uint8_t r, uint8_t v)
 {
     switch (r) {
-    case 0x00: cur_undraw(); put_byte(v); T.dirty = 1; cur_draw(); return;
+    case 0x00:
+#ifndef K4510_PI
+        { static FILE *lg; static int tried;                          /* K4510_TERMLOG=file: every byte JIM receives (debugging a program's output) */
+          if (!tried) { tried = 1; const char *f = getenv("K4510_TERMLOG"); if (f) lg = fopen(f, "wb"); }
+          if (lg) { fputc(v, lg); fflush(lg); } }
+#endif
+        cur_undraw(); put_byte(v); T.dirty = 1; cur_draw(); return;
     case 0x03: key(v); return;
     case 0x04:
         cur_undraw();

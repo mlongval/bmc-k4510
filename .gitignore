@@ -39,3 +39,4 @@ test/tubetest
 test/tubetest.out
 test/termtest
 test/uitest
+demo/pas/*.a65

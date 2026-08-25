@@ -49,6 +49,12 @@ Insert, power on, and the K4510 boots in about three seconds.
   `LOAD`/`SAVE` of text files, `*command` (any K/OS command at the start of a line, e.g. `*DIR`,
   `*CD EHBASIC`; `@` works too), and `LOAD` from a running program chains into the loaded
   program. `LOAD "DEMOS.BAS" : RUN` and `LOAD "BENCH.BAS" : RUN` are menus.
+- **Mad Pascal:** a cross-compiler, like cc65 -- `pascal/` holds the K4510
+  target for [Mad Pascal](https://github.com/tebe6502/Mad-Pascal) (MIT):
+  `make pascal-install` patches a checkout and rebuilds `mp`, `make pascal`
+  turns `demo/pas/*.pas` into `fs/PRG/*.prg`. Write/CRT go through JIM,
+  `uses k4510` gives every chip as a typed variable; `PMANDEL`, `PSIEVE`,
+  `HELLO` are the demos (committed as .prg, so they run without the toolchain).
 - **Forth:** `FORTH` at the shell runs Tali Forth 2 (public domain,
   vendored unmodified in `forth/tali/`; `forth/platform.asm` is the whole
   port) as native 45GS10 code -- no Tube, just a `.prg` at $4000 talking to

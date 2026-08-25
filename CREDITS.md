@@ -24,6 +24,10 @@ Thank you:
 - **Steve Wozniak** — Wozmon, still the best 256 bytes ever written.
 - **The cc65 project** — the compiler, assembler, and runtime the
   system ROM is built with.
+- **Tomasz Biela** ("tebe") — [Mad Pascal](https://github.com/tebe6502/Mad-Pascal)
+  and [MADS](https://github.com/tebe6502/Mad-Assembler) (both MIT), the
+  cross-Pascal the K4510 target in `pascal/` plugs into; and
+  **Wojciech Bociański** ("bocianu"), whose Neo6502 target showed the way.
 
 ## Fonts
 

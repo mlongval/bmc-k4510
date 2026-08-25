@@ -1,0 +1,82 @@
+\chapter{Pascal}\label{cha:pascal}
+
+The machine has two Pascals, and they are different animals. Turbo
+Pascal~3 runs on the Tube under CP/M (Chapter~\ref{cha:cpm}): an
+on-machine compiler, a Z80 program, its own world. \emph{Mad Pascal}
+is the other kind --- a cross-compiler, like cc65 the ROM is built with:
+you write on the desktop, \texttt{mp} compiles to 6502 assembly, MADS
+assembles it, and the result is a \texttt{.prg} the shell's \verb|RUN|
+loads like any other program. It is Tomasz Biela's compiler (MIT), a
+Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed
+and floating point, strings, records, pointers, units and inline
+assembly, made for the Atari and since taught the C64, the X16 and the
+Neo6502. The K4510 is its newest target.
+
+\begin{type}
+PMANDEL
+\end{type}
+
+That is \texttt{demo/pas/pmandel.pas}: the Mandelbrot set, 78 by 28
+cells in the machine's sixteen colours, in a little over four seconds
+at 40.5~MHz --- fixed point, 32-bit integers, forty lines of Pascal.
+\verb|PSIEVE| is the classic sieve, ten passes timed by the frame
+counter; \verb|HELLO| prints, shows the colours, and echoes what you
+typed after its name.
+
+\section{The target}
+Everything a Pascal program needs from the machine is in
+\texttt{pascal/} of the repository, laid out as it lives inside a
+Mad-Pascal checkout: the runtime base (\texttt{base/rtl6502\_k4510.asm}
+and \texttt{base/k4510/}), where \texttt{@putchar} writes to JIM, the
+terminal (Chapter~\ref{cha:tube}); the SYSTEM and CRT units' machine
+halves (\texttt{lib/*\_k4510.inc}); and a \texttt{k4510} unit. The
+consequences for the programmer:
+
+\begin{itemize}
+\item \verb|Write| and \verb|WriteLn| go through JIM, so the CRT unit is
+  the real thing: \verb|GotoXY|, \verb|TextColor| and
+  \verb|TextBackground| (the palette's constants: \verb|BLUE|,
+  \verb|YELLOW|, \verb|LIGHT_GREEN|\ldots), \verb|ClrScr|, \verb|ClrEol|,
+  \verb|InsLine|/\verb|DelLine|, \verb|WhereX|/\verb|WhereY|,
+  \verb|CursorOn|/\verb|CursorOff|, \verb|ReadKey| and \verb|KeyPressed|
+  on the keyboard device, \verb|Delay| and \verb|Pause| on the frame
+  counter, \verb|Sound| on SID~0. \verb|TextMode(0)| puts the ROM's
+  screen back.
+\item \verb|ParamCount| and \verb|ParamStr| come from the shell line
+  (\verb|RUN HELLO one two|, or just \verb|HELLO one two|);
+  \verb|ParamStr(0)| is the whole tail.
+\item \verb|uses k4510| gives every chip as a typed variable at its
+  address --- \verb|VICKE[reg]|, \verb|SIDREG[]|, \verb|DMA_SRC|,
+  \verb|FS_CMD|, \verb|SYS_FRAMES|, \verb|MATH_F[]|, \verb|TERM_CX|
+  and the rest --- plus \verb|FarPeek|/\verb|FarPoke| into the 256~MB
+  through the 45GS02's flat addressing, \verb|DmaCopy|/\verb|DmaFill|,
+  \verb|Shell('DIR')|, \verb|LoadFile|/\verb|SaveFile| through the ROM,
+  \verb|WaitVBlank|, and \verb|TermWrite| for raw escape sequences.
+\item Memory: code from \texttt{\$0800}, the program's own; zero page
+  \texttt{\$22--\$3F} for the compiler's registers and
+  \texttt{\$64--\$A3} for its expression stack (the ROM keeps
+  \texttt{\$02--\$21} and \texttt{\$F0--\$F9}); \texttt{\$0300} the string
+  buffer. Programs return to the shell with the ROM's state intact.
+\end{itemize}
+
+\section{Building}
+On the desktop, with FPC and a Mad-Pascal checkout (the installer
+patches its target table and rebuilds \texttt{mp}):
+
+\begin{verbatim}
+make pascal-install      # once: MP_DIR=... (default ~/Projects/neo6502_dev/Mad-Pascal)
+make pascal              # demo/pas/*.pas -> fs/PRG/*.prg
+\end{verbatim}
+
+A new program is a file in \texttt{demo/pas/}; \texttt{make} finds it.
+The compiled \texttt{.prg} files are committed, so a machine without
+the toolchain still runs them, and the test suite (\texttt{test/pastest.sh})
+runs \verb|HELLO| and \verb|PSIEVE| through the ROM.
+
+\begin{aside}
+\textbf{Not yet:} floating point still runs in software (Mad Pascal's own
+IEEE single). The MATH unit at \texttt{\$D700} does the same arithmetic
+in one register write; wiring the compiler's \texttt{single} to it is
+the next step on this road, and the graph unit on VICKe's bitmap layer
+the one after.
+\end{aside}
