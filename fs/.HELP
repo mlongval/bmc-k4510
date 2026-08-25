@@ -28,6 +28,10 @@ system:  INFO
          ECHO
          CLS
          CLG (clear the bitmap; *CLG in a BASIC)
+         ALIAS [name [text]]
+         (ALIAS lists; ALIAS LL DIR A defines;
+         ALIAS LL with nothing after it removes.
+         Kept in RAM: define them in STARTUP.BAT)
          HUSH
          RESET
          CAPSLOCK [ON|OFF]
@@ -59,5 +63,5 @@ terminal: JIM at $DA00, a VT100/ANSI in hardware:
 host:    F7 opens the settings menu
          (border, font, volume, keys, reset);
          Super+PgUp resets
-boot:    /!BOOT runs as an EXEC script at power-on;
-         hold a key to skip it
+boot:    /STARTUP.BAT runs as an EXEC script at
+         power-on; hold a key to skip it

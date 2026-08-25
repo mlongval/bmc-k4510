@@ -478,7 +478,7 @@ static void run_at(uint16_t a)
     }
 }
 
-/* EXEC name: run a file of shell lines (and /!BOOT at power-on). The file
+/* EXEC name: run a file of shell lines (and /STARTUP.BAT at power-on). The file
  * is loaded whole into far memory first, so its own commands may use the
  * filesystem; one level only, lines up to 95 chars. */
 #define EXECBUF 0x0FE00000UL
@@ -828,6 +828,103 @@ static void cmd_clg(const char *p)
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 
+
+/* ---- command aliases -------------------------------------------------------
+ * An alias is a name and the line it stands for. The table lives in sideways
+ * bank 2, which is not in the ROM image at all: banks 1..15 are plain RAM at
+ * $0FF00000, and a bank engaged in the $A000 window is writable -- only the
+ * unmapped ROM view is read-only. So the machine gets 8 KB of alias space
+ * without spending a byte of ROM or of BSS, and the bank doubles as the
+ * scratch on which the expanded line is built.
+ *
+ * Records are name\0 expansion\0 and end at a zero where a name would start;
+ * a redefined or removed name is tombstoned with a 1 in its first byte.
+ *
+ * While the bank is engaged, bank 0's commands are NOT in the window, so all
+ * of this is resident code (CODE, $C000) and does its own case folding: it
+ * maps, works, and unmaps again before anything is dispatched. Everything it
+ * reads from the caller -- the shell line, the C stack -- is resident too. */
+#pragma code-name (push, "CODE")
+#pragma rodata-name (push, "RODATA")
+#define ALIAS_BANK  2
+#define ALIAS_TAB   ((char *) 0xA000u)
+#define ALIAS_SCRAP ((char *) 0xBF00u)      /* the last page: where the expanded line is built */
+#define ALIAS_LIMIT ((char *) 0xBEF0u)      /* the table may grow to here */
+#define ALIAS_SEND  ((char *) 0xBFF0u)
+static uint8_t alias_depth;
+static void alias_map(void)   { w32(BANK + 20, 0x0FF00000UL + ((uint32_t)(ALIAS_BANK - 1) << 13)); }
+static void alias_unmap(void) { REG(BANK + 23) = 0x80; }
+static char afold(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
+static uint8_t asame(const char *a, const char *b)
+{
+    while (*a && *b) { if (afold(*a) != afold(*b)) return 0; a++; b++; }
+    return !*a && !*b;
+}
+#define ANEXT(q) do { while (*(q)) (q)++; (q)++; } while (0)
+static char *alias_end(void) { char *q = ALIAS_TAB; while (*q) { ANEXT(q); ANEXT(q); } return q; }
+
+/* the shell has run out of other ideas: is the first word an alias? if so the
+ * expanded line replaces `line' and the caller runs it again */
+static uint8_t alias_expand(const char *p0)
+{
+    char want[24]; const char *args = p0; char *q, *n, *e, *w; uint8_t i;
+    if (!getname(&args, want)) return 0;
+    skipsp(&args);
+    alias_map();
+    for (q = ALIAS_TAB; *q; ) {
+        n = q; ANEXT(q); e = q; ANEXT(q);
+        if (*n != 1 && asame(n, want)) {
+            w = ALIAS_SCRAP;
+            while (*e && w < ALIAS_SEND) *w++ = *e++;
+            if (*args) { *w++ = ' '; while (*args && w < ALIAS_SEND) *w++ = *args++; }
+            *w = 0;
+            for (i = 0; i < sizeof line - 1 && ALIAS_SCRAP[i]; i++) line[i] = ALIAS_SCRAP[i];
+            line[i] = 0;                                  /* args came out of line: it is free to overwrite now */
+            alias_unmap();
+            return 1;
+        }
+    }
+    alias_unmap();
+    return 0;
+}
+
+static void alias_kill(const char *want)                  /* tombstone every definition of a name; the bank must be mapped */
+{
+    char *q, *n;
+    for (q = ALIAS_TAB; *q; ) { n = q; ANEXT(q); ANEXT(q); if (*n != 1 && asame(n, want)) *n = 1; }
+}
+
+static void cmd_alias(const char *p)
+{
+    char want[24]; char *q, *n, *e, *w; const char *s; uint8_t col;
+    if (!getname(&p, want)) {                             /* ALIAS on its own: list them */
+        uint8_t any = 0;
+        alias_map();
+        for (q = ALIAS_TAB; *q; ) {
+            n = q; ANEXT(q); e = q; ANEXT(q);
+            if (*n == 1) continue;
+            any = 1; col = cx; puts_(n); pad(col + 12); puts_(e); newline();
+        }
+        alias_unmap();
+        if (!any) puts_("no aliases"), newline();
+        return;
+    }
+    skipsp(&p);
+    alias_map();
+    alias_kill(want);                                     /* ALIAS name, with nothing after it, just removes */
+    if (!*p) { alias_unmap(); return; }
+    w = alias_end();
+    if (w + strlen(want) + strlen(p) + 3 >= ALIAS_LIMIT) { alias_unmap(); error("alias: full"); return; }
+    for (s = want; *s; ) *w++ = *s++;
+    *w++ = 0;
+    while (*p) *w++ = *p++;
+    *w++ = 0; *w = 0;
+    alias_unmap();
+}
+
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -857,6 +954,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "ALIAS"))   { cmd_alias(p); return; }
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
@@ -872,6 +970,9 @@ static void shell_line(const char *p)
           if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
           if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }
+    if (alias_depth < 4 && alias_expand(p0)) {        /* last of all, so an alias never shadows a real command */
+        alias_depth++; shell_line(line); alias_depth--; return;
+    }
     error("? (HELP lists the commands; MON is the monitor)");
 }
 
@@ -1092,13 +1193,13 @@ int main(void)
     video_init();
     fg = C_FG;
     banner();
-    /* /!BOOT: half a second of grace, then run it -- unless a key arrives
+    /* /STARTUP.BAT: half a second of grace, then run it -- unless a key arrives
      * first (held or typed; it stays in the queue), the silent skip */
     { uint8_t n = 30, f0 = REG(SYS + 0x0D);
       while (n && !(REG(KBDST) & 0x80))
           if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
     if (!(REG(KBDST) & 0x80)) {                          /* (the fs device reads names from RAM, so copy the literal out of ROM) */
-        strcpy(line, "!BOOT"); fs_name(line);
+        strcpy(line, "STARTUP.BAT"); fs_name(line);
         if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {

@@ -38,7 +38,7 @@ Insert, power on, and the K4510 boots in about three seconds.
   XD LOAD SAVE RENAME CP RUN EXEC HUSH INFO MODE COLOR` (`HELP` lists them; the
   text lives in the dot-hidden `/.HELP`). An unknown word runs `name.prg` from
   disk with its arguments readable via the ARGS call ($FF95) -- the REXX rule;
-  `SAY` is the demo. `/!BOOT` runs as a script at power-on (a held key skips
+  `SAY` is the demo. `/STARTUP.BAT` runs as a script at power-on (a held key skips
   it). Names starting with `.` are hidden (`DIR A` shows them). Files live in a
   host directory (`fs/`) with
   one directory per language -- `/PRG` for machine code, `/EHBASIC` and
