@@ -3348,3 +3348,31 @@ pmandel and pgraph (Pascal), and the menu — which is the frontend's,
 not the machine's, so it comes from sdl/k4510 under SDL's dummy
 driver through K4510_SHOT, a PPM converted with PIL. Chapters 1, 4, 6
 and 7 place them. XeLaTeX twice: 37 pages, no warnings.
+
+## 2026-08-25 (aq) — the BASICs tested from the inside
+
+Doc: "how about test suites for bbcbasic and ehbasic so we can confirm
+proper operation inside those environments?" Yes: every layer under
+them had a suite; nothing asserted that a program *in* either BASIC
+computes, prints, files and reaches the hardware right.
+
+fs/EHBASIC/TEST.BAS (32 checks) and fs/BBCBASIC/TEST.BBC (28): self-
+checking programs — arithmetic, the MATH unit's SQR/SIN/COS/EXP/LOG/
+ATN/TAN against known values, strings, FOR/REPEAT/WHILE/CASE, DEF FN
+and PROC/FN, arrays, logic, the SYS registers (40500 kHz, 256 MB),
+the frame counter, POKE/PEEK, GRAPHICS/PLOT/LINE/TRI/PALETTE/GCLS and
+back (EhBASIC), MODE 2/GCOL/PLOT/DRAW/CIRCLE FILL/VDU 19, sprites
+(VDU 23,27), SOUND and MODE 7 back (BBC, through the ULA), OPENOUT/
+PRINT#/OPENIN/INPUT# through the Tube's file layer, SAVE through the
+ROM, and the * escape (ECHO STAR OK read off the screen). Silent
+unless a check fails ("FAIL AT CHECK n"), one verdict line each.
+test/basictest.sh drives them headless and is in make test (16th
+leg); the in-process Tube when built, the desktop one otherwise.
+
+Three things the tests taught: 300 empty FOR iterations finish inside
+one frame at 40.5 MHz (the frame-counter probe loops until it moves);
+EhBASIC's SAVE writes to the shell's cwd (/), not the program's
+directory; BBC BASIC's CHAIN wants a tokenised file — LOAD then RUN
+for text — its integers are 64-bit (no wrap at 2^31), and CASE ... OF
+must end its line. Run here on ubuntu-s1 in the guide-build clone
+while the laptop was off the tailnet; committed from here.
