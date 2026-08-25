@@ -11,6 +11,7 @@ static uint8_t sid_clock_sel;
 #include "sid.h"
 #include "net.h"
 #include "term.h"
+#include "ui/menu.h"
 
 static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 #include <string.h>
@@ -19,17 +20,22 @@ static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16
 /* ---- keyboard: a FIFO behind two registers (Wozmon polls them) -------- */
 static uint8_t kbd_fifo[64];
 static int     kbd_head, kbd_tail;
-static uint8_t kbd_last;
+static uint8_t kbd_last, kbd_mods;
 
+/* Every key passes here, from the desktop's SDL loop or the Pi's C64
+ * keyboard scan. The F7 menu (core/ui) takes them first: its own key
+ * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
+ * while it is open, every key is the menu's. */
 void kbd_push(uint8_t ascii)
 {
+    if (menu_is_open()) { menu_key(ascii); return; }
+    if (ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
     dbg_key(ascii);
     int next = (kbd_tail + 1) & 63;
     if (next == kbd_head) return;
     kbd_fifo[kbd_tail] = ascii;
     kbd_tail = next;
 }
-static uint8_t kbd_mods;
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
 static uint8_t kbd_read(void)

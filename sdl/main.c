@@ -15,6 +15,9 @@
 #include "../core/vicke.h"
 #include "../core/sid.h"
 #include "../core/host.h"
+#include "../core/ui/settings.h"
+#include "../core/ui/menu.h"
+#include "../core/ui/ui_draw.h"
 
 #define SCALE 2
 #define AUDIO_RATE 48000
@@ -40,17 +43,64 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
     return (int)n;
 }
 
+/* A PETSCII chargen (512 glyphs, both sets) rearranged into the ASCII/CP437
+ * order the ROM prints in: letters, digits and punctuation from the
+ * lower-case set, the box glyphs the ROM and JIM use from the graphics. */
+static void petscii_to_ascii(const uint8_t *cg, uint8_t *out)
+{
+    const uint8_t *lo = cg + 2048;                      /* set 2: upper/lower case */
+    static const struct { uint8_t ascii, glyph; } box[] = {
+        { 0xC4, 0x40 }, { 0xB3, 0x5D }, { 0xDA, 0x70 }, { 0xBF, 0x6E }, { 0xC0, 0x6D }, { 0xD9, 0x7D },
+        { 0xC3, 0x6B }, { 0xB4, 0x73 }, { 0xC5, 0x5B }, { 0xC1, 0x71 }, { 0xC2, 0x72 }, { 0xDB, 0xE0 },
+        { 0xB0, 0x66 }, { 0xB1, 0x66 }, { 0xB2, 0x66 }, { 0xCD, 0x40 }, { 0xBA, 0x5D }, { 0xC9, 0x70 },
+        { 0xBB, 0x6E }, { 0xC8, 0x6D }, { 0xBC, 0x7D }, { 0xFB, 0xBA }, { 0x10, 0x3E }, { 0x1B, 0x3C } };
+    memset(out, 0, 2048);
+    for (int c = 0x20; c < 0x80; c++) {
+        int g;
+        if (c < 0x40) g = c;                                /* punctuation and digits: same codes */
+        else if (c == 0x40) g = 0;                          /* @ */
+        else if (c <= 0x5A) g = c;                          /* A-Z at 65-90 in the lower-case set */
+        else if (c == 0x5B) g = 0x1B; else if (c == 0x5C) g = 0x1C; else if (c == 0x5D) g = 0x1D;
+        else if (c == 0x5E) g = 0x1E; else if (c == 0x5F) g = 0x64;   /* ^ as the up arrow, _ as the low bar */
+        else if (c == 0x60) g = 0x27;                       /* ` as ' */
+        else if (c <= 0x7A) g = c - 0x60;                   /* a-z at 1-26 */
+        else if (c == 0x7B) g = 0x73; else if (c == 0x7C) g = 0x5D; else if (c == 0x7D) g = 0x6B; else g = 0x40;
+        memcpy(out + c * 8, lo + g * 8, 8);
+    }
+    for (unsigned i = 0; i < sizeof box / sizeof box[0]; i++) memcpy(out + box[i].ascii * 8, lo + box[i].glyph * 8, 8);
+}
+static uint8_t font_kernel8[2048], font_menu[2048];
+static void apply_font(int which)
+{
+    static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
+                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom" };
+    uint8_t buf[4096], font[2048]; int n = which ? load_file(paths[which], buf, sizeof buf) : 0;
+    if (which == FONT_KERNEL8 || n < 2048) memcpy(font, font_kernel8, 2048);
+    else if (n == 4096) petscii_to_ascii(buf, font);
+    else memcpy(font, buf, 2048);
+    mem_load(K4510_FONT8_PHYS, font, 2048);
+}
+
 int k4510_frontend_main(int argc, char **argv)
 {
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
+    const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
-    uint8_t font[256 * 8];
-    if (load_file("data/font8.bin", font, sizeof font) != sizeof font) {
+    if (load_file("data/font8.bin", font_kernel8, sizeof font_kernel8) != sizeof font_kernel8) {
         fprintf(stderr, "need data/font8.bin (run from repo root)\n");
         return 1;
     }
+    if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu) memcpy(font_menu, font_kernel8, sizeof font_menu);
+    ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
+    settings_load(cfg);
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
-    mem_load(K4510_FONT8_PHYS, font, sizeof font);       /* the ROM points VICKe at this */
+    int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKe at $010000 */
+    menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
+#ifdef K4510_PI
+    menu_info(INFO_HOST, "Raspberry Pi 3B+, Circle");
+#else
+    menu_info(INFO_HOST, "desktop, SDL2");
+#endif
 
 
     if (mem_load_rom(rom) <= 0) {
@@ -64,11 +114,13 @@ int k4510_frontend_main(int argc, char **argv)
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKE_WIDTH * SCALE, VICKE_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKE_WIDTH, VICKE_HEIGHT);
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                          VICKE_WIDTH, VICKE_HEIGHT);
 
-    static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
+    static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT], ov[UI_W * UI_H];
+    int fullscreen_applied = 0;
 
     SDL_AudioSpec want = { 0 }, have;
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
@@ -94,6 +146,11 @@ int k4510_frontend_main(int argc, char **argv)
                 kbd_modifiers(m & KMOD_SHIFT, m & KMOD_CTRL, m & KMOD_ALT);
                 if (e.type != SDL_KEYDOWN) break;
                 SDL_Keycode k = e.key.keysym.sym;
+                { /* the reset chord: a modifier + PageUp ("Commodore + Restore"), or Ctrl+Alt+Del */
+                  int ch = settings_get(SET_INPUT_RESET_CHORD), hit = 0;
+                  if (k == SDLK_PAGEUP) hit = (ch == CHORD_SUPER_PGUP && (m & KMOD_GUI)) || (ch == CHORD_CTRL_PGUP && (m & KMOD_CTRL)) || (ch == CHORD_ALT_PGUP && (m & KMOD_ALT));
+                  if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
+                  if (hit) { menu_close(); cpu65_reset(); break; } }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;
@@ -105,9 +162,9 @@ int k4510_frontend_main(int argc, char **argv)
                 case SDLK_HOME: kbd_push(KEY_HOME); break; case SDLK_END: kbd_push(KEY_END); break;
                 case SDLK_PAGEUP: kbd_push(KEY_PGUP); break; case SDLK_PAGEDOWN: kbd_push(KEY_PGDN); break;
                 case SDLK_INSERT: kbd_push(KEY_INS); break; case SDLK_DELETE: kbd_push(KEY_DEL); break;
-                case SDLK_F12: cpu65_reset(); break;
+                case SDLK_PAUSE: kbd_push(0x9F); break;
                 default:
-                    if (k >= SDLK_F1 && k <= SDLK_F11) kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1)));
+                    if (k >= SDLK_F1 && k <= SDLK_F12) kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1)));
                     break;
                 }
                 break; }
@@ -117,29 +174,58 @@ int k4510_frontend_main(int argc, char **argv)
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
           if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
           if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }
-        vicke_begin_frame(fb, VICKE_WIDTH);
-        for (int y = 0; y < VICKE_HEIGHT; y++) {
+        int open = menu_is_open();
+        if (!open) {                                         /* the machine runs; while the menu is open it is frozen and silent */
+            int vol = settings_get(SET_AUDIO_VOLUME);
+            vicke_begin_frame(fb, VICKE_WIDTH);
+            for (int y = 0; y < VICKE_HEIGHT; y++) {
+                cpu65.irqLevel = vicke_irq() ? 1 : 0;
+                cpu65_step(CYCLES_PER_LINE);
+                vicke_line(y);
+                { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+                  for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
+            }
+            vicke_end_frame();
             cpu65.irqLevel = vicke_irq() ? 1 : 0;
-            cpu65_step(CYCLES_PER_LINE);
-            vicke_line(y);
-            { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
-              for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = tmp[i]; }
         }
-        vicke_end_frame();
-        cpu65.irqLevel = vicke_irq() ? 1 : 0;
+        /* what the menu asked for */
+        switch (menu_take_action()) {
+        case ACT_RESET: cpu65_reset(); break;
+        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); io_reset(); apply_font(font_applied); mem_load_rom(rom); cpu65_reset(); break;
+        case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
+        case ACT_QUIT: running = 0; break;
+        }
+        if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
+        if (settings_get(SET_VIDEO_FONT) != font_applied) { font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied); }
+        if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
+        menu_draw(ov);
 
         void *pixels; int pitch;
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
         for (int y = 0; y < VICKE_HEIGHT; y++) {
             uint32_t *dst = (uint32_t *)((uint8_t *)pixels + y * pitch);
-            const uint8_t *src = fb + y * VICKE_WIDTH;
-            for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | vicke_palette_rgb(src[x]);
+            const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
+            if (!open) for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | vicke_palette_rgb(src[x]);
+            else for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | (o[x] ? ui_palette_rgb(o[x]) : ((vicke_palette_rgb(src[x]) >> 1) & 0x7F7F7F));
         }
         SDL_UnlockTexture(tex);
-        SDL_RenderClear(ren);
-        SDL_RenderCopy(ren, tex, NULL, NULL);
+        { int b = settings_get(SET_VIDEO_BORDER); uint32_t bc = vicke_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
+          SDL_Rect dr = { b, b, VICKE_WIDTH - 2 * b, VICKE_HEIGHT - 2 * b };
+          SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
+          SDL_RenderClear(ren);
+          SDL_RenderCopy(ren, tex, NULL, &dr); }
         SDL_RenderPresent(ren);
+        { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
+          if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
+          if (shot && --shot_fr == 0) {
+              char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
+              FILE *f = fopen(path, "wb");
+              if (f) { fprintf(f, "P6 %d %d 255\n", VICKE_WIDTH, VICKE_HEIGHT); SDL_LockTexture(tex, NULL, &pixels, &pitch);
+                       for (int y = 0; y < VICKE_HEIGHT; y++) for (int x = 0; x < VICKE_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
+                       SDL_UnlockTexture(tex); fclose(f); }
+              running = 0; } }
     }
+    if (settings_changed()) settings_save(cfg);
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
     return 0;
 }

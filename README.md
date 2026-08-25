@@ -57,7 +57,10 @@ Insert, power on, and the K4510 boots in about three seconds.
   returns to the shell with the screen and stack intact. `C@`/`C!` reach
   every register on the machine.
 - **Keys on the desktop:** Esc = RUN/STOP (stops a BASIC program, or returns to
-  the shell), Ctrl-C = STOP in BASIC, F12 = reset, Shift+Esc quits the emulator.
+  the shell), Ctrl-C = STOP in BASIC, Super+PageUp = reset (a chord, like
+  C=+Restore), Shift+Esc quits the emulator. **F7 opens the settings menu**
+  (C64u-style: border, screen font, volume, key bindings, reset/power cycle;
+  saved to `k4510.cfg`).
 - **SID player:** `RUN SIDPLAY` -- a chooser over `fs/SID` (199 PSID tunes
   included), played by their own 6502 code on SID 0 with the player hidden
   under the ROM; +/- picks the song, Esc returns. RSID files need a real C64

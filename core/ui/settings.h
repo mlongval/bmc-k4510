@@ -1,0 +1,54 @@
+/* The settings registry: every knob the machine's host offers, typed,
+ * with a default, persisted to k4510.cfg (a key = value file beside fs/;
+ * on the Pi, SD:/k4510/k4510.cfg). Adding a setting is one row in
+ * settings.c's table, one id here, one menu row and one place that reads
+ * the value -- that is the whole extension contract. No SDL here: the
+ * host reads values and applies them (sdl/main.c, the Pi through the
+ * same file). */
+#ifndef K4510_SETTINGS_H
+#define K4510_SETTINGS_H
+#include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef enum {
+    SET_VIDEO_BORDER,        /* INT  pixels of border around the picture */
+    SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
+    SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
+    SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
+    SET_AUDIO_VOLUME,        /* INT  0-100 */
+    SET_INPUT_RESET_CHORD,   /* CHORD */
+    SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
+    SET_COUNT
+} set_id;
+typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
+#define SF_LIVE     1        /* takes effect at once */
+#define SF_RESTART  2        /* needs a power cycle */
+typedef struct {
+    const char *key;         /* "video.border" */
+    const char *label;       /* what the menu shows */
+    set_type type;
+    int def, min, max, step;
+    const char *const *labels; int nlabels;   /* ENUM / CHORD */
+    unsigned flags;
+} set_desc;
+/* the font choices, in the ENUM's order */
+enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_COUNT };
+/* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
+enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
+/* the menu keys, in the ENUM's order */
+enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_COUNT };
+
+const set_desc *settings_desc(set_id id);
+int         settings_get(set_id id);
+void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
+void        settings_step(set_id id, int dir);    /* +1 / -1: the next value (ENUMs wrap, INTs stop) */
+const char *settings_text(set_id id, char *buf, int max);   /* the value as the menu prints it */
+void        settings_defaults(void);
+int         settings_load(const char *path);      /* 0 ok, -1 no file (defaults stand) */
+int         settings_save(const char *path);      /* rewrites the file; unknown keys and comments kept */
+int         settings_changed(void);               /* since the last load/save */
+#ifdef __cplusplus
+}
+#endif
+#endif

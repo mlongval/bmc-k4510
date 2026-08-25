@@ -3065,3 +3065,74 @@ Not done: underline (text32 has no attribute for it), 132 columns,
 UTF-8 from modern BBSes, telnet NAWS/TTYPE (we answer WONT to
 everything; a BBS assumes ANSI 80x24, and JIM is 79x29 in MODE 1 1 —
 fine for menus, MODE 1 0 gives it the full 80).
+
+## 2026-08-25 (ai) — the F7 menu and the reset chord
+
+Doc: "ok do f7 menu then mad pascal". The work order was the archive
+session's design (archive BUILD-LOG, "reset chord and the C64u-style
+menu"); this is what got built from it.
+
+**core/ui/**, no SDL anywhere in it, three files:
+- `settings.c/h` — the registry: a table of typed rows `{ key, label,
+  BOOL|INT|ENUM|CHORD, default, min/max/step or labels, flags }` and
+  the `set_id` enum. Persisted to `k4510.cfg` beside fs/ (the Pi's cwd
+  is SD:/k4510, so the same relative name): `key = value`, comments
+  and unknown keys preserved on rewrite, missing keys appended,
+  enums by name. Load at boot, save when the menu closes (and at
+  quit), only if something changed.
+- `menu.c/h` — the tree as static tables (Video / Audio / Input /
+  Machine / Info), a stack of (menu, cursor), an ENUM popup, ACTION
+  rows reported to the host through `menu_take_action()`, INFO rows
+  the host fills. Draws only when dirty.
+- `ui_draw.c/h` — cells into a 640x480 8-bit overlay (0 = see
+  through), double-line box, its own palette by name (the machine's
+  C64 set, fixed, so a guest that zeroed the VICKe palette cannot
+  hide the menu), its own font (font8-unscii.bin, public domain;
+  falls back to the kernel font in RAM).
+
+**The seam that makes it one implementation:** `kbd_push` in core/io.c
+— every key on both hosts passes through it (SDL on the desktop, the
+C64 keyboard scan on the Pi). The menu key (unshifted) opens the menu
+there; while open, every key is the menu's and the machine sees
+nothing. Shift+F7 still reaches BBC BASIC; the key itself is a setting
+(F7 / F8 / F11 / Pause).
+
+**The host** (sdl/main.c, which is also the Pi's core 1): while open,
+no CPU, no VICKe, no SID (the audio ring drains to silence) — the
+frame buffer holds the last picture, composited at half brightness
+under the overlay. Border width/colour = the texture drawn inset over
+a cleared background; volume = the samples scaled into the ring; font
+= mem_load at $010000 (the ROM points VICKe there) — the two PETSCII
+chargens (open-roms, PXLfont) rearranged into ASCII/CP437 order on
+the way (letters and digits from the lower-case set, the box glyphs
+the ROM and JIM use from the graphics set), which turns the deferred
+font A/B into a menu row; full screen = SDL_SetWindowFullscreen.
+Actions: reset, power cycle (host_zero the RAM, mem/io reset, font,
+ROM, reset), stop the Tube ($D803 = 2), quit. F12 is unbound; the
+reset chord is Super+PageUp by default ("Commodore + Restore"), or
+Ctrl/Alt+PageUp, or Ctrl+Alt+Del — from the setting.
+
+A dev knob on the way: `K4510_SHOT=file.ppm:N` writes what is on the
+glass after N frames and quits, so the SDL frontend itself can be
+screenshotted headless (`SDL_VIDEODRIVER=dummy`; the renderer falls
+back to software). That is how the pictures were taken.
+
+**Verified.** test/uitest (13th suite): load/clamp/wrap/save with
+comments and unknown keys kept and missing keys appended; keys
+through kbd_push (plain key passes, Shift+F7 passes, F7 opens, keys
+swallowed while open, draw-once-then-clean, frame and bar in the
+overlay, see-through outside); navigation, INT steps by Left/Right,
+the ENUM popup, Reset acting and closing, close reported once, the
+menu key moved to F8. All 13 suites + tubetest + nettest green.
+Screenshots: the main page over the dimmed boot screen; Video with
+the font popup.
+
+**The Pi.** core/ui objects in pi/Makefile; kernel built on p15 and
+staged in pkg/ with data/fonts/ (already on the card layout). The
+C64 keyboard's F7 (c64kbd.cpp pushes KEY_F1+6) opens it; the reset
+chord needs a USB keyboard there (no Super/PageUp on a C64 keyboard —
+a Restore-key chord for the GPIO keyboard is a future row).
+
+Not done: save-state slots, palette editor, CRT effects, per-machine
+profiles (the hooks the design listed as "design for, don't build");
+the ~50 % dim is a shift, not a blend with the panel colour.

@@ -64,5 +64,39 @@ machine's full self-description, and \verb|DIR| to see your files.
 
 \begin{aside}
 \textbf{Keys on the desktop:} Escape is RUN/STOP (stops a BASIC program),
-Ctrl-C is STOP, F12 resets the machine, Shift+Escape quits the emulator.
+Ctrl-C is STOP, Shift+Escape quits the emulator. Reset is a chord, the
+way it was Commodore+Restore on the C64: Super+PageUp (the Windows or
+Command key and PageUp) --- one key cannot do it by accident. F7 opens
+the menu.
 \end{aside}
+
+\section{The F7 menu}
+F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and
+opens a framed window over the dimmed screen, in the manner of the
+C64~Ultimate's: the picture behind it stays exactly as it was, sound
+stops, and closing the menu resumes where it froze. The menu draws with
+its own font and never touches the machine's memory, so it opens even
+when a program has wrecked the screen. Cursor keys move, Enter selects,
+Left/Right step a value, Escape backs out a level, F7 or Escape at the
+top closes.
+
+\begin{description}
+\item[Video] border width and colour around the picture; the screen font
+  (\emph{kernel8}, \emph{unscii}, \emph{open-roms}, \emph{PXLfont} ---
+  a live swap of the chargen at \texttt{\$010000}, the two PETSCII fonts
+  rearranged into ASCII order); full screen.
+\item[Audio] volume.
+\item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
+  Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
+\item[Machine] reset; power cycle (memory cleared, ROM reloaded); stop
+  the Tube co-processor; quit.
+\item[Info] version, ROM, files, host.
+\end{description}
+
+Leaving the menu writes the settings to \texttt{k4510.cfg} beside
+\texttt{fs/} (on the Pi, \texttt{SD:/k4510/k4510.cfg}) --- a plain
+\texttt{key = value} file you may edit; comments and keys it does not
+know are kept. Adding a setting is one row in \texttt{core/ui/settings.c},
+one row in the menu tree in \texttt{core/ui/menu.c}, and the place that
+reads it; the same code runs on the Pi, where the C64 keyboard's F7 opens
+it too.

@@ -16,4 +16,5 @@ network: a URL is a file name (Meatloaf): TYPE http://host/file  CP http://host/
          TELNET host port (F12 hangs up) on the N: device at $D900; ANSI/VT100 via JIM
 terminal: JIM at $DA00, a VT100/ANSI in hardware: CP/M programs and BBC BASIC draw
          through it (install CP/M programs for VT100 or ANSI); TELNET too
+host:    F7 opens the settings menu (border, font, volume, keys, reset); Super+PgUp resets
 boot:    /!BOOT runs as an EXEC script at power-on; hold a key to skip it

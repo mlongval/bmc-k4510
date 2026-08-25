@@ -38,3 +38,4 @@ tube/bbcbasic
 test/tubetest
 test/tubetest.out
 test/termtest
+test/uitest
