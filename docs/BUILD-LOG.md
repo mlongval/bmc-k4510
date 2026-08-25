@@ -2987,3 +2987,81 @@ tnfs://fujinet.online/` a few seconds after boot. Without a cable:
 "not fitted", nothing halts. WiFi would need Circle's wlan addon,
 its firmware files on the card and a wpa_supplicant config — not
 this night.
+
+## 2026-08-24 (ah) — JIM: a VT100 in hardware, for CP/M and the BBSes
+
+Doc: "terminal for cpm (vt100 or vt220?) and terminal ansi/vt100 for
+bbs telnet", "make it for emulator and pi" — and, seeing where it was
+going, "is that chip called Jim?" It is now.
+
+**Where the terminal lives.** The ROM's Tube session had a minimal VT
+filter in cc65: cursor position, ED, SGR, and the `ESC[6n` answer the
+BBC BASIC width probe needs — some 1 KB of sideways ROM, with 3 bytes
+of BSS to spare in the whole image. A real VT100 (scroll regions,
+insert/delete, tab stops, saved cursors, line drawing, two charsets)
+does not fit there, and would have to be written twice: once for the
+ROM's Tube loop and once for telnet.prg. But the Tube ULA already
+parses this very byte stream on the host. So the terminal is a chip:
+JIM, at $DA00 (FRED, JIM, SHEILA — the Beeb's three pages; SHEILA is
+the backgrounds already). core/term.c, one C file shared by the
+desktop and the Pi; it draws straight into the VICKe text32 map the
+ROM console uses, inside the window the ROM programs into it (COLS,
+ROWS, origin, stride, default colours — video_init writes them), so
+the console and the terminal share one screen and one cursor.
+
+Registers (core/term.h): DATA in at $DA00, STATUS $DA01 (bit7 a reply
+waits, bit0 the stream moved the cursor), REPLY $DA02 (cursor-position
+and identity reports, and translated keys), KEY $DA03 (a K4510 key code
+in, its VT bytes out: arrows ESC[A.. or ESC OA.. under DECCKM, Home/End,
+PgUp/PgDn/Ins ESC[n~, Del $7F, F1-F4 ESC OP.., F5-F12 ESC[15~..),
+CTRL $DA04 (1 soft reset, 2 clear), the window at $DA05-$DA0D, FLAGS
+$DA0E (cursor shown; it blinks on the frame tick), BASE $DA10, default
+colours $DA14/15.
+
+Repertoire: VT100 (CUP/CUU/CUD/CUF/CUB, ED/EL, DECSTBM, DECSC/DECRC,
+IND/RI/NEL, HTS/TBC, DECAWM with the real last-column pending wrap,
+DECOM, DECCKM, ESC(0 and SO/SI line drawing mapped onto CP437 box
+glyphs, DSR/CPR, DA answering as a VT220 with colour, DECALN, RIS),
+ANSI SGR incl. bold-as-bright, reverse, 30-37/90-97/40-47/100-107 and
+38;5;n/48;5;n for the 16, VT220 ICH/DCH/IL/DL/ECH/SU/SD/CHA/VPA/CBT,
+IRM, ESC[?25, ESC[s/u, DECSTR; OSC/DCS/APC strings swallowed; bytes
+$80-$FF are CP437 glyphs, which is what BBS art is. VT100 or VT220 for
+CP/M? Both: the VT220 additions are the editing set, which costs
+nothing and which ZDE and WordStar's VT100 profiles never send anyway;
+the answer to a CP/M install program is "VT100" (or "ANSI").
+
+**The ROM** (rom/kernal.c): cmd_bbcbasic is now a pump — Tube bytes to
+JIM, JIM's replies and translated keys to the Tube — plus a one-byte
+lookahead after ESC so the two OSC strings the ULA forwards (K4510;
+star commands, K4G;22 MODE) are still caught here. The SGR table and
+sequence parser are gone: SWCODE0 shrank from $17EE to $13F7. run_at
+hands the console cursor to JIM before a program starts and takes it
+back if the program used it (the dirty bit), so telnet.prg's output
+and the prompt after it line up.
+
+**telnet.prg** writes to JIM instead of CHROUT, pushes keys through
+KEY (arrows and F-keys become sequences a BBS understands), and sends
+JIM's replies out (a BBS asking `ESC[6n` gets its answer). F12 hangs
+up now; Escape belongs to the far end.
+
+**Verified.** test/termtest (new, 12th suite): 30 checks — CR/LF,
+cursor moves, SGR colours/bold/reverse, CPR, DECSTBM scrolling, IL/DL,
+ICH/DCH, DEC line drawing and SO/SI, DECAWM off/on and the wrap at 79,
+key translation and DECCKM, DA, the dirty bit, the cursor's reverse
+bit, OSC/DCS swallowed, CP437 pass-through, DECALN. tubetest five legs
+(the width probe answered by JIM now), nettest (telnet echo through
+JIM), the other suites: all green. Live: `CPM`, `H:`, `USER 3`,
+`TURBO` — Turbo Pascal 3's menu, reverse-video bar and all, on the
+K4510 screen (test/capture, screenshot sent to Doc). One lesson
+re-learned on the way: test/tubetest is not in `all`, and the stale
+binary showed a Tube session printing nothing — "stale binaries lie".
+
+**The Pi.** core/term.o added to pi/Makefile; kernel8.img built on p15
+(1,598,736 bytes, md5 436a7d9e) and staged in pkg/ with the new ROM
+(md5 e31cb285) and telnet.prg. Not on the card: Doc holds the card.
+Untested on hardware, like the network it sits beside.
+
+Not done: underline (text32 has no attribute for it), 132 columns,
+UTF-8 from modern BBSes, telnet NAWS/TTYPE (we answer WONT to
+everything; a BBS assumes ANSI 80x24, and JIM is 79x29 in MODE 1 1 —
+fine for menus, MODE 1 0 gives it the full 80).

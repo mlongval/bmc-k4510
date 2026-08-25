@@ -10,6 +10,7 @@ static uint8_t sid_clock_sel;
 #include "vicke.h"
 #include "sid.h"
 #include "net.h"
+#include "term.h"
 
 static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 #include <string.h>
@@ -516,7 +517,7 @@ static void seq_write(uint8_t r, uint8_t v)
     }
 }
 
-void io_frame_tick(void) { sys_frames++; seq_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
+void io_frame_tick(void) { sys_frames++; seq_tick(); term_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -940,7 +941,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
-    net_reset(); fs_remote[0] = 0; fs_net_drop();
+    net_reset(); fs_remote[0] = 0; fs_net_drop(); term_reset();
 #ifdef K4510_PI
     dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
                                                             costs a store per instruction the Pi cannot spare (DUMP ON arms it) */
@@ -1005,6 +1006,8 @@ uint8_t io_read(uint16_t addr)
         return 0xFF;
     case IO_NET:
         return net_read(addr & 0xFF);
+    case IO_TERM:
+        return term_read(addr & 0xFF);
     case IO_DMA:
         if ((addr & 0xFF) < 16) return dma_reg[addr & 0xFF];
         return 0xFF;
@@ -1058,6 +1061,9 @@ void io_write(uint16_t addr, uint8_t v)
         return;
     case IO_NET:
         net_write(addr & 0xFF, v);
+        return;
+    case IO_TERM:
+        term_write(addr & 0xFF, v);
         return;
     default:
         return;

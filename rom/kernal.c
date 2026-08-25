@@ -19,6 +19,7 @@
 #define SYS    0xD500u
 #define BANK   0xD600u
 #define TUBE   0xD800u
+#define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
 
 #define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
 #define FONT     0x010000UL           /* placed by the loader */
@@ -444,7 +445,10 @@ static void run_at(uint16_t a)
         slot[2] = 0xD6;
     }
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
+    draw_cursor(0);
+    REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
     call_prog(TRAMP);
+    if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
     if (v0 != REG(VICKE + 0) || l1 != REG(VICKE + 0x20) || l2 != REG(VICKE + 0x30) ||
         l3 != REG(VICKE + 0x40) || sc != REG(VICKE + 0x0E)) {
         video_init();
@@ -873,6 +877,9 @@ static void video_init(void)
     REG(VICKE + 0x0E) = 0; REG(VICKE + 0x64) = 0;
     REG(VICKE + 5) = 1;                        /* IRQ on vblank */
     REG(VICKE + 0) = (uint8_t)(1 | (vmode == 2 ? 2 : vmode == 1 ? 4 : 0));
+    /* JIM, the terminal, draws in the same window */
+    REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
+    REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;
 }
 
 /* the VIDEO system call ($FF92): the text screen's mode and palette back, screen contents kept */
@@ -898,104 +905,71 @@ static void bbg_mode22(uint8_t n)
     vmode = 0; margin = 0; video_init(); cls();          /* 640x480, 80x60 text under the bitmap */
     REG(VICKE + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
 }
-static const uint8_t apal[8]  = { 0, 2, 5, 7, 6, 4, 3, 1 };      /* ANSI order -> the C64 palette */
-static const uint8_t apalb[8] = { 11, 10, 13, 7, 14, 4, 3, 1 };  /* the bright set */
-static void sgr(uint8_t v)               /* SGR colours: BBC BASIC's COLOUR comes as ANSI */
+/* BBCBASIC / CPM: the console connected to the Tube co-processor, which
+ * runs Richard Russell's BBC BASIC (console edition) or RunCPM, each with
+ * its own flat 256 MB (PAGE and HIMEM are the co-processor's, far beyond
+ * this CPU's 64 KB view). Bytes coming up go to JIM, the terminal, which
+ * is a VT100 with ANSI colour: CP/M programs are set up for VT100 or ANSI
+ * and BBC BASIC's console edition speaks it natively. Keys go through JIM
+ * too, which turns the cursor and function keys into their VT sequences.
+ * The only bytes read here are the OSC strings the Tube ULA forwards:
+ * K4510; (a star command for the shell) and K4G;22 (MODE, so the console
+ * can change its geometry under the ULA's bitmap). *QUIT / EXIT (or the
+ * co-processor dying) returns here. */
+static void tube_keys(void) { while (REG(TERM + 1) & 0x80) REG(TUBE + 2) = REG(TERM + 2); }
+static void tube_term(void)
 {
-    if (v == 0) { fg = 1; bg = 0; }
-    else if (v >= 30 && v <= 37)   fg = apal[v - 30];
-    else if (v >= 40 && v <= 47)   bg = apal[v - 40];
-    else if (v >= 90 && v <= 97)   fg = apalb[v - 90];
-    else if (v >= 100 && v <= 107) bg = apalb[v - 100];
+    draw_cursor(0);
+    REG(TERM + 4) = 1;                                   /* JIM: modes and attributes to defaults, home */
+    REG(TERM + 9) = cx; REG(TERM + 10) = cy;
+    REG(TERM + 0x0E) = 1;                                /* its cursor shown */
 }
-
-/* BBCBASIC: the console connected to the Tube co-processor, which runs
- * Richard Russell's BBC BASIC with its own flat 256 MB (PAGE and HIMEM are
- * the co-processor's, far beyond this CPU's 64 KB view). Keys go over,
- * bytes come back; a minimal VT filter eats the escape sequences the
- * console edition emits. *QUIT (or the co-processor dying) returns here. */
 static void cmd_bbcbasic(uint8_t prog)
 {
-    uint8_t k, c, esc = 0, ofg = fg, obg = bg;
+    uint8_t c, esc = 0, oi = 0, ofg = fg, obg = bg;
     REG(TUBE + 3) = prog;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
     if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
     puts_(prog == 3 ? "CP/M 2.2 on the Z80 second processor. EXIT returns to the shell."
                     : "BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
+    tube_term();
     for (;;) {
         uint8_t st = REG(TUBE);
         if (!(st & 1)) break;                            /* the co-processor ended (*QUIT) */
         if (st & 0x80) {
-            static char seq[8]; static uint8_t si;
             c = REG(TUBE + 1);
             if (esc == 2) {                              /* an OSC string: ESC ] ... BEL (into the shell line buffer) */
-                static uint8_t oi;
                 if (c == 7) {
                     esc = 0; line[oi] = 0;
-                    if (oi > 6 && !memcmp(line, "K4510;", 6)) { newline(); shell_line(line + 6); }   /* a star command, handed over */
-                    else if (oi > 7 && !memcmp(line, "K4G;22,", 7)) {     /* MODE, forwarded by the ULA */
+                    if (oi > 6 && !memcmp(line, "K4510;", 6)) {  /* a star command, handed over */
+                        cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0;
+                        newline(); shell_line(line + 6);
+                        REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 0x0E) = 1;
+                    } else if (oi > 7 && !memcmp(line, "K4G;22,", 7)) {     /* MODE, forwarded by the ULA */
                         uint8_t m22 = 0; const char *q = line + 7;
                         while (*q >= '0' && *q <= '9') m22 = m22 * 10 + (uint8_t)(*q++ - '0');
                         bbg_mode22(m22);
+                        tube_term();
                     }
                     oi = 0;
                 } else if (oi < sizeof line - 1) line[oi++] = (char)c;
                 continue;
             }
-            if (esc) {                                   /* collect the VT sequence up to its final letter */
-                if (c == ']') { esc = 2; continue; }
-                if (si < 7) seq[si++] = (char)c;
-                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                    esc = 0;
-                    if (c == 'H' && seq[0] == '[') {
-                        /* cursor position: ESC[row;colH (1-based, clamp into the screen --
-                         * the width probe jumps to column 999 and asks where it landed) */
-                        uint8_t r = 0, cc = 0, j = 1;
-                        while (j < si && seq[j] >= '0' && seq[j] <= '9') r = r * 10 + (seq[j++] - '0');
-                        if (j < si && seq[j] == ';') j++;
-                        while (j < si && seq[j] >= '0' && seq[j] <= '9') { if (cc < 200) cc = cc * 10 + (seq[j] - '0'); j++; }
-                        if (r) cy = (r - 1 < ROWS) ? r - 1 : ROWS - 1;
-                        if (cc) cx = (cc - 1 < COLS) ? cc - 1 : COLS - 1;
-                        draw_cursor(0);
-                    }
-                    if (c == 'J' && seq[0] == '[') cls();
-                    if (c == 'm' && seq[0] == '[') {
-                        /* SGR: the co-processor's COLOUR and MODE colours */
-                        uint8_t v = 0, j = 1;
-                        for (;;) {
-                            if (j < si && seq[j] >= '0' && seq[j] <= '9') { v = (uint8_t)(v * 10 + (seq[j] - '0')); j++; continue; }
-                            sgr(v); v = 0;
-                            if (j < si && seq[j] == ';') { j++; continue; }
-                            break;
-                        }
-                    }
-                    if (c == 'n' && si == 3 && seq[0] == '[' && seq[1] == '6') {
-                        /* "where is the cursor?" -- answer with the real one (1-based) */
-                        char rep[12]; uint8_t i = 0, v;
-                        rep[i++] = 0x1B; rep[i++] = '[';
-                        v = cy + 1; if (v >= 10) rep[i++] = '0' + v / 10; rep[i++] = '0' + v % 10;
-                        rep[i++] = ';';
-                        v = cx + 1; if (v >= 10) rep[i++] = '0' + v / 10; rep[i++] = '0' + v % 10;
-                        rep[i++] = 'R';
-                        for (v = 0; v < i; v++) REG(TUBE + 2) = (uint8_t)rep[v];
-                    }
-                }
-                continue;
-            }
-            if (c == 0x1B) { esc = 1; si = 0; continue; }
-            if (c == '\r') { cx = 0; draw_cursor(0); continue; }
-            if (c == '\n' || c == 8 || c == 9 || c == 12 || c >= ' ') k_chrout(c);
+            if (esc == 1) {                              /* the byte after ESC: ']' opens an OSC, anything else is JIM's */
+                esc = 0;
+                if (c == ']') { esc = 2; oi = 0; continue; }
+                REG(TERM) = 0x1B;
+            } else if (c == 0x1B) { esc = 1; continue; }
+            REG(TERM) = c;
+            tube_keys();                                 /* JIM's answers (cursor position reports) go up */
             continue;                                    /* drain output before reading keys */
         }
-        k = k_getin();
-        if (k) {
-            if (k == 0x0D) REG(TUBE + 2) = 0x0D;
-            else if (k < 0x80) REG(TUBE + 2) = k;        /* incl. Escape: BBC BASIC's own Escape handling */
-            else if (k == 0x89) REG(TUBE + 2) = 0x7F;    /* DEL */
-        }
+        if (REG(KBDST) & 0x80) { REG(TERM + 3) = REG(KBD); tube_keys(); }
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
+    REG(TERM + 0x0E) = 0;
     if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
+    else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;
     newline(); puts_("the Tube co-processor has left."); newline();
 }

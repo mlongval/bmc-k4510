@@ -85,7 +85,10 @@ at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
 opened for reading and writing --- \texttt{tcp://host:port} for a
 connection, \texttt{http://} for a page. \verb|TELNET host port| is the
 demonstration, a \texttt{telnet.prg} in \texttt{/PRG}: what you type goes
-out, what arrives is printed, ESC hangs up. The register map is in
+out, what arrives is drawn by JIM, the terminal (Chapter~\ref{cha:tube}),
+so a BBS gets its ANSI colours and CP437 art and the cursor and function
+keys go out as VT sequences; F12 hangs up (Escape belongs to the far end).
+The register map is in
 Chapter~\ref{cha:io} and \texttt{core/net.h}. On the Pi the network is
 the Ethernet port (DHCP); without a cable the device answers ``not
 fitted'' and URLs are simply absent names. The Pi has no TLS, so

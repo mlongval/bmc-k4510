@@ -74,6 +74,31 @@ costs the interpreter nothing but the PLOTs. \texttt{SPRITES.BBC},
 the demonstrations (the last one moves nothing at all --- it cycles the
 palette with \verb|VDU 19|).
 
+\section{The terminal: JIM}
+The console you see when the Tube is running is not the ROM's own terminal
+but \emph{JIM}, at \texttt{\$DA00} --- the Beeb's third I/O page, given a
+job here. JIM is a VT100 with the ANSI colours and the VT220 editing
+sequences (insert and delete character and line, erase character, scroll
+regions, origin mode, DEC line drawing, cursor-position and identity
+reports), built into the machine the way a real 8-bit computer got a
+serious terminal: as a card, not a program. It draws on the same text
+screen as the ROM console, inside the window the ROM gives it, so the two
+share one screen and one cursor. Anything that needs a terminal writes its
+byte stream to \texttt{\$DA00} and reads its answers from \texttt{\$DA02};
+keys pushed through \texttt{\$DA03} come back as the VT sequences the far
+end expects (arrows, Home/End, PgUp/PgDn, F1--F12, Delete as \texttt{\$7F}).
+The register map is in \texttt{core/term.h}.
+
+For CP/M this settles the question every program asks at install time:
+tell WordStar's \texttt{WSCHANGE}, Turbo Pascal's \texttt{TINST}, ZDE and
+the rest that the terminal is a \emph{VT100} (or \emph{ANSI}: the same
+sequences). Turbo Pascal~3 on \texttt{H:} user~3 comes up with its menu
+already right; WordStar~4 on \texttt{E:} wants one pass of
+\texttt{WSCHANGE}. BBC BASIC's console edition speaks the same language
+natively, so \verb|COLOUR|, \verb|CLS| and \verb|PRINT TAB(x,y)| land
+where they should. Bytes \texttt{\$80}--\texttt{\$FF} are drawn as CP437
+glyphs, which is what BBS ANSI art is made of.
+
 \section{Star commands}
 A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,
 any shell command --- and BBC BASIC's own file words (\verb|LOAD|,

@@ -13,5 +13,7 @@ network: a URL is a file name (Meatloaf): TYPE http://host/file  CP http://host/
          RUN http://host/x.prg  LOAD "http://..." in EhBASIC and BBC BASIC
          CD tnfs://host/dir puts the current directory on a TNFS server (FujiNet,
          Meatloaf): DIR lists it, bare names load from it, CD .. climbs, CD - comes home
-         TELNET host port (ESC hangs up) on the N: device at $D900
+         TELNET host port (F12 hangs up) on the N: device at $D900; ANSI/VT100 via JIM
+terminal: JIM at $DA00, a VT100/ANSI in hardware: CP/M programs and BBC BASIC draw
+         through it (install CP/M programs for VT100 or ANSI); TELNET too
 boot:    /!BOOT runs as an EXEC script at power-on; hold a key to skip it

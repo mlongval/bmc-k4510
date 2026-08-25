@@ -17,6 +17,7 @@
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
+/*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
 #define IO_TUBE        0xD800u   /* $D800-$D8FF  the Tube: a co-processor running BBC BASIC (or CP/M, desktop only) */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
@@ -205,8 +206,9 @@ void    io_reset(void);
  *   $D803 W: 1 start (spawn), 2 stop (kill)
  * The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far
  * beyond the 64 KB view. On the Pi the co-processor is the same
- * interpreter running on core 3 (core/tube_cp.c); CP/M is desktop-only
- * for now, and an unfitted program leaves status reading 0. */
+ * interpreter (or RunCPM's Z80, program 3) running on core 3
+ * (core/tube_cp.c); an unfitted program leaves status reading 0. The
+ * console it talks to is JIM, the terminal at $DA00 (core/term.h). */
 void    kbd_push(uint8_t code);
 void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */
 int     dbg_dump(const char *why);           /* write a dump; returns its number, -1 on failure */
