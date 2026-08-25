@@ -19,6 +19,7 @@ typedef enum {
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
+    SET_SHELL_CPMCOM,        /* BOOL an unknown word may run a CP/M .COM */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;

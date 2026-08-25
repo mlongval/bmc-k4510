@@ -40,6 +40,9 @@ static const item_t machine_items[] = {
     { "",                  MI_SEP },
     { "Quit the emulator", MI_ACTION, ACT_QUIT },
 };
+static const item_t shell_items[] = {
+    { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },
+};
 static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
@@ -47,20 +50,26 @@ static const menu_t video_menu   = { "Video",   video_items,   4 };
 static const menu_t audio_menu   = { "Audio",   audio_items,   1 };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, 8 };
+static const menu_t shell_menu   = { "Shell",   shell_items,   1 };
 static const menu_t info_menu    = { "Info",    info_items,    4 };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },
     { "Audio",   MI_SUBMENU, 0, &audio_menu },
     { "Input",   MI_SUBMENU, 0, &input_menu },
     { "Machine", MI_SUBMENU, 0, &machine_menu },
+    { "Shell",   MI_SUBMENU, 0, &shell_menu },
     { "Info",    MI_SUBMENU, 0, &info_menu },
 };
-static const menu_t main_menu = { "BMC-K4510", main_items, 5 };
+static const menu_t main_menu = { "BMC-K4510", main_items, 6 };
 
-/* ---- state ---------------------------------------------------------------- */
+/* ---- state ----------------------------------------------------------------
+ * Two panes: the categories on the left, the chosen one's settings on the
+ * right. `cat' is the left pane's cursor and never moves on its own; the
+ * stack belongs to the right pane, so a submenu (the save-state slots) opens
+ * there and Escape steps back out of it before returning to the categories. */
 static struct { const menu_t *m; int cur; } stack[6];
-static int depth, open_, dirty, action, closed;
-static int popup, popup_cur, popup_was;      /* an ENUM's option list, over the window; popup_was is what to restore on Escape */
+static int depth, cat, pane, open_, dirty, action, closed;
+static int popup, popup_cur, popup_was;      /* an ENUM's option list, over the panes; popup_was is what to restore on Escape */
 static char info[INFO_COUNT][40];
 static char slot[MENU_SLOTS][24];
 
@@ -71,7 +80,13 @@ static void move_cur(int d)
     for (int i = 0; i < m->n; i++) { c = (c + d + m->n) % m->n; if (m->items[c].kind != MI_SEP) break; }
     stack[depth].cur = c;
 }
-void menu_open(void) { open_ = 1; depth = 0; stack[0].m = &main_menu; stack[0].cur = 0; popup = 0; dirty = 1; }
+static void set_cat(int c)
+{
+    cat = (c + main_menu.n) % main_menu.n;
+    depth = 0; stack[0].m = main_items[cat].sub; stack[0].cur = 0;
+    if (stack[0].m->items[0].kind == MI_SEP) move_cur(+1);
+}
+void menu_open(void) { open_ = 1; pane = 0; popup = 0; set_cat(0); dirty = 1; }
 void menu_close(void) { if (open_) { open_ = 0; closed = 1; dirty = 1; } }
 int  menu_is_open(void) { return open_; }
 int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
@@ -114,8 +129,17 @@ void menu_key(uint8_t k)
         settings_set((set_id) it->arg, popup_cur);   /* live: the choice takes effect as the cursor passes it, Escape puts it back */
         return;
     }
-    if (k == menu_key_code() || (k == KEY_ESC && depth == 0)) { menu_close(); return; }
-    if (k == KEY_ESC || k == KEY_BS) { depth--; return; }
+    if (k == menu_key_code()) { menu_close(); return; }
+    if (!pane) {                                     /* the categories */
+        if (k == KEY_ESC) { menu_close(); return; }
+        if (k == KEY_UP) set_cat(cat - 1);
+        else if (k == KEY_DOWN) set_cat(cat + 1);
+        else if (k == KEY_HOME) set_cat(0);
+        else if (k == KEY_END) set_cat(main_menu.n - 1);
+        else if (k == KEY_ENTER || k == KEY_RIGHT || k == ' ') { if (top()->n) pane = 1; }
+        return;
+    }
+    if (k == KEY_ESC || k == KEY_BS) { if (depth) depth--; else pane = 0; return; }
     if (k == KEY_UP) move_cur(-1);
     else if (k == KEY_DOWN) move_cur(+1);
     else if (k == KEY_ENTER || k == KEY_RIGHT || k == ' ') {
@@ -124,48 +148,66 @@ void menu_key(uint8_t k)
     }
     else if (k == KEY_LEFT) {
         const item_t *it = &top()->items[stack[depth].cur];
-        if (it->kind == MI_SETTING) settings_step((set_id) it->arg, -1); else if (depth) depth--;
+        if (it->kind == MI_SETTING) settings_step((set_id) it->arg, -1);
+        else if (depth) depth--;
+        else pane = 0;
     }
     else if (k == KEY_HOME) stack[depth].cur = 0;
     else if (k == KEY_END) { stack[depth].cur = top()->n - 1; if (top()->items[stack[depth].cur].kind == MI_SEP) move_cur(-1); }
 }
 
-/* ---- drawing ---------------------------------------------------------------- */
-#define WIN_W 52
-#define WIN_H 15
+/* ---- drawing ----------------------------------------------------------------
+ * The whole screen, opaque: the machine's picture is put away rather than
+ * dimmed behind, so nothing of the guest shows through and the menu reads the
+ * same whatever was on screen when it opened. */
+#define LX   2                       /* the category column */
+#define LW   16
+#define SEPX (LX + LW)
+#define RX   (SEPX + 3)
+#define TOPY 5
 int menu_draw(uint8_t *ov)
 {
     if (!dirty) return 0;
     dirty = 0;
     ui_clear(ov);
     if (!open_) return 1;
-    const menu_t *m = top();
-    int x0 = (UI_COLS - WIN_W) / 2, y0 = (UI_ROWS - WIN_H) / 2;
-    char title[64], b[32];
-    ui_box(ov, x0, y0, WIN_W, WIN_H, UIC_FRAME, UIC_PANEL);
-    if (depth) snprintf(title, sizeof title, " %s: %s ", main_menu.title, m->title); else snprintf(title, sizeof title, " %s ", m->title);
-    ui_text(ov, x0 + (WIN_W - (int) strlen(title)) / 2, y0, UIC_TITLE, UIC_PANEL, title);
-    for (int i = 0; i < m->n; i++) {
-        const item_t *it = &m->items[i]; int y = y0 + 2 + i;
-        int sel = (i == stack[depth].cur);
-        uint8_t fg = sel ? UIC_BARTEXT : UIC_TEXT, bg = sel ? UIC_BAR : UIC_PANEL;
-        if (it->kind == MI_SEP) continue;
-        ui_fill(ov, x0 + 2, y, WIN_W - 4, 1, bg);
-        ui_text(ov, x0 + 3, y, fg, bg, it->label);
-        const char *v = 0;
-        if (it->kind == MI_SETTING) v = settings_text((set_id) it->arg, b, sizeof b);
-        else if (it->kind == MI_INFO) v = info[it->arg];
-        else if (it->kind == MI_SAVESLOT || it->kind == MI_LOADSLOT) v = slot[it->arg][0] ? slot[it->arg] : "empty";
-        else if (it->kind == MI_SUBMENU) v = ">";
-        if (v) ui_text(ov, x0 + WIN_W - 3 - (int) strlen(v), y, it->kind == MI_INFO && !sel ? UIC_DIM : fg, bg, v);
+    ui_fill(ov, 0, 0, UI_COLS, UI_ROWS, UIC_PANEL);
+    ui_fill(ov, 0, 0, UI_COLS, 1, UIC_BAR);
+    ui_text(ov, 1, 0, UIC_BARTEXT, UIC_BAR, "BMC-K4510");
+    { char b[32]; const set_desc *mk = settings_desc(SET_INPUT_MENU_KEY);
+      snprintf(b, sizeof b, "%s closes ", mk->labels[settings_get(SET_INPUT_MENU_KEY)]);
+      ui_text(ov, UI_COLS - (int) strlen(b), 0, UIC_BARTEXT, UIC_BAR, b); }
+    ui_box(ov, 1, 2, UI_COLS - 2, UI_ROWS - 5, UIC_FRAME, UIC_PANEL);
+    for (int y = 3; y < UI_ROWS - 4; y++) ui_text(ov, SEPX, y, UIC_FRAME, UIC_PANEL, "\xB3");
+    for (int i = 0; i < main_menu.n; i++) {
+        int sel = (i == cat);
+        uint8_t fg = sel ? (pane ? UIC_TITLE : UIC_BARTEXT) : UIC_TEXT;
+        uint8_t bg = (sel && !pane) ? UIC_BAR : UIC_PANEL;
+        ui_fill(ov, LX, TOPY + i, LW - 1, 1, bg);
+        ui_text(ov, LX + 1, TOPY + i, fg, bg, main_items[i].label);
     }
-    char lg[64]; const set_desc *mk = settings_desc(SET_INPUT_MENU_KEY); const char *key = mk->labels[settings_get(SET_INPUT_MENU_KEY)];
-    if (depth) snprintf(lg, sizeof lg, " Esc Back   Enter Select   %s Close ", key);
-    else snprintf(lg, sizeof lg, " Enter Select   %s/Esc Close   Shift+%s to the machine ", key, key);
-    const char *legend = lg;
-    ui_text(ov, x0 + (WIN_W - (int) strlen(legend)) / 2, y0 + WIN_H - 1, UIC_DIM, UIC_PANEL, legend);
+    { const menu_t *m = top(); char b[32];
+      ui_text(ov, RX, 3, UIC_TITLE, UIC_PANEL, m->title);
+      for (int i = 0; i < m->n; i++) {
+          const item_t *it = &m->items[i]; int y = TOPY + i;
+          int sel = pane && (i == stack[depth].cur);
+          uint8_t fg = sel ? UIC_BARTEXT : UIC_TEXT, bg = sel ? UIC_BAR : UIC_PANEL;
+          const char *v = 0;
+          if (it->kind == MI_SEP) continue;
+          ui_fill(ov, RX - 1, y, UI_COLS - RX - 1, 1, bg);
+          ui_text(ov, RX, y, fg, bg, it->label);
+          if (it->kind == MI_SETTING) v = settings_text((set_id) it->arg, b, sizeof b);
+          else if (it->kind == MI_INFO) v = info[it->arg];
+          else if (it->kind == MI_SAVESLOT || it->kind == MI_LOADSLOT) v = slot[it->arg][0] ? slot[it->arg] : "empty";
+          else if (it->kind == MI_SUBMENU) v = ">";
+          if (v) ui_text(ov, UI_COLS - 3 - (int) strlen(v), y, it->kind == MI_INFO && !sel ? UIC_DIM : fg, bg, v);
+      } }
+    { const char *legend = pane ? " Up/Down item   Left/Right change   Enter select   Esc back "
+                               : " Up/Down category   Enter or Right for its settings   Esc closes ";
+      ui_text(ov, (UI_COLS - (int) strlen(legend)) / 2, UI_ROWS - 2, UIC_DIM, UIC_PANEL, legend); }
     if (popup) {
-        const item_t *it = &m->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
+        const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
+        char title[64];
         int w = 8; for (int i = 0; i < d->nlabels; i++) if ((int) strlen(d->labels[i]) + 6 > w) w = (int) strlen(d->labels[i]) + 6;
         int h = d->nlabels + 2, px = (UI_COLS - w) / 2, py = (UI_ROWS - h) / 2;
         ui_box(ov, px, py, w, h, UIC_FRAME, UIC_PANEL);

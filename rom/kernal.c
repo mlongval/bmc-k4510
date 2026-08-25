@@ -1016,6 +1016,8 @@ static void cmd_alias(const char *p)
 static uint8_t try_com(const char *nm, const char *args)
 {
     char path[40]; uint8_t i = 0, n = 0;
+    if (!(REG(SYS + 0x21) & 1)) return 0;                 /* the F7 menu decides: off by default, so a
+                                                             mistyped D does not start a Z80 program */
     if (strlen(nm) > 8) return 0;                         /* CP/M names are 8.3 */
     strcpy(path, "/CPM/A/0/"); strcat(path, nm); strcat(path, ".COM");
     fs_name(path);

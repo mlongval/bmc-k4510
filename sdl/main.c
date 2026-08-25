@@ -229,6 +229,7 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
+        io_set_opts(settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0);   /* the ROM reads this at $D521 */
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
             if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */

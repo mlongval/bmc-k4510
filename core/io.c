@@ -535,6 +535,8 @@ static void sys_latch(void)
     sys_reg[10] = (m->tm_year + 1900) & 0xFF; sys_reg[11] = (m->tm_year + 1900) >> 8;
     sys_reg[12] = m->tm_wday;
 }
+static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
+void io_set_opts(uint8_t v) { sys_opts = v; }
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -543,6 +545,7 @@ static uint8_t sys_read(uint8_t r)
     if (r < 0x10) return (uint8_t)(sys_frames >> ((r - 0x0D) * 8));
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
+    if (r == 0x21) return sys_opts;
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     if (r == 0xF3) return sid_clock_sel;

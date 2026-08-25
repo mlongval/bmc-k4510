@@ -39,9 +39,9 @@ int main(void)
     kbd_modifiers(0, 0, 0); kbd_push(KEY_F1 + 6); CHECK(menu_is_open(), "F7 opens the menu");
     kbd_push('x'); CHECK(io_read(IO_KBD) == 0, "keys do not reach the machine while open");
     CHECK(menu_draw(ov) == 1 && menu_draw(ov) == 0, "draws once, then clean");
-    { int x0 = (UI_COLS - 52) / 2, y0 = (UI_ROWS - 15) / 2;
-      CHECK(cell_is(x0, y0, UIC_FRAME) > 0 && cell_is(x0 + 2, y0 + 2, UIC_BAR) > 0, "frame and cursor bar drawn");
-      CHECK(ov[0] == 0, "outside the window: see-through"); }
+    { CHECK(cell_is(1, 2, UIC_FRAME) > 0, "the frame is drawn");
+      CHECK(cell_is(2, 5, UIC_BAR) > 0, "the category cursor wears the bar");
+      CHECK(ov[0] != 0 && ov[(UI_H - 1) * UI_W + UI_W - 1] != 0, "opaque corner to corner: the machine's picture is hidden"); }
     kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */
     kbd_push(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
     kbd_push(KEY_LEFT); kbd_push(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
@@ -57,6 +57,15 @@ int main(void)
     settings_set(SET_INPUT_MENU_KEY, MENUKEY_F8); kbd_push(KEY_F1 + 6); CHECK(!menu_is_open(), "F7 is a plain key once the menu key moved");
     kbd_push(KEY_F1 + 7); CHECK(menu_is_open(), "F8 opens it"); menu_close();
     printf("2. menu: open/close, navigation, INT steps, ENUM popup, actions\n");
+    /* 3. the shell toggle the ROM reads at $D521 */
+    settings_defaults();
+    CHECK(settings_get(SET_SHELL_CPMCOM) == 0, "CP/M .COM by name is off unless asked for");
+    io_set_opts(settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0);
+    CHECK((io_read(IO_SYS_OPTS) & SYSOPT_CPMCOM) == 0, "and the guest sees it off");
+    settings_set(SET_SHELL_CPMCOM, 1);
+    io_set_opts(settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0);
+    CHECK((io_read(IO_SYS_OPTS) & SYSOPT_CPMCOM) != 0, "switched on, the guest sees it on");
+    printf("3. the shell toggle reaches the guest at $D521\n");
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

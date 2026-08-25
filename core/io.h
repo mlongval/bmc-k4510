@@ -15,6 +15,9 @@
 #define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
+#define IO_SYS_OPTS    0xD521u   /* R: what the host's menu has switched on, for the ROM */
+#define SYSOPT_CPMCOM  0x01     /*    an unknown word may run a CP/M .COM */
+void    io_set_opts(uint8_t v);
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 /*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */

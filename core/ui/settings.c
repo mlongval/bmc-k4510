@@ -16,6 +16,7 @@ static const set_desc desc[SET_COUNT] = {
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
+    { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */
 };
 static int value[SET_COUNT];
 static int changed;
