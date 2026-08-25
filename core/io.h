@@ -16,6 +16,7 @@
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
+#define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 #define IO_TUBE        0xD800u   /* $D800-$D8FF  the Tube: a co-processor running BBC BASIC (or CP/M, desktop only) */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */

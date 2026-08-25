@@ -2887,3 +2887,51 @@ legs green, Pi kernel rebuilt (1,571,536 bytes, md5 889edc7b) and
 staged; the card still on hold.
 
 Addendum, same night: Doc — "BBC BASIC does not have graphics commands (hence Console???)". It has them all; Console is the name of Russell's terminal-stream edition, the one whose byte stream IS the Tube. The banner now says what it is: **"BBC BASIC for the K4510 Tube v0.50"** (Doc's wording; szVersion in bbccon.c). Pi kernel re-staged, md5 bd1fceb3.
+
+## 2026-08-24 (af) — the network, two ways: the Meatloaf rule and the N: device
+
+Doc's other candidate, started once the card was written: "Add
+Fujinet/Meatloaf capabilities to K/OS on the emulator (just for now)."
+Two ideas from two machines, and they fit the K4510 without touching
+the ROM's full jump table.
+
+**The Meatloaf rule** (the C64 cartridge that made a disk name an
+address on the internet): a URL is a file name. The ROM never looks at
+a name — it hands it to the filesystem device at $D300 — so `net.c`
+teaches that device that a name beginning http:// or https:// is
+fetched (curl, no shell in between: argv straight to execvp) to a
+temp file, opened, and unlinked, and served like any file. Zero ROM
+bytes for `TYPE http://…`, `CP http://…/x.prg x.prg`, `RUN
+http://…/x.prg` (the REXX rule finds the program on the internet),
+EhBASIC's LOAD — and BBC BASIC's LOAD on the Tube, whose file layer
+in tube_cp.c got the same three lines. The one ROM change is a
+limit: getname() stopped at 63 characters and GitHub's raw URLs are
+longer. NAMEMAX is now 96, the shell line's own length (cc65 refused
+two 128-byte locals in CP: "Too many local variables"); BSS sits at
+$1BD of $1C0, three bytes spare.
+
+**The N: device** (FujiNet's network device, as the Atari and Apple
+saw it) at $D900, for programs: four channels, each a URL opened for
+reading and writing — tcp://host:port a connection, http(s):// a GET
+whose body is then read. Registers mirror $D300 (CMD, STATUS, CHAN,
+NAMEPTR, ADDR, LEN, SIZE); OPEN, READ, WRITE, CLOSE, STATUS (bytes
+waiting, 4 = the peer has gone), and GET (the Meatloaf rule for
+programs: the whole URL into memory). Reads never block the machine —
+a program polls, as it would a UART; curl runs as a child on a pipe.
+`TELNET host port` is the demonstration, telnet.prg in /PRG: keys
+out, bytes in, ESC hangs up, telnet's IAC negotiation answered with
+WONT/DONT so BBSes and MUDs talk.
+
+Verified offline by test/nettest.sh (a Python http.server and a TCP
+echo on loopback: TYPE of a URL, CP of a URL then TYPE of the copy,
+a telnet line echoed back in capitals) — now part of `make test`,
+eleven suites green — and live: Google's robots.txt, then the
+machine's own README from GitHub, on the K4510's screen. BBC BASIC
+LOADed a .BBC over HTTP and RAN it. Pi: net.c compiles to "not
+fitted" (status 6, URLs are ordinary absent names); the way in is
+Circle's TCP/IP stack and HTTP client, a later evening. Edges on
+record: HTTP POST is not there (WRITE on an http channel is "bad
+command"); DIR of a URL and CD into one, which Meatloaf does by
+parsing listings, are not; the ROM's new kernal.bin (md5 e4ce4e98)
+is staged on p15 for the next card, the card Doc just pulled still
+carries the 63-character limit.

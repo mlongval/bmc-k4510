@@ -9,4 +9,7 @@ system:  INFO  TIME  MODE [0-2] [0|1]  COLOR fg [bg]  ECHO  CLS  HUSH  RESET
          DUMP [note|ON|OFF]
 tongues: BBC (BBC BASIC on the Tube)   CPM (CP/M 2.2, the Z80 second processor)
          FORTH (Tali Forth 2, native)  EHBASIC via RUN EHBASIC
+network: a URL is a file name (Meatloaf): TYPE http://host/file  CP http://host/x.prg x.prg
+         RUN http://host/x.prg  LOAD "http://..." in EhBASIC and BBC BASIC
+         TELNET host port (ESC hangs up) on the N: device at $D900 (desktop host only)
 boot:    /!BOOT runs as an EXEC script at power-on; hold a key to skip it

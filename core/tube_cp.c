@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "net.h"
 
 /* ---- the rings ---------------------------------------------------------
  * Single producer, single consumer each. The writer owns w, the reader owns
@@ -160,7 +161,15 @@ static void cp_path(char *out, size_t max, const char *in)
     cp_normalise(rel);
     if (rel[0]) snprintf(out, max, "%s/%s", fs_get_root(), rel); else snprintf(out, max, "%s", fs_get_root());
 }
-FILE *tube_cp_fopen(const char *path, const char *mode) { char p[512]; cp_path(p, sizeof p, path); return fopen(p, mode); }
+FILE *tube_cp_fopen(const char *path, const char *mode)
+{
+    char p[512];
+    if (net_is_url(path)) {                                /* the Meatloaf rule reaches the co-processor too */
+        FILE *f; if (mode[0] != 'r' || net_fetch_file(path, p, sizeof p)) return NULL;
+        f = fopen(p, mode); unlink(p); return f;
+    }
+    cp_path(p, sizeof p, path); return fopen(p, mode);
+}
 DIR  *tube_cp_opendir(const char *path) { char p[512]; cp_path(p, sizeof p, path); return opendir(p); }
 int   tube_cp_remove(const char *path) { char p[512]; cp_path(p, sizeof p, path); return remove(p); }
 int   tube_cp_rename(const char *a, const char *b) { char p[512], q[512]; cp_path(p, sizeof p, a); cp_path(q, sizeof q, b); return rename(p, q); }

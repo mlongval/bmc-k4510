@@ -17,7 +17,7 @@ CORE = ../core
 TUBE = ../tube/src
 RESID_SRC = $(wildcard $(CORE)/resid/*.cc)
 OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o \
-       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicke.o $(CORE)/sid.o $(CORE)/tube_cp.o \
+       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicke.o $(CORE)/sid.o $(CORE)/tube_cp.o $(CORE)/net.o \
        bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o runcpm.o \
        $(RESID_SRC:.cc=.o)
 

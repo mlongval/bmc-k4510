@@ -187,7 +187,8 @@ static void poke(uint32_t a, uint8_t v)
 static char line[96];
 static uint32_t xam;          /* last opened address */
 static uint8_t mode;          /* 0 xam, 1 store, 2 block */
-static char last_name[64]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs, last_bmask;   /* last LOAD; bmask = blocks claimed by K4SG segments */
+#define NAMEMAX 96    /* a name or a URL (the Meatloaf rule): as long as the shell line itself */
+static char last_name[NAMEMAX]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs, last_bmask;   /* last LOAD; bmask = blocks claimed by K4SG segments */
 
 static uint8_t ishex(char c) { return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'); }
 static uint8_t hexval(char c) { return c <= '9' ? c - '0' : (c | 0x20) - 'a' + 10; }
@@ -202,7 +203,7 @@ static uint8_t getname(const char **p, char *name)
 {
     uint8_t i = 0;
     skipsp(p);
-    while (**p && **p != ' ' && i < 63) name[i++] = *(*p)++;
+    while (**p && **p != ' ' && i < NAMEMAX - 1) name[i++] = *(*p)++;
     name[i] = 0; skipsp(p);
     return i;
 }
@@ -235,7 +236,7 @@ static void put_cwd(void);
 #pragma rodata-name (push, "SWRODATA0")
 static void cmd_dir(const char *p)
 {
-    char name[64]; uint16_t count = 0; uint32_t total = 0, sz;
+    char name[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;
     uint8_t first = 6;                                   /* DIR A: dotfiles too */
     if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) first = 18;
     if (fs_cmd(first)) { error("dir: no device"); return; }
@@ -255,21 +256,21 @@ static void cmd_dir(const char *p)
 
 static void cmd_cd(const char *p)
 {
-    char name[64];
+    char name[NAMEMAX];
     if (!getname(&p, name)) strcpy(name, "/");
     fs_name(name);
     if (fs_cmd(11)) { error("cd: no such directory"); return; }
 }
 static void cmd_mkdir(const char *p)
 {
-    char name[64];
+    char name[NAMEMAX];
     if (!getname(&p, name)) { error("mkdir: name?"); return; }
     fs_name(name);
     if (fs_cmd(12)) { error("mkdir: failed"); return; }
 }
 static void cmd_rm(const char *p)
 {
-    char name[64]; uint8_t st;
+    char name[NAMEMAX]; uint8_t st;
     if (!getname(&p, name)) { error("rm: name?"); return; }
     fs_name(name);
     st = fs_cmd(13);
@@ -278,7 +279,7 @@ static void cmd_rm(const char *p)
 }
 static void cmd_rmdir(const char *p)
 {
-    char name[64]; uint8_t st;
+    char name[NAMEMAX]; uint8_t st;
     if (!getname(&p, name)) { error("rmdir: name?"); return; }
     fs_name(name);
     st = fs_cmd(14);
@@ -360,7 +361,7 @@ static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
 #pragma rodata-name (push, "SWRODATA0")
 static void cmd_load(const char *p)
 {
-    char name[64]; uint8_t d, st, has = 0; uint32_t addr = USER;
+    char name[NAMEMAX]; uint8_t d, st, has = 0; uint32_t addr = USER;
     if (!getname(&p, name)) { error("load: name?"); return; }
     if (*p) { addr = parsehex(&p, &d); has = 1; }
     st = do_load(name, addr, has);
@@ -374,7 +375,7 @@ static void cmd_load(const char *p)
 
 static void cmd_save(const char *p)
 {
-    char name[64]; uint8_t d; uint32_t from, to;
+    char name[NAMEMAX]; uint8_t d; uint32_t from, to;
     if (!getname(&p, name)) { error("save: name from.to"); return; }
     from = parsehex(&p, &d); if (!d || *p != '.') { error("save: name from.to"); return; }
     p++; to = parsehex(&p, &d); if (!d || to < from) { error("save: name from.to"); return; }
@@ -385,7 +386,7 @@ static void cmd_save(const char *p)
 
 static void cmd_type(const char *p)
 {
-    char name[64]; uint32_t n; uint16_t i;
+    char name[NAMEMAX]; uint32_t n; uint16_t i;
     if (!getname(&p, name)) { error("type: name?"); return; }
     fs_name(name);
     if (fs_cmd(1)) { error("type: not found"); return; }
@@ -465,10 +466,10 @@ static void cmd_run(const char *p)
     uint8_t d; uint32_t a; const char *q = p;
     while (ishex(*q)) q++;
     if (*p && *q && *q != ' ') {                  /* not a hex number: RUN name.prg */
-        char name[64]; uint8_t st;
+        char name[NAMEMAX]; uint8_t st;
         getname(&p, name);
         st = do_load(name, USER, 0);
-        if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
+        if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
         if (st == 1) { error("run: not found"); return; }
         if (st) { error("run: bad file"); return; }
         args_tail = p;
@@ -608,7 +609,7 @@ static void info_sound(void)
 
 static void info_files(void)
 {
-    char name[64]; uint16_t count = 0; uint32_t total = 0;
+    char name[NAMEMAX]; uint16_t count = 0; uint32_t total = 0;
     label("FILES"); puts_("host filesystem at $D300 (the emulator's fs/)");
     if (fs_cmd(6)) { puts_(": no device"); newline(); return; }
     for (;;) { w32(FS + 8, (uint16_t)name); if (fs_cmd(7)) break; total += r32(FS + 16); count++; }
@@ -693,7 +694,7 @@ static void cmd_help(void)
 /* RENAME old new / CP old new: two names, the second passed via the ADDR reg */
 static void cmd_two(uint8_t cmdno, const char *p)
 {
-    char a[64], b[64];
+    char a[NAMEMAX], b[NAMEMAX];
     if (!getname(&p, a) || !getname(&p, b)) { error("old new?"); return; }
     fs_name(a); w32(FS + 8, (uint16_t)b);
     if (fs_cmd(cmdno)) error("failed");
@@ -702,7 +703,7 @@ static void cmd_two(uint8_t cmdno, const char *p)
 /* XD name (HEX works too): hex + ASCII, 16 bytes a row; Esc stops it */
 static void cmd_xd(const char *p)
 {
-    char name[64]; uint32_t off = 0, n; uint8_t i, buf[16];
+    char name[NAMEMAX]; uint32_t off = 0, n; uint8_t i, buf[16];
     if (!getname(&p, name)) { error("xd: name?"); return; }
     fs_name(name);
     if (fs_cmd(1)) { error("xd: not found"); return; }
@@ -733,7 +734,7 @@ static void cmd_hush(void)
 #pragma rodata-name (pop)
 static void cmd_exec(const char *p)
 {
-    char name[64]; static uint32_t len, off; uint32_t L; uint8_t i;
+    char name[NAMEMAX]; static uint32_t len, off; uint32_t L; uint8_t i;
     if (exec_busy) { error("exec: no nesting"); return; }
     if (!getname(&p, name)) { error("exec: name?"); return; }
     fs_name(name); w32(FS + 8, EXECBUF);
@@ -799,10 +800,10 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
     if (is_cmd(&p, "CPM"))   { cmd_bbcbasic(3); return; }
     /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
-    { char name[64]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
+    { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {
           uint8_t st = do_load(name, USER, 0);
-          if (st == 1 && !is_prg(name) && strlen(name) < 59) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
+          if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
           if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }
     error("? (HELP lists the commands; MON is the monitor)");

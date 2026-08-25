@@ -45,6 +45,34 @@ jukebox; and four words open whole languages: \verb|EHBASIC|
 \verb|FORTH| (Chapter~\ref{cha:forth}) and \verb|CPM|
 (Chapter~\ref{cha:cpm}).
 
+\section{The network}
+A URL is a file name. Anything the shell reads --- \verb|TYPE|, \verb|LOAD|,
+\verb|CP|, \verb|RUN|, and the bare-word rule above --- accepts
+\texttt{http://} or \texttt{https://} in place of a name, and the machine
+fetches it:
+
+\begin{type}
+TYPE https://raw.githubusercontent.com/mlongval/bmc-k4510/master/README.md
+CP http://example.org/game.prg game.prg
+RUN http://example.org/game.prg
+\end{type}
+
+EhBASIC's \verb|LOAD| and BBC BASIC's \verb|LOAD| on the Tube take URLs the
+same way. The idea is the C64's Meatloaf cartridge, where a disk name could
+be an address on the internet; here it costs the ROM nothing, because the
+ROM never looks at a name --- the host does the fetching. A typed line is 95
+characters, and so is the longest URL.
+
+For programs that want a live connection there is the \emph{N: device}
+at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
+opened for reading and writing --- \texttt{tcp://host:port} for a
+connection, \texttt{http://} for a page. \verb|TELNET host port| is the
+demonstration, a \texttt{telnet.prg} in \texttt{/PRG}: what you type goes
+out, what arrives is printed, ESC hangs up. The register map is in
+Chapter~\ref{cha:io} and \texttt{core/net.h}. Desktop host only for now:
+the Pi's kernel answers ``not fitted'' until Circle's TCP/IP stack is
+wired in.
+
 \section{Scripts and the boot file}
 \verb|EXEC name| runs a text file as shell commands, one per line. At
 power-on the machine runs \verb|/!BOOT| as such a script, if it exists ---

@@ -6,14 +6,14 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o sdl/host_posix.o $(RESID_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o core/net.o sdl/host_posix.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -51,7 +51,8 @@ core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicd
 core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
 sdl/host_posix.o: sdl/host_posix.c core/host.h
 core/vicke.o: core/vicke.c core/vicke.h core/mem.h
-core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h
+core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h core/net.h
+core/net.o: core/net.c core/net.h core/mem.h
 core/sid.o: core/sid.cc core/sid.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 core/resid/%.o: core/resid/%.cc
@@ -62,6 +63,7 @@ sdl/k4510: sdl/main.c $(CORE_OBJS)
 
 test/cputest: test/cputest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	./test/nettest.sh
 
 test/woztest: test/woztest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -105,7 +107,7 @@ clean-demos:
 .PHONY: all test clean rom
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg
 demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
@@ -164,7 +166,7 @@ tube/ip_bbccon.o: tube/src/bbccon.c $(TUBE_IP_DEPS)
 	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -Os -c -o $@ $<
 tube/ip_bbdata.o: tube/src/bbdata_x86_64.nas
 	@if command -v nasm >/dev/null; then nasm -f elf64 -s $< -o $@; else echo "no nasm: reusing tube/bbdata.o"; cp tube/bbdata.o $@; fi
-core/io_ip.o: core/io.c core/io.h core/tube_cp.h
+core/io_ip.o: core/io.c core/io.h core/tube_cp.h core/net.h
 	$(CC) $(CFLAGS) -DK4510_TUBE_INPROC -c -o $@ $<
 core/tube_cp.o: core/tube_cp.c core/tube_cp.h
 test/tubetest: test/headless.c $(CORE_IP_OBJS) $(TUBE_IP_OBJS)

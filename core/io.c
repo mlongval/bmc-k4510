@@ -9,6 +9,7 @@ static int dbg_auto; static uint32_t dbg_auto_next;
 static uint8_t sid_clock_sel;
 #include "vicke.h"
 #include "sid.h"
+#include "net.h"
 
 static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24); }
 #include <string.h>
@@ -158,14 +159,21 @@ static void fs_run(uint8_t cmd)
     uint32_t addr = fs_rd32(8) & K4510_PHYS_MASK, len = fs_rd32(12);
     switch (cmd) {
     case FS_OPEN_READ: case FS_OPEN_WRITE: case FS_STAT: case FS_LOAD: case FS_SAVE: {
-        int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
-        if ((st = fs_path(path, sizeof path, rd))) break;
-        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
+        int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD), url = 0;
+        { char name[128];                     /* the Meatloaf rule: a URL is a file (for reading) */
+          if (!fs_guest_name(name, sizeof name) && net_is_url(name)) {
+              if (!rd) { st = 2; break; }
+              if (net_fetch_file(name, path, sizeof path)) { st = 1; break; }
+              url = 1;
+          } }
+        if (!url && (st = fs_path(path, sizeof path, rd))) break;
+        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); if (url) unlink(path); break; }
         { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
                                                  not-found so the shell falls through to FORTH.prg */
           if (rd && !stat(path, &sb) && S_ISDIR(sb.st_mode)) { st = 1; break; } }
         if (fs_file) { fclose(fs_file); fs_file = NULL; }
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
+        if (url) unlink(path);                /* fetched: the open file outlives its name */
         if (!fs_file) { st = 1; break; }
         if (cmd == FS_OPEN_READ || cmd == FS_LOAD) { fseek(fs_file, 0, SEEK_END); long sz = ftell(fs_file); fseek(fs_file, 0, SEEK_SET); fs_wr32(0x10, (uint32_t)sz); }
         if (cmd == FS_LOAD)  { uint32_t done = 0; int c; while ((c = fgetc(fs_file)) != EOF && done < K4510_PHYS_SIZE) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); fclose(fs_file); fs_file = NULL; }
@@ -177,14 +185,20 @@ static void fs_run(uint8_t cmd)
     case FS_DIR_FIRST: st = fs_dir_first(0); break;
     case FS_DIR_ALL:   st = fs_dir_first(1); break;
     case FS_RENAME: case FS_COPYFILE: {
-        char n2[128], rel[256], dst[768];
-        if ((st = fs_path(path, sizeof path, 1))) break;                       /* source, searched + case-fixed */
+        char n2[128], rel[256], dst[768]; int url = 0;
+        { char name[128];                     /* CP http://... local: the Meatloaf rule again */
+          if (cmd == FS_COPYFILE && !fs_guest_name(name, sizeof name) && net_is_url(name)) {
+              if (net_fetch_file(name, path, sizeof path)) { st = 1; break; }
+              url = 1;
+          } }
+        if (!url && (st = fs_path(path, sizeof path, 1))) break;               /* source, searched + case-fixed */
         if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
         if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) break;    /* destination, as given */
         if (cmd == FS_RENAME)
             st = rename(path, dst) ? 2 : 0;
         else {
             FILE *a = fopen(path, "rb"), *b = NULL;
+            if (url) unlink(path);
             if (!a) { st = 1; break; }
             if (!(b = fopen(dst, "wb"))) { fclose(a); st = 2; break; }
             { char buf[4096]; size_t k; while ((k = fread(buf, 1, sizeof buf, a)) > 0) if (fwrite(buf, 1, k, b) != k) { st = 2; break; } }
@@ -888,6 +902,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
+    net_reset();
 #ifdef K4510_PI
     dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
                                                             costs a store per instruction the Pi cannot spare (DUMP ON arms it) */
@@ -950,6 +965,8 @@ uint8_t io_read(uint16_t addr)
     case IO_STORAGE:
         if ((addr & 0xFF) < sizeof fs_reg) return fs_reg[addr & 0xFF];
         return 0xFF;
+    case IO_NET:
+        return net_read(addr & 0xFF);
     case IO_DMA:
         if ((addr & 0xFF) < 16) return dma_reg[addr & 0xFF];
         return 0xFF;
@@ -1000,6 +1017,9 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_STORAGE:
         if (addr == IO_FS_CMD) { fs_run(v); return; }
         if ((addr & 0xFF) < sizeof fs_reg) fs_reg[addr & 0xFF] = v;
+        return;
+    case IO_NET:
+        net_write(addr & 0xFF, v);
         return;
     default:
         return;
