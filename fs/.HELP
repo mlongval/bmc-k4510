@@ -8,10 +8,14 @@ files:   DIR [A] [dir|pattern]
          RM name
          RMDIR dir
          TYPE name
-         EDIT [name]
+         EDIT [name]   VI [name]
          (full-screen editor: arrows Home End PgUp
          PgDn, Ctrl-O or Ctrl-S saves, Ctrl-X leaves.
          *SWAP EDIT name edits from inside a BASIC)
+         (VI is modal and keeps the file in far
+         memory: 32000 lines, 255 columns.
+         hjkl 0 $ gg G, i a I A o O, x dd,
+         :w :q :q! :wq, Esc leaves insert)
          XD name
          LOAD name [addr]
          SAVE name from.to

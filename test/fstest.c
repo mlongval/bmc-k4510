@@ -8,8 +8,16 @@ static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
 static void W32(uint16_t r, uint32_t v) { for (int i = 0; i < 4; i++) io_write(r + i, (v >> (8 * i)) & 0xFF); }
 static uint32_t R32(uint16_t r) { uint32_t v = 0; for (int i = 0; i < 4; i++) v |= (uint32_t)io_read(r + i) << (8 * i); return v; }
+/* The tests own their fixture: hello.txt used to be shipped in fs/, so
+ * deleting it broke them. Created here, removed at the end. */
+static void fixture(int make)
+{
+    if (make) { FILE *f = fopen("fs/hello.txt", "wb"); if (f) { fputs("hello from the host filesystem\n", f); fclose(f); } }
+    else remove("fs/hello.txt");
+}
 int main(void)
 {
+    fixture(1);
     mem_init(); fs_set_root("fs");
     mem_load(0x0300, (const uint8_t *)"hello.txt", 10);
     W32(IO_FS_NAMEPTR, 0x300); W32(IO_FS_ADDR, 0x100000); io_write(IO_FS_CMD, FS_LOAD);
@@ -29,5 +37,6 @@ int main(void)
     mem_load(0x0300, (const uint8_t *)"../etc/passwd", 14); io_write(IO_FS_CMD, FS_STAT);
     CHECK(io_read(IO_FS_STATUS) == 1, "sandbox");
     remove("fs/out.bin");
+    fixture(0);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

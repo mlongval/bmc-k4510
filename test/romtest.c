@@ -14,8 +14,16 @@ static void type(const char *s) { for (; *s; s++) { kbd_push(*s == '\n' ? 0x0D :
 static void row(int r, char *out) { for (int c = 0; c < 80; c++) { uint8_t ch = mem_peek(0x30000 + (r * 80 + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : '.'; } out[80] = 0; for (int i = 79; i >= 0 && out[i] == ' '; i--) out[i] = 0; }
 static int findsub(const char *sub) { char r[81]; for (int i = 0; i < 60; i++) { row(i, r); if (strstr(r, sub)) return i; } return -1; }
 static int find(const char *pre) { char r[81]; for (int i = 0; i < 60; i++) { const char *q; row(i, r); q = r; while (*q == ' ') q++; if (!strncmp(q, pre, strlen(pre))) return i; } return -1; }   /* skips the margin */
+/* The tests own their fixture: hello.txt used to be shipped in fs/, so
+ * deleting it broke them. Created here, removed at the end. */
+static void fixture(int make)
+{
+    if (make) { FILE *f = fopen("fs/hello.txt", "wb"); if (f) { fputs("hello from the host filesystem\n", f); fclose(f); } }
+    else remove("fs/hello.txt");
+}
 int main(void)
 {
+    fixture(1);
     uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
     mem_init(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048);
     CHECK(mem_load_rom("rom/kernal.bin") >= 24576, "rom");   /* base 24 KB + any sideways banks */
@@ -60,5 +68,6 @@ int main(void)
     CHECK(findsub("hello.txt") >= 0, "DIR lists hello.txt");
     CHECK(findsub("/]") >= 0, "prompt after commands");
     printf("screen:\n"); for (int i = 0; i < 60; i++) { row(i, r); if (*r) printf("  |%s\n", r); }
+    fixture(0);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }
