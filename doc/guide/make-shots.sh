@@ -5,6 +5,7 @@
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/../.." && pwd)
 cd "$REPO"
+mkdir -p "$HERE/shots"
 # the Tube chapters photograph the co-processors: they must exist, or the
 # shots quietly show the wrong machine (it happened)
 make -s cpm/runcpm
@@ -37,4 +38,25 @@ shot cpm 500 "cpm
 dir
 type readme.txt
 "
+shot turbo 1500 "CPM
+~~~H:
+~~USER 3
+~~TURBO
+~~~~Y
+~~~~"
+shot wordstar 4200 "CPM
+~~~E:
+~~USER 3
+~~WS
+~~~~~~~~~~~~~~D~~~~READ.ME
+~~~~~~~~~~~~~~~~"
+shot pmandel 1500 "PMANDEL
+"
+shot pgraph 700 "PGRAPH
+"
+# the F7 menu is the frontend's, not the machine's: the SDL build with the dummy driver, a PPM converted
+K="$(printf "~~~\x96\n\x81\x81\n~")"
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy K4510_KEYS="$K" K4510_SHOT="$HERE/shots/menu.ppm:200" sdl/k4510 >/dev/null 2>&1 || true
+[ -s "$HERE/shots/menu.ppm" ] && python3 -c "from PIL import Image; Image.open('$HERE/shots/menu.ppm').save('$HERE/shots/menu.png')" && rm -f "$HERE/shots/menu.ppm"
+[ -s "$HERE/shots/menu.png" ] || { echo "shot menu FAILED"; exit 1; }
 echo "shots: done"

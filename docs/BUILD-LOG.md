@@ -3331,3 +3331,20 @@ Not done: the lower half of the screen under a 480-line picture is
 the text map's uninitialised rows (black cells) — a graphics program
 paints over it or lives with it; a pattern/line-style; FloodFill is
 Mad Pascal's generic one on GetPixel/PutPixel (slow).
+
+## 2026-08-25 (ap) — the guide, rebuilt: 37 pages
+
+Item 4. The guide builds on ubuntu-s1 (xelatex lives there): a fresh
+clone of the mirror, the machine's artifacts brought over by tar
+(rom/, tube/bbcbasic, fs/PRG, fs/BBCBASIC, fs/EHBASIC, fs/FORTH, the
+CP/M drives the shots need — A:, E:3, H:3 — data/font8.bin), then
+test/capture, cpm/runcpm and sdl/k4510 built there. Two things the
+laptop never showed: reSID's version.cc wants VERSION from autoconf's
+config.h (the laptop's version.o predates that header; the resid rule
+now passes -DVERSION), and doc/guide/shots/ is gitignored so a fresh
+clone has no directory for make-shots.sh to write into (it mkdirs
+now). Five new shots: turbo (JIM in the Tube chapter), wordstar (CP/M),
+pmandel and pgraph (Pascal), and the menu — which is the frontend's,
+not the machine's, so it comes from sdl/k4510 under SDL's dummy
+driver through K4510_SHOT, a PPM converted with PIL. Chapters 1, 4, 6
+and 7 place them. XeLaTeX twice: 37 pages, no warnings.

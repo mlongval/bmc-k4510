@@ -76,7 +76,7 @@ core/io.o: core/ui/menu.h
 core/sid.o: core/sid.cc core/sid.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 core/resid/%.o: core/resid/%.cc
-	$(CXX) $(CXXFLAGS) -Wno-unused-parameter -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DVERSION='"1.0"' -Wno-unused-parameter -c -o $@ $<
 
 sdl/k4510: sdl/main.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS) $(LDLIBS)

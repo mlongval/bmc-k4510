@@ -16,6 +16,9 @@ Neo6502. The K4510 is its newest target.
 PMANDEL
 \end{type}
 
+\screen{shots/pmandel.png}{\texttt{PMANDEL}: the Mandelbrot set in text,
+sixteen colours through JIM, in 250 frames.}
+
 That is \texttt{demo/pas/pmandel.pas}: the Mandelbrot set, 78 by 28
 cells in the machine's sixteen colours, in a little over four seconds
 at 40.5~MHz --- fixed point, 32-bit integers, forty lines of Pascal.
@@ -102,7 +105,13 @@ flat addressing (the MEGA65 multiplier does the row arithmetic);
 TRIANGLE operations --- one register write each; \verb|Circle|,
 \verb|Ellipse|, \verb|Rectangle| and the rest of Mad Pascal's generic
 GRAPH build on those; \verb|OutTextXY| writes with the console's font.
-\verb|PGRAPH| is the demonstration. Note that SYSTEM's
+\verb|PGRAPH| is the demonstration.
+
+\screen{shots/pgraph.png}{\texttt{PGRAPH}: bars, a star and triangles by
+the blitter, circles by pixel, text from the ROM's font --- and the
+console's own line still on top.}
+
+Note that SYSTEM's
 \verb|Sqrt|/\verb|Sin|/\verb|Cos|/\verb|ArcTan|/\verb|Exp|/\verb|Ln| on
 \texttt{single} also run on the MATH unit now: the installer patches
 \texttt{system.pas} under \verb|{$ifdef k4510}|.
