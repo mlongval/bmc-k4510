@@ -28,7 +28,8 @@ files:   DIR [A] [dir|pattern]
          one back: *SWAP name from a BASIC leaves
          the program in memory untouched)
          (bare names search the language dirs)
-         an unknown word runs name.prg from disk, with
+         an unknown word runs name.prg from disk, or
+         name.COM on CP/M A: if there is one, with
          args (ARGS call $FF95)
          names starting with . are hidden from DIR
          (DIR A shows them)

@@ -1004,6 +1004,38 @@ static void cmd_alias(const char *p)
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 
+
+#pragma code-name (push, "SWCODE0")
+#pragma rodata-name (push, "SWRODATA0")
+/* An unknown word with a .COM on CP/M's A: is a CP/M program: run it there.
+ * A .prg has no signature to test -- its header is a load address and a run
+ * address, and a .COM's first bytes are Z80 code that would read as a
+ * perfectly plausible one -- so the extension is what tells them apart, and
+ * that is enough. A one-shot .SUB carries the command and an EXIT after it,
+ * so the round trip ends back at this prompt instead of at A0>. */
+static uint8_t try_com(const char *nm, const char *args)
+{
+    char path[40]; uint8_t i = 0, n = 0;
+    if (strlen(nm) > 8) return 0;                         /* CP/M names are 8.3 */
+    strcpy(path, "/CPM/A/0/"); strcat(path, nm); strcat(path, ".COM");
+    fs_name(path);
+    if (fs_cmd(8)) return 0;                              /* no such .COM: not ours */
+    while (nm[n] && i < sizeof line - 12) line[i++] = nm[n++];
+    if (*args) { line[i++] = ' '; while (*args && i < sizeof line - 10) line[i++] = *args++; }
+    line[i++] = '\r'; line[i++] = '\n';
+    line[i++] = 'E'; line[i++] = 'X'; line[i++] = 'I'; line[i++] = 'T';
+    line[i++] = '\r'; line[i++] = '\n'; line[i++] = 26;   /* ^Z: CP/M's end of file */
+    strcpy(path, "/CPM/A/0/K-RUN.SUB");
+    fs_name(path); w32(FS + 8, (uint16_t)line); w32(FS + 12, (uint32_t)i);
+    if (fs_cmd(10)) return 0;
+    strcpy(path, "K-RUN");
+    cmd_cpm(path);
+    strcpy(path, "/CPM/A/0/K-RUN.SUB"); fs_name(path); fs_cmd(13);
+    return 1;
+}
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -1050,6 +1082,8 @@ static void shell_line(const char *p)
           if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
           if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }
+    { char nm[NAMEMAX]; const char *q = p0;               /* a CP/M program is a real program too */
+      if (getname(&q, nm) && try_com(nm, q)) return; }
     if (alias_depth < 4 && alias_expand(p0)) {        /* last of all, so an alias never shadows a real command */
         alias_depth++; shell_line(line); alias_depth--; return;
     }
