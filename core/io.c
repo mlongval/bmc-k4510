@@ -46,6 +46,9 @@ static char fs_root[512] = "fs";
 static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trailing slash; "" = root */
 static uint8_t fs_reg[0x14];
 static FILE *fs_file;
+static uint8_t *fs_netbuf; static uint32_t fs_netlen, fs_netpos;   /* a fetched URL, served as the open file */
+static char fs_remote[512];             /* the current directory when it is on a server: a tnfs:// URL; "" = local */
+static void fs_net_drop(void) { free(fs_netbuf); fs_netbuf = NULL; fs_netlen = fs_netpos = 0; }
 void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
 const char *fs_get_root(void) { return fs_root; }
 static uint32_t fs_rd32(int off) { return rd32(&fs_reg[off]); }
@@ -101,6 +104,14 @@ static int fs_guest_name(char *name, size_t max)
     for (; n < max - 1; n++) { name[n] = k4510_ram[(p + n) & K4510_PHYS_MASK]; if (!name[n]) break; }
     if (n >= max - 1) return 5;
     name[n] = 0;
+    return 0;
+}
+/* The Meatloaf rule: a URL is a file name -- and while the current directory
+ * is on a server, so is a bare name. Returns 1 and the URL in out, else 0. */
+static int fs_url_for(const char *name, char *out, size_t max)
+{
+    if (net_is_url(name)) { snprintf(out, max, "%s", name); return 1; }
+    if (fs_remote[0] && strcmp(name, "-") != 0) { net_url_join(out, max, fs_remote, name); return 1; }
     return 0;
 }
 /* host path for NAMEPTR; for reads, fall back to /PRG, /EHBASIC, /BBCBASIC and /FORTH when the
@@ -159,46 +170,65 @@ static void fs_run(uint8_t cmd)
     uint32_t addr = fs_rd32(8) & K4510_PHYS_MASK, len = fs_rd32(12);
     switch (cmd) {
     case FS_OPEN_READ: case FS_OPEN_WRITE: case FS_STAT: case FS_LOAD: case FS_SAVE: {
-        int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD), url = 0;
-        { char name[128];                     /* the Meatloaf rule: a URL is a file (for reading) */
-          if (!fs_guest_name(name, sizeof name) && net_is_url(name)) {
+        int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
+        { char name[128], url[512];           /* the Meatloaf rule: a URL is a file (for reading) */
+          if (!fs_guest_name(name, sizeof name) && fs_url_for(name, url, sizeof url)) {
+              uint8_t *b; uint32_t n;
               if (!rd) { st = 2; break; }
-              if (net_fetch_file(name, path, sizeof path)) { st = 1; break; }
-              url = 1;
+              if (cmd == FS_STAT && net_isdir(url) == 1) { fs_wr32(0x10, 0xFFFFFFFFu); break; }
+              if ((st = net_fetch(url, &b, &n))) { st = st == 6 ? 1 : st; break; }
+              if (cmd == FS_STAT) { fs_wr32(0x10, n); free(b); break; }
+              if (fs_file) { fclose(fs_file); fs_file = NULL; }
+              fs_net_drop(); fs_netbuf = b; fs_netlen = n; fs_netpos = 0;
+              fs_wr32(0x10, n);
+              if (cmd == FS_LOAD) { uint32_t done = 0; while (done < n && done < K4510_PHYS_SIZE) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; } fs_wr32(12, done); fs_net_drop(); }
+              break;
           } }
-        if (!url && (st = fs_path(path, sizeof path, rd))) break;
-        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); if (url) unlink(path); break; }
+        if ((st = fs_path(path, sizeof path, rd))) break;
+        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
         { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
                                                  not-found so the shell falls through to FORTH.prg */
           if (rd && !stat(path, &sb) && S_ISDIR(sb.st_mode)) { st = 1; break; } }
         if (fs_file) { fclose(fs_file); fs_file = NULL; }
+        fs_net_drop();
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
-        if (url) unlink(path);                /* fetched: the open file outlives its name */
         if (!fs_file) { st = 1; break; }
         if (cmd == FS_OPEN_READ || cmd == FS_LOAD) { fseek(fs_file, 0, SEEK_END); long sz = ftell(fs_file); fseek(fs_file, 0, SEEK_SET); fs_wr32(0x10, (uint32_t)sz); }
         if (cmd == FS_LOAD)  { uint32_t done = 0; int c; while ((c = fgetc(fs_file)) != EOF && done < K4510_PHYS_SIZE) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); fclose(fs_file); fs_file = NULL; }
         if (cmd == FS_SAVE)  { for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); fclose(fs_file); fs_file = NULL; }
         break; }
-    case FS_READ: { if (!fs_file) { st = 2; break; } uint32_t done = 0; int c; while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); break; }
+    case FS_READ: {
+        uint32_t done = 0; int c;
+        if (fs_netbuf) { while (done < len && fs_netpos < fs_netlen) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = fs_netbuf[fs_netpos++]; fs_wr32(12, done); break; }
+        if (!fs_file) { st = 2; break; }
+        while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
-    case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } break;
-    case FS_DIR_FIRST: st = fs_dir_first(0); break;
-    case FS_DIR_ALL:   st = fs_dir_first(1); break;
+    case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } fs_net_drop(); break;
+    case FS_DIR_FIRST: case FS_DIR_ALL:
+        if (fs_remote[0]) {                   /* a listing from the server */
+            net_dirent *e; int n;
+            if ((st = net_listdir(fs_remote, &e, &n))) { st = st == 6 ? 2 : st; break; }
+            free(fs_list); free(fs_list_size);
+            fs_list = calloc((size_t)(n ? n : 1), 64); fs_list_size = calloc((size_t)(n ? n : 1), sizeof *fs_list_size);
+            for (int i = 0; i < n; i++) { snprintf(fs_list[i], 64, "%s", e[i].name); fs_list_size[i] = e[i].isdir ? 0xFFFFFFFFu : e[i].size; }
+            fs_list_n = n; fs_list_i = 0; free(e);
+            break;
+        }
+        st = fs_dir_first(cmd == FS_DIR_ALL); break;
     case FS_RENAME: case FS_COPYFILE: {
-        char n2[128], rel[256], dst[768]; int url = 0;
+        char n2[128], rel[256], dst[768], url[512]; uint8_t *nb = NULL; uint32_t nn = 0;
         { char name[128];                     /* CP http://... local: the Meatloaf rule again */
-          if (cmd == FS_COPYFILE && !fs_guest_name(name, sizeof name) && net_is_url(name)) {
-              if (net_fetch_file(name, path, sizeof path)) { st = 1; break; }
-              url = 1;
+          if (cmd == FS_COPYFILE && !fs_guest_name(name, sizeof name) && fs_url_for(name, url, sizeof url)) {
+              if ((st = net_fetch(url, &nb, &nn))) { st = st == 6 ? 1 : st; break; }
           } }
-        if (!url && (st = fs_path(path, sizeof path, 1))) break;               /* source, searched + case-fixed */
+        if (!nb && (st = fs_path(path, sizeof path, 1))) break;                /* source, searched + case-fixed */
         if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
         if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) break;    /* destination, as given */
         if (cmd == FS_RENAME)
             st = rename(path, dst) ? 2 : 0;
         else {
-            FILE *a = fopen(path, "rb"), *b = NULL;
-            if (url) unlink(path);
+            FILE *a = nb ? NULL : fopen(path, "rb"), *b = NULL;
+            if (nb) { if (!(b = fopen(dst, "wb"))) { free(nb); st = 2; break; } if (fwrite(nb, 1, nn, b) != nn) st = 2; fclose(b); free(nb); break; }
             if (!a) { st = 1; break; }
             if (!(b = fopen(dst, "wb"))) { fclose(a); st = 2; break; }
             { char buf[4096]; size_t k; while ((k = fread(buf, 1, sizeof buf, a)) > 0) if (fwrite(buf, 1, k, b) != k) { st = 2; break; } }
@@ -215,24 +245,32 @@ static void fs_run(uint8_t cmd)
         fs_list_i++;
         break; }
     case FS_CHDIR: {
-        char name[128], rel[256]; struct stat sb;
+        char name[128], rel[256], url[512]; struct stat sb;
         if ((st = fs_guest_name(name, sizeof name))) break;
+        if (fs_remote[0] && !strcmp(name, "-")) { fs_remote[0] = 0; break; }          /* CD - : home from the server */
+        if (fs_url_for(name, url, sizeof url)) {                                       /* CD tnfs://host/dir, or a name on the server */
+            int d = net_isdir(url);
+            if (d == 1) { size_t n; snprintf(fs_remote, sizeof fs_remote, "%s", url); n = strlen(fs_remote); while (n > 8 && fs_remote[n - 1] == '/') fs_remote[--n] = 0; }
+            else st = 1;
+            break;
+        }
         if ((st = fs_resolve(name, rel, sizeof rel, path, sizeof path))) break;
         fs_casefix(path, sizeof path);
         if (stat(path, &sb) || !S_ISDIR(sb.st_mode)) { st = 1; break; }
         /* keep the host's spelling of the directory in the cwd */
         snprintf(fs_cwd, sizeof fs_cwd, "%s", strlen(path) > strlen(fs_root) ? path + strlen(fs_root) + 1 : "");
         break; }
-    case FS_MKDIR: if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
-    case FS_RM:    { struct stat sb; if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
-    case FS_RMDIR: { struct stat sb; if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
+    case FS_MKDIR: if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
+    case FS_RM:    { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
+    case FS_RMDIR: { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
 #ifdef K4510_PI
         st = 2;                       /* circle-syscallwrap has no rmdir yet */
 #else
         if (!S_ISDIR(sb.st_mode) || rmdir(path)) st = 2;
 #endif
         break; }
-    case FS_GETCWD: { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
+    case FS_GETCWD: if (fs_remote[0]) { size_t i = 0; for (; fs_remote[i] && i < 250; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)fs_remote[i]; k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i); break; }
+                    { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
     default: st = 3;
     }
     fs_reg[1] = (uint8_t)st; fs_reg[0] = 0;
@@ -902,7 +940,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
-    net_reset();
+    net_reset(); fs_remote[0] = 0; fs_net_drop();
 #ifdef K4510_PI
     dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
                                                             costs a store per instruction the Pi cannot spare (DUMP ON arms it) */

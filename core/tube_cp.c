@@ -165,8 +165,10 @@ FILE *tube_cp_fopen(const char *path, const char *mode)
 {
     char p[512];
     if (net_is_url(path)) {                                /* the Meatloaf rule reaches the co-processor too */
-        FILE *f; if (mode[0] != 'r' || net_fetch_file(path, p, sizeof p)) return NULL;
-        f = fopen(p, mode); unlink(p); return f;
+        static uint8_t *last; uint8_t *b; uint32_t n;
+        if (mode[0] != 'r' || net_fetch(path, &b, &n)) return NULL;
+        free(last); last = b;                              /* one fetched file at a time: freed by the next */
+        return fmemopen(b, n ? n : 1, "rb");
     }
     cp_path(p, sizeof p, path); return fopen(p, mode);
 }

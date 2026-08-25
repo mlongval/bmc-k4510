@@ -1,5 +1,7 @@
-/* The network: the Meatloaf rule and the N: device. See net.h. */
+/* The network: URLs, the TNFS client, the N: device. Platform underneath:
+ * net_plat.h. See net.h for the picture. */
 #include "net.h"
+#include "net_plat.h"
 #include "mem.h"
 #include <string.h>
 #include <stdio.h>
@@ -8,75 +10,225 @@
 
 int net_is_url(const char *name)
 {
-    return !strncasecmp(name, "http://", 7) || !strncasecmp(name, "https://", 8);
+    return !strncasecmp(name, "http://", 7) || !strncasecmp(name, "https://", 8) || !strncasecmp(name, "tnfs://", 7);
 }
 
-#ifdef K4510_PI
-/* Not fitted yet: URLs are ordinary (absent) names and the device says so. */
-int net_fetch_file(const char *url, char *path, size_t max) { (void) url; (void) path; (void) max; return -1; }
-void net_reset(void) {}
-uint8_t net_read(uint8_t reg) { return reg == 1 ? 6 : 0xFF; }
-void net_write(uint8_t reg, uint8_t v) { (void) reg; (void) v; }
-#else
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <netdb.h>
-#include <poll.h>
-
-/* ---- curl, without a shell: argv straight to execvp ---------------------- */
-static pid_t spawn_curl(const char *url, const char *outfile, int *outfd)
+/* ---- URLs ---------------------------------------------------------------- */
+typedef struct { char scheme[8], host[128], path[512]; int port; } url_t;
+static int url_parse(const char *s, url_t *u)
 {
-    int p[2] = { -1, -1 };
-    if (outfd && pipe(p)) return -1;
-    pid_t pid = fork();
-    if (pid < 0) { if (outfd) { close(p[0]); close(p[1]); } return -1; }
-    if (pid == 0) {
-        if (outfd) { dup2(p[1], 1); close(p[0]); close(p[1]); }
-        int nul = open("/dev/null", O_RDWR); if (nul >= 0) { dup2(nul, 0); dup2(nul, 2); if (nul > 2) close(nul); }
-        if (outfile) execlp("curl", "curl", "-sSL", "--max-time", "120", "--fail", "-o", outfile, "--", url, (char *) NULL);
-        else         execlp("curl", "curl", "-sSL", "--max-time", "120", "--fail", "--", url, (char *) NULL);
-        _exit(127);
+    const char *p = strstr(s, "://"), *e, *c; size_t n;
+    if (!p) return -1;
+    n = (size_t)(p - s); if (n >= sizeof u->scheme) return -1;
+    memcpy(u->scheme, s, n); u->scheme[n] = 0;
+    for (size_t i = 0; i < n; i++) u->scheme[i] = (char) ((u->scheme[i] | 0x20));
+    p += 3;
+    e = strchr(p, '/'); if (!e) e = p + strlen(p);
+    n = (size_t)(e - p); if (n >= sizeof u->host) return -1;
+    memcpy(u->host, p, n); u->host[n] = 0;
+    u->port = !strcmp(u->scheme, "tnfs") ? 16384 : !strcmp(u->scheme, "https") ? 443 : 80;
+    if ((c = strrchr(u->host, ':')) && c[1] >= '0' && c[1] <= '9') { u->port = atoi(c + 1); *((char *) c) = 0; }
+    snprintf(u->path, sizeof u->path, "%s", *e ? e : "/");
+    return 0;
+}
+/* base URL + a relative name (or an absolute /path, or another URL), with . and .. folded */
+void net_url_join(char *out, size_t max, const char *base, const char *name)
+{
+    url_t u; char path[512]; size_t n;
+    if (net_is_url(name)) { snprintf(out, max, "%s", name); return; }
+    if (url_parse(base, &u)) { snprintf(out, max, "%s", name); return; }
+    if (name[0] == '/') snprintf(path, sizeof path, "%s", name);
+    else snprintf(path, sizeof path, "%s/%s", u.path, name);
+    /* fold */
+    { char tmp[512]; size_t o = 0; const char *s = path;
+      while (*s) {
+          while (*s == '/') s++;
+          if (!*s) break;
+          const char *e = s; while (*e && *e != '/') e++;
+          n = (size_t)(e - s);
+          if (n == 1 && s[0] == '.') { }
+          else if (n == 2 && s[0] == '.' && s[1] == '.') { while (o && tmp[o - 1] != '/') o--; if (o) o--; }
+          else { if (o + n + 2 < sizeof tmp) { tmp[o++] = '/'; memcpy(tmp + o, s, n); o += n; } }
+          s = e;
+      }
+      tmp[o] = 0;
+      snprintf(out, max, "%s://%s:%d%s", u.scheme, u.host, u.port, o ? tmp : "/"); }
+}
+
+/* ---- TNFS ---------------------------------------------------------------- *
+ * Datagrams: session (2, LE) sequence (1) command (1) then data; replies
+ * carry a status byte first (0 ok, 0x21 EOF). One session per server, kept
+ * open; a lost reply is retried three times. */
+typedef struct { char host[128]; int port; int h; uint16_t sid; uint8_t seq; int up; unsigned last; } tnfs_t;
+static tnfs_t sess[4]; static int sess_n;
+#define TNFS_TO 1500
+#define TNFS_MAX 1024
+
+static int tnfs_xfer(tnfs_t *t, uint8_t cmd, const uint8_t *req, int reqn, uint8_t *rep, int repmax)
+{
+    uint8_t pkt[TNFS_MAX + 4]; int n;
+    for (int retry = 0; retry < 3; retry++) {
+        pkt[0] = t->sid & 255; pkt[1] = t->sid >> 8; pkt[2] = t->seq; pkt[3] = cmd;
+        memcpy(pkt + 4, req, (size_t) reqn);
+        if (plat_udp_send(t->h, pkt, reqn + 4) < 0) return -1;
+        for (;;) {
+            n = plat_udp_recv(t->h, pkt, sizeof pkt, TNFS_TO);
+            if (n <= 0) break;
+            if (n >= 4 && pkt[2] == t->seq && pkt[3] == cmd) {
+                t->seq++;
+                if (cmd == 0x00) t->sid = pkt[0] | (pkt[1] << 8);
+                n -= 4; if (n > repmax) n = repmax;
+                memcpy(rep, pkt + 4, (size_t) n);
+                return n;
+            }
+        }
+        if (n < 0) return -1;
     }
-    if (outfd) { close(p[1]); *outfd = p[0]; }
-    return pid;
+    return -1;
 }
-
-int net_fetch_file(const char *url, char *path, size_t max)
+static tnfs_t *tnfs_session(const url_t *u)
 {
-    char tmpl[] = "/tmp/k4510-net-XXXXXX"; int fd, st = 1;
-    if (!net_is_url(url)) return -1;
-    if ((fd = mkstemp(tmpl)) < 0) return -1;
-    close(fd);
-    pid_t pid = spawn_curl(url, tmpl, NULL);
-    if (pid > 0) waitpid(pid, &st, 0);
-    if (pid <= 0 || !WIFEXITED(st) || WEXITSTATUS(st) != 0) { unlink(tmpl); return -1; }
-    snprintf(path, max, "%s", tmpl);
+    tnfs_t *t = NULL; uint8_t req[8], rep[16]; int n;
+    for (int i = 0; i < sess_n; i++) if (!strcasecmp(sess[i].host, u->host) && sess[i].port == u->port) t = &sess[i];
+    if (t && t->up) return t;
+    if (!t) { if (sess_n == 4) { sess_n = 0; }   /* the oldest goes */
+              t = &sess[sess_n++]; memset(t, 0, sizeof *t); snprintf(t->host, sizeof t->host, "%s", u->host); t->port = u->port; t->h = -1; }
+    if (t->h < 0 && (t->h = plat_udp_open(u->host, u->port)) < 0) return NULL;
+    req[0] = 0x00; req[1] = 0x01; req[2] = '/'; req[3] = 0; req[4] = 0; req[5] = 0;   /* version 1.0, mount "/", no user, no password */
+    t->sid = 0; t->seq = 0;
+    n = tnfs_xfer(t, 0x00, req, 6, rep, sizeof rep);
+    if (n < 1 || rep[0] != 0) return NULL;
+    t->up = 1;
+    return t;
+}
+static void tnfs_path(const url_t *u, char *out, size_t max)   /* the server wants an absolute path; a trailing slash is not part of a name */
+{
+    size_t n; snprintf(out, max, "%s", u->path[0] ? u->path : "/");
+    n = strlen(out); while (n > 1 && out[n - 1] == '/') out[--n] = 0;
+}
+static int tnfs_stat(tnfs_t *t, const char *path, uint32_t *size, int *isdir)
+{
+    uint8_t rep[64]; int n = tnfs_xfer(t, 0x24, (const uint8_t *) path, (int) strlen(path) + 1, rep, sizeof rep);
+    if (n < 1) return 2;
+    if (rep[0]) return 1;
+    if (n < 21) return 2;
+    *isdir = (rep[1] | (rep[2] << 8)) & 0x4000 ? 1 : 0;
+    *size = rep[7] | (rep[8] << 8) | (rep[9] << 16) | ((uint32_t) rep[10] << 24);
+    return 0;
+}
+static int tnfs_fetch(const url_t *u, uint8_t **buf, uint32_t *len)
+{
+    tnfs_t *t = tnfs_session(u); char path[512]; uint8_t req[520], rep[TNFS_MAX]; int n, fd;
+    uint32_t cap = 65536, got = 0; uint8_t *b;
+    if (!t) return 6;
+    tnfs_path(u, path, sizeof path);
+    req[0] = 0x01; req[1] = 0x00; req[2] = 0; req[3] = 0;               /* O_RDONLY, mode 0 */
+    n = (int) strlen(path) + 1; memcpy(req + 4, path, (size_t) n);
+    n = tnfs_xfer(t, 0x29, req, n + 4, rep, sizeof rep);
+    if (n < 1) return 2;
+    if (rep[0]) return 1;
+    fd = rep[1];
+    b = malloc(cap);
+    for (;;) {
+        req[0] = (uint8_t) fd; req[1] = 512 & 255; req[2] = 512 >> 8;
+        n = tnfs_xfer(t, 0x21, req, 3, rep, sizeof rep);
+        if (n < 1) { free(b); return 2; }
+        if (rep[0] == 0x21) break;                                        /* EOF */
+        if (rep[0] || n < 3) { free(b); return 2; }
+        { int k = rep[1] | (rep[2] << 8); if (k > n - 3) k = n - 3;
+          if (got + (uint32_t) k > cap) { cap *= 2; b = realloc(b, cap); }
+          memcpy(b + got, rep + 3, (size_t) k); got += (uint32_t) k;
+          if (k == 0) break; }
+    }
+    req[0] = (uint8_t) fd; tnfs_xfer(t, 0x23, req, 1, rep, sizeof rep);
+    *buf = b; *len = got;
+    return 0;
+}
+static int ent_cmp(const void *a, const void *b)
+{
+    const net_dirent *x = a, *y = b;
+    if (x->isdir != y->isdir) return y->isdir - x->isdir;
+    return strcasecmp(x->name, y->name);
+}
+static int tnfs_listdir(const url_t *u, net_dirent **ents, int *count)
+{
+    tnfs_t *t = tnfs_session(u); char path[512]; uint8_t req[8], rep[TNFS_MAX]; int n, h, cap = 64, cnt = 0;
+    net_dirent *e;
+    if (!t) return 6;
+    tnfs_path(u, path, sizeof path);
+    n = tnfs_xfer(t, 0x10, (const uint8_t *) path, (int) strlen(path) + 1, rep, sizeof rep);
+    if (n < 1) return 2;
+    if (rep[0]) return 1;
+    h = rep[1];
+    e = malloc(sizeof *e * (size_t) cap);
+    for (;;) {
+        req[0] = (uint8_t) h;
+        n = tnfs_xfer(t, 0x11, req, 1, rep, sizeof rep);
+        if (n < 1) { free(e); return 2; }
+        if (rep[0]) break;                                                /* 0x21: no more */
+        rep[n < (int) sizeof rep ? n : (int) sizeof rep - 1] = 0;
+        if (!strcmp((char *) rep + 1, ".") || !strcmp((char *) rep + 1, "..")) continue;
+        if (cnt == cap) { cap *= 2; e = realloc(e, sizeof *e * (size_t) cap); }
+        memset(&e[cnt], 0, sizeof e[cnt]);
+        snprintf(e[cnt].name, sizeof e[cnt].name, "%s", (char *) rep + 1);
+        { char full[1024]; uint32_t sz = 0; int d = 0;
+          snprintf(full, sizeof full, "%s%s%s", path, path[strlen(path) - 1] == '/' ? "" : "/", e[cnt].name);
+          if (!tnfs_stat(t, full, &sz, &d)) { e[cnt].size = sz; e[cnt].isdir = d; } }
+        cnt++;
+        if (cnt >= 512) break;
+    }
+    req[0] = (uint8_t) h; tnfs_xfer(t, 0x12, req, 1, rep, sizeof rep);
+    qsort(e, (size_t) cnt, sizeof *e, ent_cmp);
+    *ents = e; *count = cnt;
     return 0;
 }
 
+/* ---- the shared front ---------------------------------------------------- */
+int net_fetch(const char *url, uint8_t **buf, uint32_t *len)
+{
+    url_t u;
+    if (!plat_net_ready()) return 6;
+    if (url_parse(url, &u)) return 1;
+    if (!strcmp(u.scheme, "tnfs")) return tnfs_fetch(&u, buf, len);
+    if (!strcmp(u.scheme, "http") || !strcmp(u.scheme, "https")) return plat_http_fetch(url, buf, len);
+    return 1;
+}
+int net_listdir(const char *url, net_dirent **ents, int *n)
+{
+    url_t u;
+    if (!plat_net_ready()) return 6;
+    if (url_parse(url, &u) || strcmp(u.scheme, "tnfs")) return 1;
+    return tnfs_listdir(&u, ents, n);
+}
+int net_isdir(const char *url)
+{
+    url_t u; tnfs_t *t; char path[512]; uint32_t sz; int d = 0;
+    if (!plat_net_ready()) return -1;
+    if (url_parse(url, &u) || strcmp(u.scheme, "tnfs")) return 0;
+    if (!(t = tnfs_session(&u))) return -1;
+    tnfs_path(&u, path, sizeof path);
+    if (!strcmp(path, "/")) return 1;
+    return tnfs_stat(t, path, &sz, &d) ? 0 : d;
+}
+
 /* ---- the N: device ------------------------------------------------------- */
-enum { CH_NONE, CH_TCP, CH_HTTP };
-static struct chan { int type, fd, eof; pid_t pid; } ch[4];
+enum { CH_NONE, CH_TCP, CH_BUF };
+static struct chan { int type, h, eof; uint8_t *buf; uint32_t len, pos; } ch[4];
 static uint8_t net_reg[0x14];
 static uint32_t rd32r(int off) { return net_reg[off] | (net_reg[off + 1] << 8) | (net_reg[off + 2] << 16) | ((uint32_t) net_reg[off + 3] << 24); }
 static void wr32r(int off, uint32_t v) { for (int i = 0; i < 4; i++) net_reg[off + i] = (v >> (8 * i)) & 0xFF; }
 
 static void chan_close(struct chan *c)
 {
-    if (c->fd >= 0) close(c->fd);
-    if (c->pid > 0) { kill(c->pid, SIGTERM); waitpid(c->pid, NULL, 0); }
-    c->type = CH_NONE; c->fd = -1; c->pid = 0; c->eof = 0;
+    if (c->type == CH_TCP) plat_tcp_close(c->h);
+    free(c->buf);
+    memset(c, 0, sizeof *c); c->h = -1;
 }
 void net_reset(void)
 {
-    for (int i = 0; i < 4; i++) { if (ch[i].type) chan_close(&ch[i]); ch[i].fd = -1; }
+    for (int i = 0; i < 4; i++) { if (ch[i].type) chan_close(&ch[i]); ch[i].h = -1; }
+    for (int i = 0; i < sess_n; i++) { if (sess[i].h >= 0) plat_udp_close(sess[i].h); }
+    sess_n = 0;
     memset(net_reg, 0, sizeof net_reg);
 }
 static int guest_str(uint32_t p, char *s, size_t max)
@@ -86,106 +238,72 @@ static int guest_str(uint32_t p, char *s, size_t max)
     if (n >= max - 1) return 5;
     return 0;
 }
-static int open_tcp(struct chan *c, const char *spec)      /* host:port */
-{
-    char host[256]; const char *colon = strrchr(spec, ':'); struct addrinfo hints, *res, *ai;
-    if (!colon || colon == spec || !colon[1]) return 1;
-    snprintf(host, sizeof host, "%.*s", (int) (colon - spec), spec);
-    memset(&hints, 0, sizeof hints); hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host, colon + 1, &hints, &res)) return 1;
-    for (ai = res; ai; ai = ai->ai_next) {
-        int fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-        if (fd < 0) continue;
-        if (!connect(fd, ai->ai_addr, ai->ai_addrlen)) { fcntl(fd, F_SETFL, O_NONBLOCK); c->type = CH_TCP; c->fd = fd; freeaddrinfo(res); return 0; }
-        close(fd);
-    }
-    freeaddrinfo(res);
-    return 1;
-}
-static int open_http(struct chan *c, const char *url)
-{
-    int fd; pid_t pid = spawn_curl(url, NULL, &fd);
-    if (pid <= 0) return 2;
-    fcntl(fd, F_SETFL, O_NONBLOCK);
-    c->type = CH_HTTP; c->fd = fd; c->pid = pid;
-    return 0;
-}
-static int avail(struct chan *c)                           /* bytes waiting; -1 once closed and drained */
-{
-    int n = 0; struct pollfd pf = { c->fd, POLLIN, 0 };
-    if (c->fd < 0 || c->eof) return -1;
-    if (ioctl(c->fd, FIONREAD, &n) == 0 && n > 0) return n;
-    if (poll(&pf, 1, 0) > 0) {
-        if (c->type == CH_TCP) { char b; if (recv(c->fd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0) c->eof = 1; }
-        else if (pf.revents & POLLHUP) c->eof = 1;              /* a pipe: the writer (curl) has gone */
-    }
-    return c->eof ? -1 : 0;
-}
 static void net_run(uint8_t cmd)
 {
     struct chan *c = &ch[net_reg[2] & 3]; int st = 0;
     uint32_t addr = rd32r(8) & K4510_PHYS_MASK, len = rd32r(12);
-    char url[512];
+    char url[512]; uint8_t tmp[512];
+    if (!plat_net_ready()) { net_reg[1] = 6; return; }
     switch (cmd) {
     case 1: {
+        url_t u;
         if ((st = guest_str(rd32r(4), url, sizeof url))) break;
         if (c->type) chan_close(c);
         wr32r(0x10, 0xFFFFFFFFu);
-        if (!strncasecmp(url, "tcp://", 6)) st = open_tcp(c, url + 6);
-        else if (net_is_url(url)) st = open_http(c, url);
-        else st = 1;
+        if (url_parse(url, &u)) { st = 1; break; }
+        if (!strcmp(u.scheme, "tcp")) { c->h = plat_tcp_connect(u.host, u.port); if (c->h < 0) { st = 1; break; } c->type = CH_TCP; }
+        else if ((st = net_fetch(url, &c->buf, &c->len)) == 0) { c->type = CH_BUF; c->pos = 0; wr32r(0x10, c->len); }
         break; }
     case 2: {
         uint32_t done = 0;
         if (!c->type) { st = 2; break; }
-        while (done < len) {
-            ssize_t r = read(c->fd, url, len - done < sizeof url ? len - done : sizeof url);
-            if (r > 0) { for (ssize_t i = 0; i < r; i++) k4510_ram[(addr + done + i) & K4510_PHYS_MASK] = (uint8_t) url[i]; done += (uint32_t) r; continue; }
-            if (r == 0) c->eof = 1;
-            break;
+        if (c->type == CH_BUF) {
+            while (done < len && c->pos < c->len) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = c->buf[c->pos++];
+            if (!done && c->pos >= c->len) st = 4;
+        } else {
+            while (done < len) {
+                int r = plat_tcp_recv(c->h, tmp, len - done < sizeof tmp ? (int)(len - done) : (int) sizeof tmp);
+                if (r > 0) { for (int i = 0; i < r; i++) k4510_ram[(addr + done + (uint32_t) i) & K4510_PHYS_MASK] = tmp[i]; done += (uint32_t) r; continue; }
+                if (r < 0) c->eof = 1;
+                break;
+            }
+            if (!done && c->eof) st = 4;
         }
         wr32r(12, done);
-        if (!done && c->eof) st = 4;
         break; }
     case 3: {
-        if (c->type != CH_TCP) { st = c->type ? 3 : 2; break; }
         uint32_t done = 0;
+        if (c->type != CH_TCP) { st = c->type ? 3 : 2; break; }
         while (done < len) {
-            size_t n = len - done < sizeof url ? len - done : sizeof url;
-            for (size_t i = 0; i < n; i++) url[i] = (char) k4510_ram[(addr + done + i) & K4510_PHYS_MASK];
-            ssize_t w = send(c->fd, url, n, MSG_NOSIGNAL);
-            if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { struct pollfd pf = { c->fd, POLLOUT, 0 }; poll(&pf, 1, 1000); continue; }
-            if (w <= 0) { st = 4; break; }
-            done += (uint32_t) w;
+            int n = len - done < sizeof tmp ? (int)(len - done) : (int) sizeof tmp;
+            for (int i = 0; i < n; i++) tmp[i] = k4510_ram[(addr + done + (uint32_t) i) & K4510_PHYS_MASK];
+            if (plat_tcp_send(c->h, tmp, n) < 0) { st = 4; break; }
+            done += (uint32_t) n;
         }
         wr32r(12, done);
         break; }
     case 4: if (c->type) chan_close(c); break;
     case 5: {
         if (!c->type) { st = 2; wr32r(0x10, 0); break; }
-        int n = avail(c);
-        wr32r(0x10, n < 0 ? 0 : (uint32_t) n);
-        if (n < 0) st = 4;
+        if (c->type == CH_BUF) { uint32_t left = c->len - c->pos; wr32r(0x10, left); if (!left) st = 4; break; }
+        { int n = c->eof ? -1 : plat_tcp_avail(c->h); if (n < 0) { c->eof = 1; st = 4; n = 0; } wr32r(0x10, (uint32_t) n); }
         break; }
     case 6: {
-        char path[64]; FILE *f; uint32_t done = 0; int b;
+        uint8_t *b; uint32_t n, done = 0;
         if ((st = guest_str(rd32r(4), url, sizeof url))) break;
-        if (net_fetch_file(url, path, sizeof path)) { st = 1; break; }
-        f = fopen(path, "rb"); unlink(path);
-        if (!f) { st = 2; break; }
-        { struct stat sb; wr32r(0x10, !fstat(fileno(f), &sb) ? (uint32_t) sb.st_size : 0); }
-        while (done < len && (b = fgetc(f)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t) b;
-        fclose(f);
+        if ((st = net_fetch(url, &b, &n))) break;
+        wr32r(0x10, n);
+        while (done < len && done < n) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; }
+        free(b);
         wr32r(12, done);
         break; }
     default: st = 3;
     }
     net_reg[1] = (uint8_t) st;
 }
-uint8_t net_read(uint8_t reg) { return reg < sizeof net_reg ? net_reg[reg] : 0xFF; }
+uint8_t net_read(uint8_t reg) { if (reg == 1 && !plat_net_ready()) return 6; return reg < sizeof net_reg ? net_reg[reg] : 0xFF; }
 void net_write(uint8_t reg, uint8_t v)
 {
     if (reg == 0) { net_run(v); return; }
     if (reg < sizeof net_reg) net_reg[reg] = v;
 }
-#endif

@@ -6,7 +6,7 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o core/net.o sdl/host_posix.o $(RESID_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o core/net.o core/net_posix.o sdl/host_posix.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -52,7 +52,8 @@ core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
 sdl/host_posix.o: sdl/host_posix.c core/host.h
 core/vicke.o: core/vicke.c core/vicke.h core/mem.h
 core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h core/net.h
-core/net.o: core/net.c core/net.h core/mem.h
+core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
+core/net_posix.o: core/net_posix.c core/net_plat.h
 core/sid.o: core/sid.cc core/sid.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 core/resid/%.o: core/resid/%.cc

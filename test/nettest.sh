@@ -33,4 +33,23 @@ out=$(./test/headless rom/kernal.bin "telnet 127.0.0.1 $EPORT
 ~hello there
 ~~" 600 "HELLO THERE" 2>&1) || { echo "$out"; echo "nettest: FAILED: telnet echo"; exit 1; }
 echo "$out" | grep -q "ECHO READY" || { echo "$out"; echo "nettest: FAILED: telnet banner"; exit 1; }
-echo "nettest: OK (TYPE/CP of a URL through the ROM, telnet echo on the N: device)"
+# TNFS: a server on loopback, the machine's current directory on it
+TPORT=$(python3 -c 'import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
+mkdir -p "$W/tnfs/SUB"; printf 'HELLO FROM TNFS\n' > "$W/tnfs/HELLO.TXT"; printf 'DEEPER\n' > "$W/tnfs/SUB/DEEP.TXT"; cp fs/PRG/say.prg "$W/tnfs/say.prg"
+python3 test/tnfsd.py $TPORT "$W/tnfs" & TP=$!
+trap 'kill $HP $EP $TP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT' EXIT
+sleep 1
+out=$(./test/headless rom/kernal.bin "CD tnfs://127.0.0.1:$TPORT/
+DIR
+TYPE HELLO.TXT
+SAY FROM A TNFS SERVER
+CD SUB
+TYPE DEEP.TXT
+CD ..
+CD -
+DIR
+" 900 "file(s)" 2>&1) || true
+for m in "HELLO.TXT" "HELLO FROM TNFS" "FROM A TNFS SERVER" "DEEPER" "tnfs://127.0.0.1:$TPORT/SUB]" "PRG"; do
+  echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: TNFS, expected '$m'"; exit 1; }
+done
+echo "nettest: OK (TYPE/CP of a URL, telnet echo on the N: device, TNFS: CD/DIR/TYPE/RUN/CD -)"

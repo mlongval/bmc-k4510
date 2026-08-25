@@ -2935,3 +2935,55 @@ command"); DIR of a URL and CD into one, which Meatloaf does by
 parsing listings, are not; the ROM's new kernal.bin (md5 e4ce4e98)
 is staged on p15 for the next card, the card Doc just pulled still
 carries the 63-character limit.
+
+## 2026-08-24 (ag) — TNFS: the machine's current directory on the internet; and the Pi gets its network
+
+Doc: "do tnfs. And then port all this to Pi/Circle." TNFS is the
+Spectranet's little UDP file protocol (port 16384: mount, open, read,
+readdir, stat — four-byte header, status byte, retries), and it is
+what FujiNet and Meatloaf servers speak. The client is 150 lines in
+core/net.c, one session per server kept open. The point is not the
+fetch — http already did that — but the DIRECTORY: `CD
+tnfs://host/dir` puts the machine's current directory on a server.
+DIR lists it (OPENDIR/READDIR, a STAT per entry for sizes and
+directories, sorted directories-first as the shell does), a bare
+name loads from it — so the REXX rule runs programs straight off
+the internet: `SAY FROM A TNFS SERVER` fetched say.prg from the
+test server and printed its arguments — CD .. climbs, CD - comes
+home, and the prompt reads `tnfs://fujinet.online]`. The server is
+read-only from here; MKDIR/RM/RMDIR/SAVE there answer "error".
+
+Along the way the network layer was split for the port: core/net.c
+holds the URL grammar, the TNFS client and the N: device; the
+platform underneath is net_plat.h — sockets and curl in
+core/net_posix.c, Circle in pi/net_pi.cpp. Fetches now land in
+memory, not /tmp (a Pi has no /tmp; fmemopen serves the Tube), and
+the N: device reads http and tnfs files from that buffer.
+
+Verified: test/tnfsd.py is a small TNFS server (read-only, ten
+commands) for the tests; nettest's fourth leg does CD/DIR/TYPE/RUN/
+CD SUB/CD ../CD - against it. Ten suites, tubetest, nettest green.
+Then live: `CD tnfs://fujinet.online/` and `DIR` — ADAM APPLE2
+ATARI CBM COCO LINKS LYNX MSDOS, the FujiNet library on the K4510's
+screen.
+
+**The Pi.** circle-libsdl2 constructs Circle's CNetSubSystem but
+deliberately never starts it (so that a name lookup fails instead of
+halting the board). pi/net_pi.cpp starts it — k4510_net_start() on
+core 0 after SplitInit: Ethernet, DHCP under the scheduler core 0
+already yields to — and implements net_plat.h on Circle: CSocket
+for UDP and TCP, CDNSClient, CHTTPClient. Circle's subsystems are
+core-0-only and the emulator is core 1, so every call runs inside
+the shim's SDL2Circle_CallOn0; waits that would block (a UDP reply,
+a TCP byte) are polled non-blocking from core 1 with a millisecond
+nap, so core 0's servo is never held for longer than a connect. A
+2 KB stash per socket gives STATUS its "bytes waiting". No TLS is
+built into the kernel, so https answers 6; http, tnfs and tcp are
+all there. kernel8.img 1,588,016 bytes (md5 in pkg/), staged with
+the NAMEMAX-96 ROM for the next card. **Untested on hardware**, and
+it needs an Ethernet cable on the 3B+: what to expect is a "k4510-
+net: Ethernet up, DHCP running" line on the serial log, then `CD
+tnfs://fujinet.online/` a few seconds after boot. Without a cable:
+"not fitted", nothing halts. WiFi would need Circle's wlan addon,
+its firmware files on the card and a wpa_supplicant config — not
+this night.

@@ -63,15 +63,33 @@ be an address on the internet; here it costs the ROM nothing, because the
 ROM never looks at a name --- the host does the fetching. A typed line is 95
 characters, and so is the longest URL.
 
+A \texttt{tnfs://} URL is more than a file: it is a place. TNFS is the
+little UDP file protocol the FujiNet and Meatloaf servers speak, and the
+machine's current directory can be on one of them:
+
+\begin{type}
+CD tnfs://fujinet.online/
+DIR
+CD CBM
+DIR
+CD -
+\end{type}
+
+\verb|DIR| lists the server, a bare name loads from it (so \verb|RUN|, and
+the bare-word rule, run programs straight off the internet), \verb|CD ..|
+climbs, \verb|CD -| comes home. The prompt shows where you are. The server
+is read-only from here.
+
 For programs that want a live connection there is the \emph{N: device}
 at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
 opened for reading and writing --- \texttt{tcp://host:port} for a
 connection, \texttt{http://} for a page. \verb|TELNET host port| is the
 demonstration, a \texttt{telnet.prg} in \texttt{/PRG}: what you type goes
 out, what arrives is printed, ESC hangs up. The register map is in
-Chapter~\ref{cha:io} and \texttt{core/net.h}. Desktop host only for now:
-the Pi's kernel answers ``not fitted'' until Circle's TCP/IP stack is
-wired in.
+Chapter~\ref{cha:io} and \texttt{core/net.h}. On the Pi the network is
+the Ethernet port (DHCP); without a cable the device answers ``not
+fitted'' and URLs are simply absent names. The Pi has no TLS, so
+\texttt{https://} works on the desktop only.
 
 \section{Scripts and the boot file}
 \verb|EXEC name| runs a text file as shell commands, one per line. At
