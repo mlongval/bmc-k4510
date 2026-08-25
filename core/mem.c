@@ -280,3 +280,25 @@ void cpu65_illegal_opcode_callback(void)
 {
     DEBUGPRINT("K4510: illegal opcode $%02X at PC=$%04X" NL, cpu65.op, cpu65.old_pc);
 }
+
+/* ---- save states (core/state.h) ------------------------------------------ */
+#include "state.h"
+void mem_state_save(FILE *f)
+{
+    state_put(f, "MAP ", &map, sizeof map);
+    state_put(f, "BANK", bank_reg, sizeof bank_reg);
+    state_put(f, "BKON", bank_on, sizeof bank_on);
+    state_put(f, "FART", &far_table, sizeof far_table);
+    state_put(f, "FARD", &far_depth, 1);
+    state_put(f, "FARE", &far_err, 1);
+    state_put(f, "FARS", far_stack, sizeof far_stack);
+    state_put(f, "ROMB", &mem_rom_base, sizeof mem_rom_base);
+}
+int mem_state_load(FILE *f)
+{
+    if (state_get(f, "MAP ", &map, sizeof map) || state_get(f, "BANK", bank_reg, sizeof bank_reg) || state_get(f, "BKON", bank_on, sizeof bank_on)
+        || state_get(f, "FART", &far_table, sizeof far_table) || state_get(f, "FARD", &far_depth, 1) || state_get(f, "FARE", &far_err, 1)
+        || state_get(f, "FARS", far_stack, sizeof far_stack) || state_get(f, "ROMB", &mem_rom_base, sizeof mem_rom_base)) return -2;
+    map_apply();
+    return 0;
+}

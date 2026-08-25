@@ -18,6 +18,9 @@
 #include "../core/ui/settings.h"
 #include "../core/ui/menu.h"
 #include "../core/ui/ui_draw.h"
+#include "../core/state.h"
+#include <sys/stat.h>
+#include <time.h>
 
 #define SCALE 2
 #define AUDIO_RATE 48000
@@ -70,6 +73,15 @@ static void petscii_to_ascii(const uint8_t *cg, uint8_t *out)
     for (unsigned i = 0; i < sizeof box / sizeof box[0]; i++) memcpy(out + box[i].ascii * 8, lo + box[i].glyph * 8, 8);
 }
 static uint8_t font_kernel8[2048], font_menu[2048];
+static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
+static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
+{
+    struct stat st; char b[24];
+    if (stat(slot_path(n), &st)) { menu_slot(n, ""); return; }
+    struct tm *tm = localtime(&st.st_mtime);
+    if (tm) strftime(b, sizeof b, "%b %d %H:%M", tm); else snprintf(b, sizeof b, "%ld KB", (long)(st.st_size >> 10));
+    menu_slot(n, b);
+}
 static void apply_font(int which)
 {
     static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
@@ -95,6 +107,7 @@ int k4510_frontend_main(int argc, char **argv)
     settings_load(cfg);
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKe at $010000 */
+    for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
 #ifdef K4510_PI
     menu_info(INFO_HOST, "Raspberry Pi 3B+, Circle");
@@ -189,12 +202,18 @@ int k4510_frontend_main(int argc, char **argv)
             cpu65.irqLevel = vicke_irq() ? 1 : 0;
         }
         /* what the menu asked for */
-        switch (menu_take_action()) {
+        { int act = menu_take_action();
+          if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }
+          if (act >= ACT_LOAD_SLOT && act < ACT_LOAD_SLOT + MENU_SLOTS) {
+              io_write(IO_TUBE + 3, 2);                    /* the co-processor is not in the file: stopped before the machine changes under it */
+              if (state_load(slot_path(act - ACT_LOAD_SLOT)) == 0) font_applied = -1;   /* the font lives in RAM: the file's wins, but the setting reapplies on the next frame */
+              act = ACT_NONE; }
+        switch (act) {
         case ACT_RESET: cpu65_reset(); break;
         case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); io_reset(); apply_font(font_applied); mem_load_rom(rom); cpu65_reset(); break;
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
-        }
+        } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
         if (settings_get(SET_VIDEO_FONT) != font_applied) { font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied); }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }

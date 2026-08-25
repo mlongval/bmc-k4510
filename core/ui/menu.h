@@ -13,7 +13,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT };
+enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32 };   /* + slot 0-3 */
+#define MENU_SLOTS 4
 enum { INFO_VERSION, INFO_ROM, INFO_FS, INFO_HOST, INFO_COUNT };
 void menu_open(void);
 void menu_close(void);
@@ -22,6 +23,7 @@ void menu_key(uint8_t code);                  /* a K4510 key code or ASCII */
 int  menu_take_action(void);                  /* ACT_*, once */
 int  menu_closed_pending(void);               /* 1 once, after a close: the host saves the settings */
 void menu_info(int row, const char *text);    /* the Info page's rows, from the host */
+void menu_slot(int n, const char *text);      /* what a save-state slot holds ("empty", a date), from the host */
 int  menu_draw(uint8_t *overlay);             /* 1 if it drew (the overlay changed) */
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
 #ifdef __cplusplus

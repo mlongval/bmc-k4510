@@ -1075,3 +1075,53 @@ void io_write(uint16_t addr, uint8_t v)
         return;
     }
 }
+
+/* ---- save states (core/state.h) ------------------------------------------ */
+#include "state.h"
+void io_state_save(FILE *f)
+{
+    state_put(f, "SYSF", &sys_frames, sizeof sys_frames);
+    state_put(f, "KBDQ", kbd_fifo, sizeof kbd_fifo);
+    state_put(f, "KBDH", &kbd_head, sizeof kbd_head);
+    state_put(f, "KBDT", &kbd_tail, sizeof kbd_tail);
+    state_put(f, "FSCW", fs_cwd, sizeof fs_cwd);
+    state_put(f, "FSRG", fs_reg, sizeof fs_reg);
+    state_put(f, "DMA ", dma_reg, sizeof dma_reg);
+    state_put(f, "MATH", math_reg, sizeof math_reg);
+    state_put(f, "SYSR", sys_reg, sizeof sys_reg);
+    state_put(f, "SIDC", &sid_clock_sel, 1);
+    state_put(f, "SIDS", sid_shadow, sizeof sid_shadow);
+    state_put(f, "SEQQ", seq_q, sizeof seq_q);
+    state_put(f, "SEQH", seq_head, sizeof seq_head);
+    state_put(f, "SEQL", seq_len, sizeof seq_len);
+    state_put(f, "SEQR", seq_reg, sizeof seq_reg);
+    state_put(f, "SEQF", seq_left, sizeof seq_left);
+    state_put(f, "TULX", tula_x, sizeof tula_x); state_put(f, "TULY", tula_y, sizeof tula_y);
+    state_put(f, "TULO", &tula_ox, sizeof tula_ox); state_put(f, "TULP", &tula_oy, sizeof tula_oy);
+    state_put(f, "TULF", &tula_fg, 1); state_put(f, "TULB", &tula_bg, 1); state_put(f, "TULN", &tula_on, 1);
+    state_put(f, "TSPC", &tula_spr_cur, sizeof tula_spr_cur); state_put(f, "TSPO", &tula_spr_on, sizeof tula_spr_on);
+    state_put(f, "TSPW", tula_spr_w, sizeof tula_spr_w); state_put(f, "TSPH", tula_spr_h, sizeof tula_spr_h);
+}
+int io_state_load(FILE *f)
+{
+    if (state_get(f, "SYSF", &sys_frames, sizeof sys_frames) || state_get(f, "KBDQ", kbd_fifo, sizeof kbd_fifo)
+        || state_get(f, "KBDH", &kbd_head, sizeof kbd_head) || state_get(f, "KBDT", &kbd_tail, sizeof kbd_tail)
+        || state_get(f, "FSCW", fs_cwd, sizeof fs_cwd) || state_get(f, "FSRG", fs_reg, sizeof fs_reg)
+        || state_get(f, "DMA ", dma_reg, sizeof dma_reg) || state_get(f, "MATH", math_reg, sizeof math_reg)
+        || state_get(f, "SYSR", sys_reg, sizeof sys_reg) || state_get(f, "SIDC", &sid_clock_sel, 1)
+        || state_get(f, "SIDS", sid_shadow, sizeof sid_shadow)
+        || state_get(f, "SEQQ", seq_q, sizeof seq_q) || state_get(f, "SEQH", seq_head, sizeof seq_head)
+        || state_get(f, "SEQL", seq_len, sizeof seq_len) || state_get(f, "SEQR", seq_reg, sizeof seq_reg) || state_get(f, "SEQF", seq_left, sizeof seq_left)
+        || state_get(f, "TULX", tula_x, sizeof tula_x) || state_get(f, "TULY", tula_y, sizeof tula_y)
+        || state_get(f, "TULO", &tula_ox, sizeof tula_ox) || state_get(f, "TULP", &tula_oy, sizeof tula_oy)
+        || state_get(f, "TULF", &tula_fg, 1) || state_get(f, "TULB", &tula_bg, 1) || state_get(f, "TULN", &tula_on, 1)
+        || state_get(f, "TSPC", &tula_spr_cur, sizeof tula_spr_cur) || state_get(f, "TSPO", &tula_spr_on, sizeof tula_spr_on)
+        || state_get(f, "TSPW", tula_spr_w, sizeof tula_spr_w) || state_get(f, "TSPH", tula_spr_h, sizeof tula_spr_h)) return -2;
+    /* the chips: registers written back in order, the file closed, the network dropped, the Tube stopped */
+    sid_set_clock(sid_clock_sel);
+    for (int c = 0; c < 4; c++) for (int r = 0; r < 0x19; r++) sid_write(c, (uint8_t) r, sid_shadow[c][r]);
+    math_int_update();
+    if (fs_file) { fclose(fs_file); fs_file = 0; }
+    fs_net_drop(); fs_remote[0] = 0; net_reset();
+    return 0;
+}

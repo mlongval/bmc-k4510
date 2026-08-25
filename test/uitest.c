@@ -50,7 +50,7 @@ int main(void)
     kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);
     CHECK(settings_get(SET_VIDEO_FONT) == FONT_OPENROMS, "popup chose open-roms (%d)", settings_get(SET_VIDEO_FONT));
     kbd_push(KEY_ESC); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
-    kbd_push(KEY_ENTER);                                /* Reset */
+    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
     CHECK(menu_closed_pending() == 1 && menu_closed_pending() == 0, "close reported once");
     kbd_push('b'); CHECK(io_read(IO_KBD) == 'b', "keys reach the machine again");

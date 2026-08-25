@@ -322,3 +322,21 @@ void vicke_render(uint8_t *fb, int pitch)
     for (int y = 0; y < VICKE_HEIGHT; y++) vicke_line(y);
     vicke_end_frame();
 }
+
+/* ---- save states (core/state.h) ------------------------------------------ */
+#include "state.h"
+void vicke_state_save(FILE *f)
+{
+    state_put(f, "VREG", reg, sizeof reg);
+    state_put(f, "VPAL", pal, sizeof pal);
+    state_put(f, "VRAS", &raster_cmp, sizeof raster_cmp);
+    state_put(f, "VSHP", &sh_pc, sizeof sh_pc);
+    state_put(f, "VSHW", &sh_wait, sizeof sh_wait);
+}
+int vicke_state_load(FILE *f)
+{
+    if (state_get(f, "VREG", reg, sizeof reg) || state_get(f, "VPAL", pal, sizeof pal) || state_get(f, "VRAS", &raster_cmp, sizeof raster_cmp)
+        || state_get(f, "VSHP", &sh_pc, sizeof sh_pc) || state_get(f, "VSHW", &sh_wait, sizeof sh_wait)) return -2;
+    memset(col_ss, 0, sizeof col_ss); memset(col_sl, 0, sizeof col_sl);
+    return 0;
+}

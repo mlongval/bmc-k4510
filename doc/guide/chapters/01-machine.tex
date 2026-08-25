@@ -88,8 +88,13 @@ top closes.
 \item[Audio] volume.
 \item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
   Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
-\item[Machine] reset; power cycle (memory cleared, ROM reloaded); stop
-  the Tube co-processor; quit.
+\item[Machine] \emph{save state} and \emph{load state}, four slots
+  each (the whole machine --- CPU, every used page of the 256~MB, the
+  banks and MAP, VICKe, the devices, JIM --- to \texttt{k4510-slotN.k4s}
+  beside the settings file; the row shows when the slot was written;
+  the Tube co-processor is not in the file and is stopped by a load);
+  reset; power cycle (memory cleared, ROM reloaded); stop the Tube
+  co-processor; quit.
 \item[Info] version, ROM, files, host.
 \end{description}
 

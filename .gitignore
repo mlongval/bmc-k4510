@@ -40,3 +40,5 @@ test/tubetest.out
 test/termtest
 test/uitest
 demo/pas/*.a65
+test/statetest
+k4510-slot*.k4s

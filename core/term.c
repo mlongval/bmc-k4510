@@ -393,3 +393,8 @@ void term_write(uint8_t r, uint8_t v)
     default: return;
     }
 }
+
+/* ---- save states (core/state.h) ------------------------------------------ */
+#include "state.h"
+void term_state_save(FILE *f) { state_put(f, "JIM ", &T, sizeof T); }
+int  term_state_load(FILE *f) { if (state_get(f, "JIM ", &T, sizeof T)) return -2; T.cur_on = 0; return 0; }

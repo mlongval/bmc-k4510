@@ -6,14 +6,14 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o core/net.o core/net_posix.o core/term.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicke.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -27,6 +27,9 @@ rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
 	ca65 --cpu 65c02 -o rom/kernal.o rom/kernal.s
 	ca65 --cpu 65c02 -o rom/crt0.o rom/crt0.s
 	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/kernal.o none.lib -m rom/kernal.map
+
+test/statetest: test/statetest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/uitest: test/uitest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -61,6 +64,11 @@ core/io.o: core/io.c core/io.h core/mem.h core/vicke.h core/sid.h core/net.h cor
 core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
 core/net_posix.o: core/net_posix.c core/net_plat.h
 core/term.o: core/term.c core/term.h core/mem.h core/io.h
+core/state.o: core/state.c core/state.h core/mem.h
+core/mem.o: core/state.h
+core/vicke.o: core/state.h
+core/io.o: core/state.h
+core/term.o: core/state.h
 core/ui/settings.o: core/ui/settings.c core/ui/settings.h
 core/ui/menu.o: core/ui/menu.c core/ui/menu.h core/ui/settings.h core/ui/ui_draw.h core/io.h
 core/ui/ui_draw.o: core/ui/ui_draw.c core/ui/ui_draw.h
@@ -98,7 +106,7 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 test/sidtest: test/sidtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest test/fstest test/termtest test/uitest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
+test: test/cputest test/woztest test/maptest test/banktest test/dmatest test/vicketest test/sidtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
@@ -109,6 +117,7 @@ test: test/cputest test/woztest test/maptest test/banktest test/dmatest test/vic
 	./test/fstest
 	./test/termtest
 	./test/uitest
+	./test/statetest
 	./test/pastest.sh
 	./test/romtest
 	./test/mathtest

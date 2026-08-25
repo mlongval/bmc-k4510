@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef enum { MI_SUBMENU, MI_SETTING, MI_ACTION, MI_INFO, MI_SEP } item_kind;
+typedef enum { MI_SUBMENU, MI_SETTING, MI_ACTION, MI_INFO, MI_SEP, MI_SAVESLOT, MI_LOADSLOT } item_kind;
 typedef struct menu_s menu_t;
 typedef struct { const char *label; item_kind kind; int arg; const menu_t *sub; } item_t;
 struct menu_s { const char *title; const item_t *items; int n; };
@@ -22,7 +22,18 @@ static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
     { "Menu key",    MI_SETTING, SET_INPUT_MENU_KEY },
 };
+static const item_t save_items[] = {
+    { "Slot 1", MI_SAVESLOT, 0 }, { "Slot 2", MI_SAVESLOT, 1 }, { "Slot 3", MI_SAVESLOT, 2 }, { "Slot 4", MI_SAVESLOT, 3 },
+};
+static const item_t load_items[] = {
+    { "Slot 1", MI_LOADSLOT, 0 }, { "Slot 2", MI_LOADSLOT, 1 }, { "Slot 3", MI_LOADSLOT, 2 }, { "Slot 4", MI_LOADSLOT, 3 },
+};
+static const menu_t save_menu = { "Save state", save_items, 4 };
+static const menu_t load_menu = { "Load state", load_items, 4 };
 static const item_t machine_items[] = {
+    { "Save state",        MI_SUBMENU, 0, &save_menu },
+    { "Load state",        MI_SUBMENU, 0, &load_menu },
+    { "",                  MI_SEP },
     { "Reset",             MI_ACTION, ACT_RESET },
     { "Power cycle",       MI_ACTION, ACT_POWER_CYCLE },
     { "Stop the Tube",     MI_ACTION, ACT_TUBE_STOP },
@@ -35,7 +46,7 @@ static const item_t info_items[] = {
 static const menu_t video_menu   = { "Video",   video_items,   4 };
 static const menu_t audio_menu   = { "Audio",   audio_items,   1 };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
-static const menu_t machine_menu = { "Machine", machine_items, 5 };
+static const menu_t machine_menu = { "Machine", machine_items, 8 };
 static const menu_t info_menu    = { "Info",    info_items,    4 };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },
@@ -51,6 +62,7 @@ static struct { const menu_t *m; int cur; } stack[6];
 static int depth, open_, dirty, action, closed;
 static int popup, popup_cur;                 /* an ENUM's option list, over the window */
 static char info[INFO_COUNT][40];
+static char slot[MENU_SLOTS][24];
 
 static const menu_t *top(void) { return stack[depth].m; }
 static void move_cur(int d)
@@ -65,6 +77,7 @@ int  menu_is_open(void) { return open_; }
 int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
+void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }
 int  menu_key_code(void)
 {
     static const uint8_t codes[MENUKEY_COUNT] = { KEY_F1 + 6, KEY_F1 + 7, KEY_F1 + 10, 0x9F };
@@ -77,6 +90,8 @@ static void enter(void)
     switch (it->kind) {
     case MI_SUBMENU: if (depth < 5) { depth++; stack[depth].m = it->sub; stack[depth].cur = 0; } break;
     case MI_ACTION: action = it->arg; if (it->arg != ACT_TUBE_STOP) menu_close(); break;
+    case MI_SAVESLOT: action = ACT_SAVE_SLOT + it->arg; break;               /* the menu stays: the host refreshes the slot's text */
+    case MI_LOADSLOT: action = ACT_LOAD_SLOT + it->arg; menu_close(); break;
     case MI_SETTING: {
         const set_desc *d = settings_desc((set_id) it->arg);
         if (d->type == ST_ENUM || d->type == ST_CHORD) { popup = 1; popup_cur = settings_get((set_id) it->arg); }
@@ -138,6 +153,7 @@ int menu_draw(uint8_t *ov)
         const char *v = 0;
         if (it->kind == MI_SETTING) v = settings_text((set_id) it->arg, b, sizeof b);
         else if (it->kind == MI_INFO) v = info[it->arg];
+        else if (it->kind == MI_SAVESLOT || it->kind == MI_LOADSLOT) v = slot[it->arg][0] ? slot[it->arg] : "empty";
         else if (it->kind == MI_SUBMENU) v = ">";
         if (v) ui_text(ov, x0 + WIN_W - 3 - (int) strlen(v), y, it->kind == MI_INFO && !sel ? UIC_DIM : fg, bg, v);
     }

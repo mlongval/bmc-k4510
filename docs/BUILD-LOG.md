@@ -3239,3 +3239,36 @@ Not done: SYSTEM's own Sqrt/Sin/Cos (Pascal polynomials in
 lib/system.pas) still run in software — routing them means patching
 system.pas itself, a step further into the checkout than install.py
 takes; a graph unit on VICKe.
+
+## 2026-08-25 (al) — save states: the menu's first "future hook"
+
+Doc's order for the day: 5, 6, 3, 2, 4 of the list — save-state slots
+first. core/state.c: a chunked file (tag, length, bytes; the header
+K4510ST1), each module contributing its own chunks through a hook
+(mem: MAP, the bank registers, the far gate; vicke: registers,
+palette, raster compare, SHEILA's pc/wait; io: frames, the keyboard
+queue, fs cwd and registers, DMA, MATH, SYS, the SID shadows, the
+sequencer, the Tube ULA's graphics state; term: JIM whole) plus the
+CPU struct as it is and every non-zero 4 KB page of RAM (a page scan
+of the 256 MB per save: 66 KB for a machine at the prompt). A chunk
+whose size differs from this build's is refused, so a file from
+another version fails cleanly (-2) instead of loading garbage. Not in
+the file: the Tube co-processor (another core, another program: a
+load stops it first) and network connections (dropped on load). SID
+state comes back by replaying the 25 shadow registers into reSID —
+envelopes restart, which is the honest compromise.
+
+The menu: Machine → Save state / Load state, four slots, each row
+showing the file's date or "empty" (the host fills it: menu_slot).
+Save keeps the menu open and refreshes the row; Load closes it and
+the machine continues from the file on the next frame. Files:
+k4510-slotN.k4s beside k4510.cfg (SD:/k4510 on the Pi).
+
+Verified: test/statetest (14th suite) — the ROM runs, `ECHO SAVED
+HERE`, save; CLS + reset + 60 frames; load; screen hash, PC, JIM's
+cursor, a MATH and a DMA register back; `ECHO STILL ALIVE` prints
+after the load; a foreign header refused, a missing file -1. Then
+end-to-end through the SDL frontend (K4510_KEYS through the menu):
+run one saves slot 1 after ECHO STATE ONE; run two, a cold boot,
+loads it — the screenshot shows STATE ONE on the screen it never
+printed. Pi kernel built (1,631,776 B, md5 60ec4b3b), staged.
