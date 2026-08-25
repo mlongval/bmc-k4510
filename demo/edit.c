@@ -91,7 +91,8 @@ static void draw(void)
     say(" "); say(name[0] ? name : "(no name)");
     if (dirty) say(" *");
     say("  line "); num(line_no()); say(" col "); num((unsigned)ccol + 1);
-    say("  "); say((const char *)msg);
+    say("   ^O save  ^X exit");                      /* say so, rather than make anyone guess */
+    if (msg[0]) { say("   "); say((const char *)msg); }
     eeol();                                          /* fill to the edge and no further: printing cols
                                                         spaces here overran the last line and scrolled
                                                         the whole screen up by one */
