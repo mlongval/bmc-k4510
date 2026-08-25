@@ -44,6 +44,36 @@ The \texttt{/BBCBASIC} directory carries a period programme selection:
 \texttt{TUNE} --- Fr\`ere Jacques as a three-voice round, the sound
 sequencer's party piece.
 
+\section{Sprites}
+VICKe has 128 hardware sprites, and BBC BASIC reaches them the way RISC OS
+reached its own: \verb|VDU 23,27| selects and shapes, \verb|PLOT &ED|
+places. There is no sprite file. A sprite is \emph{captured} from the
+bitmap after BBC BASIC has drawn it with the words it already knows:
+
+\begin{type}
+MODE 2
+GCOL 0,1:CIRCLE FILL 40,40,30
+MOVE 8,6:VDU 23,27,1,0,32,32|
+CLG
+PLOT &ED,600,500
+\end{type}
+
+\begin{tabular}{ll}
+\verb|VDU 23,27,0,n|| & select sprite $n$ (0--127) for PLOT \\
+\verb|VDU 23,27,1,n,w,h|| & capture $n$, $w\times h$ pixels (8/16/32/64), bottom-left at the graphics cursor \\
+\verb|VDU 23,27,2,n|| & hide $n$ \\
+\verb|VDU 23,27,3,n,f|| & flip: bit 0 horizontal, bit 1 vertical \\
+\verb|VDU 23,27,4,n,z|| & depth: drawn after layer $z$ (default 1, over the bitmap) \\
+\verb|VDU 23,27,5,n,m|| & sprite $n$ shows sprite $m$'s picture \\
+\verb|PLOT &ED,x,y| & show the selected sprite, bottom-left at $x,y$ \\
+\end{tabular}
+
+A placed sprite is a register write: moving sixty-four of them every frame
+costs the interpreter nothing but the PLOTs. \texttt{SPRITES.BBC},
+\texttt{INVADERS.BBC} and \texttt{TUNNEL.BBC} in \texttt{/BBCBASIC} are
+the demonstrations (the last one moves nothing at all --- it cycles the
+palette with \verb|VDU 19|).
+
 \section{Star commands}
 A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,
 any shell command --- and BBC BASIC's own file words (\verb|LOAD|,
@@ -53,5 +83,6 @@ co-processor lives inside \texttt{fs/} too.
 \begin{aside}
 \textbf{Edges, honestly:} \texttt{POINT(} and \texttt{TINT} are not
 implemented; \texttt{GCOL} modes 1--4 draw plain; \texttt{VDU 5} text
-prints as text. Desktop host only, for now.
+prints as text. On the Pi the co-processor runs on core 3; CP/M is
+desktop-only for now.
 \end{aside}

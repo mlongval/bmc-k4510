@@ -395,6 +395,12 @@ void xeqvdu (int code, int data1, int data2)
 			break ;
 
 		case 23: // DEFINE CHARACTER ETC.
+			if ((data2 & 0xFF) == 27)
+			    {	// [BMC-K4510] VDU 23,27: sprites, executed by the Tube ULA on VICKe
+				printf ("\033]K4G;23,27,%i,%i,%i,%i,%i,%i\007", (data2 >> 8) & 0xFF, (data2 >> 16) & 0xFF,
+					(data2 >> 24) & 0xFF, data1 & 0xFF, (data1 >> 8) & 0xFF, (data1 >> 16) & 0xFF) ;
+				break ;
+			    }
 			defchr (data2 & 0xFF, (data2 >> 8) & 0xFF, (data2 >> 16) & 0xFF,
 				(data2 >> 24) & 0xFF, data1 & 0xFF, (data1 >> 8) & 0xFF,
 				(data1 >> 16) & 0xFF, (data1 >> 24) & 0xFF, code & 0xFF) ;

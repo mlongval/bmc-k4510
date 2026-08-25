@@ -580,9 +580,73 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
         }
     }
 }
+/* Sprites, the Acorn way. RISC OS reached its sprites through VDU 23,27
+ * (select) and PLOT &E8-&EF (plot the selected one); ours land on VICKe's
+ * 128 hardware sprites, so a plotted sprite is a register write and moving
+ * it costs nothing. There is no sprite file format: a sprite is CAPTURED
+ * from the bitmap, which BBC BASIC has just drawn with the words it knows.
+ *   VDU 23,27,0,n|         select sprite n (0-127) for PLOT
+ *   VDU 23,27,1,n,w,h|     capture n from the bitmap: w x h pixels (8/16/32/64),
+ *                          bottom-left corner at the graphics cursor (MOVE x,y first)
+ *   VDU 23,27,2,n|         hide n
+ *   VDU 23,27,3,n,f|       flip: f bit0 horizontal, bit1 vertical
+ *   VDU 23,27,4,n,z|       depth: drawn after layer z (0 text .. 3); default 1, over the bitmap
+ *   VDU 23,27,5,n,m|       n shows sprite m's picture (one capture, many sprites)
+ *   PLOT 237,x,y           show the selected sprite with its bottom-left at x,y
+ * Attribute table at $260000, pictures at $261000 + n * 4 KB (8 bpp, 64x64 max). */
+#define TULA_SPRTAB 0x260000u
+#define TULA_SPRDAT 0x261000u
+static int tula_spr_cur, tula_spr_on;
+static uint8_t tula_spr_w[128], tula_spr_h[128];
+static void tula_spr_off(void) { if (tula_spr_on) { vicke_write(0x0E, 0); tula_spr_on = 0; } }
+static void tula_spr_init(void)
+{
+    memset(k4510_ram + TULA_SPRTAB, 0, 128 * 16);
+    memset(tula_spr_w, 8, sizeof tula_spr_w); memset(tula_spr_h, 8, sizeof tula_spr_h);
+    tula_vw32(0x0A, TULA_SPRTAB); vicke_write(0x0E, 1); tula_spr_on = 1; tula_spr_cur = 0;
+}
+static uint8_t tula_spr_size(int v) { return v >= 64 ? 3 : v >= 32 ? 2 : v >= 16 ? 1 : 0; }
+static void tula_spr(int op, int n, int p1, int p2, int p3, int p4)
+{
+    uint8_t *e; (void) p3; (void) p4;
+    if (!tula_on) return;
+    if (!tula_spr_on) tula_spr_init();
+    n &= 127; e = k4510_ram + TULA_SPRTAB + n * 16;
+    switch (op) {
+    case 0: tula_spr_cur = n; return;
+    case 1: {
+        int wc = tula_spr_size(p1), hc = tula_spr_size(p2), w = 8 << wc, h = 8 << hc;
+        int sx = tula_sx(tula_x[0]), sy = tula_sy(tula_y[0]) - (h - 1);
+        uint32_t a = TULA_SPRDAT + (uint32_t)n * 4096; uint8_t *d = k4510_ram + a;
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+            int px = sx + x, py = sy + y;
+            d[y * w + x] = (px >= 0 && px < TULA_W && py >= 0 && py < TULA_H) ? k4510_ram[TULA_GFXB + py * TULA_W + px] : 0;
+        }
+        e[4] = a & 255; e[5] = (a >> 8) & 255; e[6] = (a >> 16) & 255; e[7] = (a >> 24) & 15;
+        e[8] = (e[8] & 0x01) | 0x02 | 0x10;                      /* keep shown/hidden; 8 bpp; over the bitmap */
+        e[9] = wc | (hc << 2); tula_spr_w[n] = (uint8_t)w; tula_spr_h[n] = (uint8_t)h;
+        tula_spr_cur = n; return; }
+    case 2: e[8] &= ~0x01; return;
+    case 3: e[8] = (e[8] & ~0x0C) | ((p1 & 3) << 2); return;
+    case 4: e[8] = (e[8] & ~0x30) | ((p1 & 3) << 4); return;
+    case 5: {
+        const uint8_t *m = k4510_ram + TULA_SPRTAB + (p1 & 127) * 16;
+        memcpy(e + 4, m + 4, 4); e[8] = (e[8] & 0x01) | (m[8] & ~0x01); e[9] = m[9];
+        tula_spr_w[n] = tula_spr_w[p1 & 127]; tula_spr_h[n] = tula_spr_h[p1 & 127]; return; }
+    }
+}
+static void tula_spr_plot(int x, int y)          /* PLOT 232-239: bottom-left of the selected sprite at x,y */
+{
+    if (!tula_spr_on) return;
+    int n = tula_spr_cur, sx = tula_sx(x), sy = tula_sy(y) - (tula_spr_h[n] - 1);
+    uint8_t *e = k4510_ram + TULA_SPRTAB + n * 16;
+    e[0] = sx & 255; e[1] = (sx >> 8) & 255; e[2] = sy & 255; e[3] = (sy >> 8) & 255;
+    e[8] |= 0x01;
+    vicke_write(0x0E, 1);                        /* the console's MODE re-init may have switched sprites off */
+}
 static void tula_mode(int n)
 {
-    if (n == 3 || n == 6 || n == 7) { if (tula_on) { vicke_write(0x20, 0); tula_on = 0; } return; }
+    if (n == 3 || n == 6 || n == 7) { tula_spr_off(); if (tula_on) { vicke_write(0x20, 0); tula_on = 0; } return; }
     tula_on = 1;
     vicke_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll */
     tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
@@ -606,6 +670,8 @@ static void tula_plot(int k, int x, int y)
     if (!c || !tula_on) return;          /* move only, or no bitmap up */
     c = (c == 3) ? tula_bg : tula_fg;    /* 1 = foreground, 2 = invert (drawn as fg), 3 = background */
     switch (k >> 3) {
+    case 29:                             /* 232-239: the sprite plot family */
+        tula_spr_plot(nx, ny); return;
     case 8:                              /* 64-71: a point */
         tula_pt(0, nx, ny); tula_pt(1, nx, ny); tula_blt(6, c); return;
     case 10:                             /* 80-87: triangle with the two previous points */
@@ -623,10 +689,11 @@ static void tula_plot(int k, int x, int y)
         tula_blt(6, c); return;
     }
 }
+#define TULA_ARGS 12
 static int tula_parse(const char *p, int *a)
 {
     int n = 0;
-    while (*p && n < 6) {
+    while (*p && n < TULA_ARGS) {
         int neg = 0, v = 0;
         if (*p == '-') { neg = 1; p++; }
         while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
@@ -637,9 +704,10 @@ static int tula_parse(const char *p, int *a)
 }
 static void tula_gfx(const char *p)
 {
-    int a[6] = { 0 }, n = tula_parse(p, a);
+    int a[TULA_ARGS] = { 0 }, n = tula_parse(p, a);
     switch (a[0]) {
     case 16: if (tula_on) tula_clg(); break;
+    case 23: if (n >= 4 && a[1] == 27) tula_spr(a[2], a[3], a[4], a[5], a[6], a[7]); break;
     case 18: if (n > 2) { if (a[2] & 0x80) tula_bg = 16 + (a[2] & 15); else tula_fg = 16 + (a[2] & 15); } break;
     case 19: if (n >= 3) { if (a[2] < 16) tula_pphys(a[1], a[2]); else if (n >= 6) tula_pal(a[1], a[3], a[4], a[5]); } break;
     case 22: if (n > 1) tula_mode(a[1]); break;
@@ -649,7 +717,7 @@ static void tula_gfx(const char *p)
 }
 static void tula_snd(const char *p)
 {
-    int a[6] = { 0 };
+    int a[TULA_ARGS] = { 0 };
     if (*p == 'Q' || *p == 'q') { seq_write(0, 0x80); return; }
     if (tula_parse(p, a) < 4) return;
     seq_write(0, (uint8_t)a[0]); seq_write(1, (uint8_t)a[1]);
@@ -658,6 +726,7 @@ static void tula_snd(const char *p)
 static void tula_close(void)
 {
     seq_write(0, 0x80);                          /* flush and silence the sequencer */
+    tula_spr_off();
     if (tula_on) { vicke_write(0x20, 0); tula_on = 0; }
     ula_st = 0; ula_n = 0;
 }

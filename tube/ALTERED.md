@@ -22,6 +22,10 @@ Alterations, all marked with [BMC-K4510] comments:
   `ESC ] K4G ; <args> BEL` strings, which the K4510 console interprets
   onto its VICKe video chip.
 
+- src/bbccos.c: xeqvdu() forwards VDU 23,27 (Acorn's sprite hook) as
+  `ESC ] K4G ; 23,27,... BEL`; the K4510's Tube ULA keeps VICKe's
+  hardware sprites behind it.
+
 - src/bbccon.c: sound() and quiet(), empty stubs in the console edition,
   emit `ESC ] K4S ; chan,ampl,pitch,dur BEL` / `ESC ] K4S ; Q BEL`; the
   K4510 console queues these on the machine's sound sequencer ($D5E0),

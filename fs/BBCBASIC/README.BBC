@@ -6,4 +6,7 @@
 60 PRINT "TUNE     Frere Jacques, a round for 3 SID voices"
 70 PRINT "BOUNCE   a bouncing ball with a blip"
 80 PRINT "MOUNTAIN a scrolling mountain ridge"
+82 PRINT "SPRITES  64 hardware sprites: eight balls drawn once, then VICKe moves them"
+84 PRINT "INVADERS a marching, animated, flipping row of captured sprites"
+86 PRINT "TUNNEL   a palette-cycling tunnel: fifteen circles, no redrawing"
 90 END

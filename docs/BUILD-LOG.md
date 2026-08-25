@@ -2789,3 +2789,39 @@ is compiled in but relies on Circle mapping RAM executable, unproven;
 the co-processor's 256 MB comes from Circle's heap after the
 emulator's 256 MB, halving until it fits, so `HIMEM` on the Pi may
 read lower than the desktop's.
+
+## 2026-08-24 (ac) — sprites for BBC BASIC, the RISC OS way
+
+Doc: "write some demos for bbcbasic that show off the graphics
+capabilities including sprites." The Tube ULA knew lines, triangles,
+rectangles, circles and the palette; VICKe's 128 hardware sprites were
+out of BBC BASIC's reach. Acorn had already chosen the syntax in 1987:
+RISC OS selected a sprite with `VDU 23,27,0,n|` and plotted it with
+`PLOT &ED,x,y`. That is now ours, with one twist the Beeb never had
+and VICKe makes free: a sprite is CAPTURED from the bitmap
+(`MOVE x,y : VDU 23,27,1,n,w,h|`, 8/16/32/64 a side) after BBC BASIC
+has drawn it with the words it already knows, and once placed it is a
+register write — moving sixty-four of them each frame costs the
+interpreter nothing but the PLOTs. The rest of the family: 2 hide,
+3 flip (H/V bits), 4 depth (drawn after layer z, default over the
+bitmap), 5 "n shows m's picture" (one capture, many sprites).
+bbccos.c forwards VDU 23,27 as `ESC]K4G;23,27,...`, tula_parse grew
+from 6 to 12 arguments, the attribute table sits at $260000 and the
+pictures at $261000 + n×4 KB; MODE to a text mode and *QUIT switch
+the sprites off. The plot re-asserts SPRCTL because the console's MODE
+re-init clears it.
+
+Three demos in /BBCBASIC, period style: **SPRITES** (eight balls drawn
+once with CIRCLE FILL — logical colour 8 turned orange by VDU 19 —
+captured, cloned to 64, bounced by VICKe), **INVADERS** (two frames of
+the 1978 alien from DATA strings, 4-pixel cells laid with PLOT 101 at
+y = k × 8.5334 so the 15/32 vertical scale lands each cell on exactly
+four rows; ten sprites march, animate by re-cloning the other frame
+every step, flip on the turn, and thump on the noise channel) and
+**TUNNEL** (fifteen concentric circles drawn once, then only VDU 19
+palette writes — nothing is ever redrawn). All three captured from the
+running machine; README.BBC and the guide's Tube chapter carry the
+table of VDU 23,27 calls. The Pi kernel was rebuilt with the sprite
+ULA in: kernel8.img 1,498,400 bytes, md5 73702ee3, staged in p15
+pkg/. Not done: the guide PDF is not regenerated (that is the
+ubuntu-s1 k4510-build ritual, artifacts synced first).
