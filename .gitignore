@@ -45,3 +45,5 @@ test/uitest
 demo/pas/*.a65
 test/statetest
 k4510-slot*.k4s
+# Commodore's character ROM, if you drop one in /SYSTEM: not ours to publish
+fs/SYSTEM/chargen.bin

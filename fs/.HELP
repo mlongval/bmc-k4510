@@ -1,6 +1,7 @@
 monitor: MON or WOZ [line]  then:  addr  addr.addr
          addr:b b b  addrR  X leaves
-files:   DIR [A]
+files:   DIR [A] [pattern]
+         (DIR *.PAS, DIR ?.TXT; * any run, ? any one)
          CD [dir]
          MKDIR dir
          RM name
@@ -26,6 +27,7 @@ system:  INFO
          COLOR fg [bg]
          ECHO
          CLS
+         CLG (clear the bitmap; *CLG in a BASIC)
          HUSH
          RESET
          CAPSLOCK [ON|OFF]
