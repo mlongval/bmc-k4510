@@ -33,7 +33,7 @@ typedef struct {
     unsigned flags;
 } set_desc;
 /* the font choices, in the ENUM's order */
-enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_COUNT };
+enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN, FONT_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */
@@ -42,6 +42,7 @@ enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_COUNT };
 const set_desc *settings_desc(set_id id);
 int         settings_get(set_id id);
 void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
+void        settings_label(set_id id, int idx, const char *text);  /* rename one ENUM choice: the host says what it actually found */
 void        settings_step(set_id id, int dir);    /* +1 / -1: the next value (ENUMs wrap, INTs stop) */
 const char *settings_text(set_id id, char *buf, int max);   /* the value as the menu prints it */
 void        settings_defaults(void);

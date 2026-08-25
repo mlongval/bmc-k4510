@@ -152,6 +152,7 @@ void     vicke_render(uint8_t *fb, int pitch);        /* one full frame (tests) 
 void     vicke_begin_frame(uint8_t *fb, int pitch);
 void     vicke_line(int y);                           /* render line y, run SHEILA, raise IRQs */
 void     vicke_end_frame(void);                       /* vblank */
+void     vicke_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */
 int      vicke_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
 uint32_t vicke_palette_rgb(int index);                /* 0x00RRGGBB */
 

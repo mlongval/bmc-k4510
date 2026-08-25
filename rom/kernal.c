@@ -241,17 +241,33 @@ static void put_cwd(void);
 
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
+static char upc(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
+/* DIR *.PAS: * any run, ? any one, case-insensitive like the rest of the shell.
+ * The usual backtracking matcher, small enough to not be worth a table. */
+static uint8_t wild(const char *pat, const char *s)
+{
+    const char *star = 0, *ss = 0;
+    for (;;) {
+        if (!*s) { while (*pat == '*') pat++; return !*pat; }
+        if (*pat == '?' || (*pat && upc(*pat) == upc(*s))) { pat++; s++; continue; }
+        if (*pat == '*') { star = pat++; ss = s; continue; }
+        if (star) { pat = star + 1; s = ++ss; continue; }
+        return 0;
+    }
+}
 static void cmd_dir(const char *p)
 {
-    char name[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;
-    uint8_t first = 6;                                   /* DIR A: dotfiles too */
-    if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) first = 18;
+    char name[NAMEMAX], pat[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;
+    uint8_t first = 6, haspat;                           /* DIR A: dotfiles too */
+    if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) { first = 18; p++; }
+    haspat = getname(&p, pat);                           /* anything else is a pattern */
     if (fs_cmd(first)) { error("dir: no device"); return; }
     { uint8_t o = fg; fg = C_HI; puts_("directory of "); put_cwd(); fg = o; newline(); }
     for (;;) {
         uint8_t col = cx;
         w32(FS + 8, (uint16_t)name);
         if (fs_cmd(7)) break;
+        if (haspat && !wild(pat, name)) continue;
         sz = r32(FS + 16);
         if (sz == 0xFFFFFFFFUL) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; pad(col + 20); puts_("<DIR>"); }
         else { puts_(name); pad(col + 20); putdec(sz); count++; total += sz; }
@@ -783,6 +799,19 @@ static void cmd_caps(const char *p)
     else { error("caps: ON, OFF, or nothing to toggle"); return; }
     puts_("caps lock "); puts_(capslock ? "on" : "off"); newline();
 }
+/* CLG: clear the bitmap, whoever put it there -- EhBASIC's GRAPHICS, the
+ * Tube ULA's MODE, a program of your own. Layer 1 is the bitmap layer, so
+ * its own registers say where the pixels are and how wide a row is; the
+ * height comes from the chip's mode, doubled lines meaning half as many. */
+static void cmd_clg(void)
+{
+    uint32_t addr, len;
+    if (!(REG(VICKE + 0x20) & 1)) { error("clg: no bitmap on screen"); return; }
+    addr = r32(VICKE + 0x28) & 0x0FFFFFFFUL;
+    len = (uint32_t) r16(VICKE + 0x26) * ((REG(VICKE + 0) & 6) ? 240UL : 480UL);
+    if (len) dma_fill(0, addr, len);
+}
+
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -812,6 +841,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { cmd_mode(p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "CLG"))   { cmd_clg(); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { cmd_caps(p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { cmd_help(); return; }

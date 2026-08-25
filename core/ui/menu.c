@@ -60,7 +60,7 @@ static const menu_t main_menu = { "BMC-K4510", main_items, 5 };
 /* ---- state ---------------------------------------------------------------- */
 static struct { const menu_t *m; int cur; } stack[6];
 static int depth, open_, dirty, action, closed;
-static int popup, popup_cur;                 /* an ENUM's option list, over the window */
+static int popup, popup_cur, popup_was;      /* an ENUM's option list, over the window; popup_was is what to restore on Escape */
 static char info[INFO_COUNT][40];
 static char slot[MENU_SLOTS][24];
 
@@ -94,7 +94,7 @@ static void enter(void)
     case MI_LOADSLOT: action = ACT_LOAD_SLOT + it->arg; menu_close(); break;
     case MI_SETTING: {
         const set_desc *d = settings_desc((set_id) it->arg);
-        if (d->type == ST_ENUM || d->type == ST_CHORD) { popup = 1; popup_cur = settings_get((set_id) it->arg); }
+        if (d->type == ST_ENUM || d->type == ST_CHORD) { popup = 1; popup_cur = popup_was = settings_get((set_id) it->arg); }
         else settings_step((set_id) it->arg, +1);
         break; }
     default: break;
@@ -108,8 +108,10 @@ void menu_key(uint8_t k)
         const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
         if (k == KEY_UP) popup_cur = (popup_cur + d->nlabels - 1) % d->nlabels;
         else if (k == KEY_DOWN) popup_cur = (popup_cur + 1) % d->nlabels;
-        else if (k == KEY_ENTER) { settings_set((set_id) it->arg, popup_cur); popup = 0; }
-        else if (k == KEY_ESC) popup = 0;
+        else if (k == KEY_ENTER) { settings_set((set_id) it->arg, popup_cur); popup = 0; return; }
+        else if (k == KEY_ESC) { settings_set((set_id) it->arg, popup_was); popup = 0; return; }
+        else return;
+        settings_set((set_id) it->arg, popup_cur);   /* live: the choice takes effect as the cursor passes it, Escape puts it back */
         return;
     }
     if (k == menu_key_code() || (k == KEY_ESC && depth == 0)) { menu_close(); return; }
@@ -172,7 +174,7 @@ int menu_draw(uint8_t *ov)
         for (int i = 0; i < d->nlabels; i++) {
             int sel = (i == popup_cur); uint8_t fg = sel ? UIC_BARTEXT : UIC_TEXT, bg = sel ? UIC_BAR : UIC_PANEL;
             ui_fill(ov, px + 1, py + 1 + i, w - 2, 1, bg);
-            ui_text(ov, px + 2, py + 1 + i, fg, bg, i == settings_get((set_id) it->arg) ? "\xFB" : " ");
+            ui_text(ov, px + 2, py + 1 + i, fg, bg, i == popup_was ? "\xFB" : " ");
             ui_text(ov, px + 4, py + 1 + i, fg, bg, d->labels[i]);
         }
     }

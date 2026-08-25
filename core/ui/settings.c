@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-static const char *const font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont" };
+static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen" };   /* the last one is renamed by the host if /SYSTEM/chargen.bin is absent */
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 
@@ -30,6 +30,11 @@ static int clampv(set_id id, int v)
     return v;
 }
 void settings_set(set_id id, int v) { v = clampv(id, v); if (value[id] != v) { value[id] = v; changed = 1; } }
+void settings_label(set_id id, int idx, const char *text)
+{
+    const set_desc *d = &desc[id];
+    if (d->labels == font_names && idx >= 0 && idx < d->nlabels) font_names[idx] = text;
+}
 void settings_step(set_id id, int dir)
 {
     const set_desc *d = &desc[id]; int v = value[id];

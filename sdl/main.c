@@ -82,11 +82,24 @@ static void slot_refresh(int n)                      /* the slot's row: its file
     if (tm) strftime(b, sizeof b, "%b %d %H:%M", tm); else snprintf(b, sizeof b, "%ld KB", (long)(st.st_size >> 10));
     menu_slot(n, b);
 }
+/* The C64 chargen lives in the machine's own filesystem, not the host's data/:
+ * drop chargen.bin into /SYSTEM and the menu can wear it. 4096 bytes, PETSCII
+ * order, so the same converter the open-roms chargens use rearranges it. */
+static void chargen_path(char *out, int max) { snprintf(out, (size_t) max, "%s/SYSTEM/chargen.bin", fs_get_root()); }
+static int chargen_present(void)
+{
+    char p[512]; chargen_path(p, sizeof p);
+    FILE *f = fopen(p, "rb"); if (!f) return 0;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fclose(f);
+    return n >= 2048;
+}
 static void apply_font(int which)
 {
     static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
-                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom" };
-    uint8_t buf[4096], font[2048]; int n = which ? load_file(paths[which], buf, sizeof buf) : 0;
+                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom", 0 };
+    char cg[512]; const char *path = paths[which];
+    if (which == FONT_CHARGEN) { chargen_path(cg, sizeof cg); path = cg; }
+    uint8_t buf[4096], font[2048]; int n = which ? load_file(path, buf, sizeof buf) : 0;
     if (which == FONT_KERNEL8 || n < 2048) memcpy(font, font_kernel8, 2048);
     else if (n == 4096) petscii_to_ascii(buf, font);
     else memcpy(font, buf, 2048);
@@ -106,6 +119,7 @@ int k4510_frontend_main(int argc, char **argv)
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
     settings_load(cfg);
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
+    settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKe at $010000 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
@@ -215,7 +229,10 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
-        if (settings_get(SET_VIDEO_FONT) != font_applied) { font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied); }
+        if (settings_get(SET_VIDEO_FONT) != font_applied) {
+            font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
+            if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */
+        }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
         menu_draw(ov);
 

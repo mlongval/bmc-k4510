@@ -306,6 +306,25 @@ void vicke_line(int y)
     }
 }
 
+/* Draw the picture again from RAM without moving the machine on.
+ * The F7 menu freezes the machine, so nothing redraws when a setting changes
+ * the way the picture is built -- the chargen at $010000 is the one that
+ * matters, and a font you cannot see until you close the menu is no preview.
+ * Rasterising has side effects (the raster line, raster and SHEILA IRQ flags,
+ * and SHEILA's display list writes registers), so every guest-visible byte is
+ * put back afterwards: the freeze stays a freeze and only fb changes. */
+void vicke_repaint(uint8_t *fb, int pitch)
+{
+    uint8_t sreg[sizeof reg]; memcpy(sreg, reg, sizeof reg);
+    uint8_t sss[16], ssl[16]; memcpy(sss, col_ss, 16); memcpy(ssl, col_sl, 16);
+    uint8_t *sfb = frame_fb; int spitch = frame_pitch, sline = cur_line, swait = sh_wait;
+    uint32_t spc = sh_pc; uint16_t scmp = raster_cmp;
+    vicke_begin_frame(fb, pitch);
+    for (int y = 0; y < VICKE_HEIGHT; y++) vicke_line(y);
+    memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);
+    frame_fb = sfb; frame_pitch = spitch; cur_line = sline; sh_wait = swait; sh_pc = spc; raster_cmp = scmp;
+}
+
 void vicke_end_frame(void)
 {
     int any = 0;
