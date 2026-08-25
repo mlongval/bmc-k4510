@@ -2885,3 +2885,5 @@ both transports (`*DIR` at the root shows PRG/ SID/ EHBASIC/ BBCBASIC/
 FORTH/ CPM/; `*CD BBCBASIC` then `LOAD "TUNE"` loads), tubetest five
 legs green, Pi kernel rebuilt (1,571,536 bytes, md5 889edc7b) and
 staged; the card still on hold.
+
+Addendum, same night: Doc — "BBC BASIC does not have graphics commands (hence Console???)". It has them all; Console is the name of Russell's terminal-stream edition, the one whose byte stream IS the Tube. The banner now says what it is: **"BBC BASIC for the K4510 Tube v0.50"** (Doc's wording; szVersion in bbccon.c). Pi kernel re-staged, md5 bd1fceb3.

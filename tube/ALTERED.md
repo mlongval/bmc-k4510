@@ -33,8 +33,9 @@ Alterations, all marked with [BMC-K4510] comments:
   in capitals (fopen_rd), so LOAD "KALEID" finds KALEID.BBC on a
   case-sensitive host.
 
-- src/bbccon.c: PLATFORM is "K4510" in every build, so the banner reads
-  "BBC BASIC for K4510 Console" rather than naming the host.
+- src/bbccon.c: PLATFORM is "K4510" in every build and szVersion reads
+  "BBC BASIC for the K4510 Tube v0.50" (Doc's wording) rather than
+  naming the host or the console edition.
 
 - src/bbccon.c: sound() and quiet(), empty stubs in the console edition,
   emit `ESC ] K4S ; chan,ampl,pitch,dur BEL` / `ESC ] K4S ; Q BEL`; the

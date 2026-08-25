@@ -88,7 +88,7 @@ void *userRAM = NULL ;
 void *progRAM = NULL ;
 void *userTOP = NULL ;
 const int bLowercase = 0 ;    // Dummy
-const char szVersion[] = "BBC BASIC for "PLATFORM" Console "VERSION ;
+const char szVersion[] = "BBC BASIC for the K4510 Tube "VERSION ;	// [BMC-K4510] was "for "PLATFORM" Console"
 const char szNotice[] = "(C) Copyright R. T. Russell, "YEAR ;
 char *szLoadDir ;
 char *szLibrary ;
