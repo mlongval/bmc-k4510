@@ -3415,3 +3415,42 @@ EhBASIC's line-input buffer is short (~72 chars -- the first verbose
 draft overflowed and truncated header lines into syntax errors, so the
 strings are terse and split across lines); and a poll-and-reprint pause
 loop spams its prompt (print once, then poll).
+
+## 2026-08-25 (as) — BBC BASIC lives inside fs, and starts where the shell is
+
+Doc: "annoying to prepend BBCBASIC to LOAD a .BBC file ... BBCBASIC
+should see .../fs as just / (not the whole tree above fs)."
+
+The desktop Tube is R.T.Russell's bbcbasic as a real process on a pty,
+using real host paths: it was chdir'd to fs/ and showed the full host
+path (/home/.../fs/*.bbc), so a demo in fs/BBCBASIC needed
+LOAD "BBCBASIC/NAME.BBC". Two fixes:
+
+- core/io.c starts the co-processor in the machine's current directory
+  (fs_root/fs_cwd), not at fs_root -- so CD BBCBASIC then BBC lets
+  LOAD "KALEID.BBC" work bare. It also sets K4510_ROOT to the absolute
+  fs path, and (the bug that cost the most) resolves the bbcbasic and
+  runcpm binaries to absolute paths with realpath(...,NULL) BEFORE the
+  chdir: the old exec used "../tube/bbcbasic" relative to fs/, which the
+  deeper chdir broke; and a fixed-size realpath buffer tripped glibc's
+  __realpath_chk ("*** buffer overflow detected ***") -- realpath(x,NULL)
+  mallocs and sidesteps it.
+- tube/src/bbccos.c: a k4_rel() strips K4510_ROOT from the paths *DIR
+  and *CD print (fs root -> "/", no doubled slash), and *CD snaps back
+  if a climb would leave the root. Keyed on the env var, so the
+  in-process Tube (K4510_ROOT unset, already sandboxed, getcwd already
+  "/...") is unaffected. Needed rebuilding bbcbasic -- nasm built from
+  source on ubuntu-s1 (like cc65 earlier) for bbdata_x86_64.nas.
+
+Verified on the desktop Tube: cd bbcbasic; bbc; *dir -> "Directory of
+/BBCBASIC/*.bbc"; LOAD "KALEID.BBC" bare; *cd .. -> "/"; a second *cd ..
+stays at "/". CP/M still spawns (runcpm via the new absolute path).
+basictest and tubetest green (the in-process Tube start-in-cwd was
+tried and reverted -- bbccon.c's own startup chdir("/") overrides it,
+and it broke tubetest; the desktop fix is what Doc needs). A note for
+the harness: it still enters BBC at the root and LOADs
+"BBCBASIC/TEST.BBC", which continues to work.
+
+nasm and cc65 now both build on ubuntu-s1 from source (in the session
+scratch) -- the ROM and the Tube binary can be rebuilt here, not only
+on the laptop.

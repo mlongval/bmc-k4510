@@ -25,6 +25,22 @@ extern int dirlen;
 #else
 #define k4_stat stat
 #endif
+
+// [BMC-K4510] show a host path as the machine sees it: the fs root (passed
+// in K4510_ROOT by the emulator) shown as "/", the tree above it hidden.
+// When K4510_ROOT is unset (the in-process Tube, already sandboxed, or a
+// bare bbcbasic) the path is returned untouched.
+static const char *k4_rel (const char *abs)
+{
+	const char *root = getenv ("K4510_ROOT") ;
+	if (root && *root)
+	    {
+		size_t n = strlen (root) ;
+		if (strncmp (abs, root, n) == 0)
+			return abs[n] ? abs + n : "/" ;
+	    }
+	return abs ;
+}
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -714,12 +730,18 @@ void oscli (char *cmd)
 			if (flag == 0)
 			    {
 				getcwd (path, MAX_PATH) ;
-				text (path) ;
+				text (k4_rel (path)) ;	// [BMC-K4510]
 				crlf () ;
 				return ;
 			    }
 			if (chdir (path))
 				error (206, "Bad directory") ;
+			    {	// [BMC-K4510] never climb above the fs root
+				const char *root = getenv ("K4510_ROOT") ; char cw[MAX_PATH] ;
+				if (root && *root && getcwd (cw, sizeof cw) &&
+					strncmp (cw, root, strlen (root)))
+					if (chdir (root)) { }
+			    }
 #ifdef PICO
 			getcwd (szLoadDir,255) ;
 			dirlen = strlen (szLoadDir) ;
@@ -797,9 +819,12 @@ void oscli (char *cmd)
 				q = path2 ;
 			    }
 			text ("Directory of ") ;
-			text (q) ;
-			if (dd && (*q == 0 || q[strlen (q) - 1] != dd))
-				outchr (dd) ;	// [BMC-K4510] no doubled slash at the root
+			{	// [BMC-K4510] show the path as the machine sees it, no doubled slash
+				const char *disp = k4_rel (q) ;
+				text (disp) ;
+				if (dd && (*disp == 0 || disp[strlen (disp) - 1] != dd))
+					outchr (dd) ;
+			}
 			text (p) ;
 			crlf () ;
 

@@ -58,6 +58,7 @@ static char fs_remote[512];             /* the current directory when it is on a
 static void fs_net_drop(void) { free(fs_netbuf); fs_netbuf = NULL; fs_netlen = fs_netpos = 0; }
 void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
 const char *fs_get_root(void) { return fs_root; }
+const char *fs_get_cwd(void) { return fs_cwd; }   /* the shell's current dir, relative to the root */
 static uint32_t fs_rd32(int off) { return rd32(&fs_reg[off]); }
 static void fs_wr32(int off, uint32_t v) { for (int i = 0; i < 4; i++) fs_reg[off + i] = (v >> (8 * i)) & 0xFF; }
 #include <strings.h>
@@ -854,12 +855,23 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
         setenv ("TERM", "dumb", 1);
+        /* Resolve the co-processor's binary to an absolute path BEFORE chdir
+         * (the chdir below moves the CWD, so a relative exec path would miss);
+         * realpath(...,NULL) mallocs, so no fixed buffer for the fortify check. */
         if (prog == 3) {                          /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
+            char *bin = realpath ("cpm/runcpm", NULL);
             if (chdir ("fs/CPM") != 0) { }
-            execl ("../../cpm/runcpm", "runcpm", (char *) NULL);
+            if (bin) execl (bin, "runcpm", (char *) NULL);
         } else {
-            if (chdir ("fs") != 0) { /* the co-processor lives in the machine's filesystem */ }
-            execl ("../tube/bbcbasic", "bbcbasic", (char *) NULL);
+            /* BBC BASIC starts where the machine's shell is (fs_root/fs_cwd), so
+             * LOAD needs no directory prefix; K4510_ROOT lets it show the path
+             * as /... instead of the host tree above fs. */
+            char *rroot = realpath (fs_root, NULL);
+            if (rroot) setenv ("K4510_ROOT", rroot, 1);
+            char *bin = realpath ("tube/bbcbasic", NULL);
+            char dir[600]; snprintf (dir, sizeof dir, "%s%s%s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
+            if (chdir (dir) != 0) { if (chdir (fs_root) != 0) { } }
+            if (bin) execl (bin, "bbcbasic", (char *) NULL);
         }
         _exit (127);
     }

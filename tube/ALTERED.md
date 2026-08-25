@@ -55,3 +55,11 @@ Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
   honours the machine's kill in trap(), and adds tube_bbc_main() -- a
   re-entrant main() without the process around it. The Linux paths are
   untouched.
+
+- src/bbccos.c: BBC BASIC's file view is sandboxed to the machine's
+  filesystem. When the emulator sets K4510_ROOT (the absolute path of
+  fs/), *DIR and *CD show paths relative to it (the fs root as "/", the
+  host tree above it hidden), and *CD cannot climb above the root. With
+  K4510_ROOT unset (the in-process Tube, already sandboxed, or a bare
+  bbcbasic) nothing changes. The emulator also starts the co-processor
+  in the machine's current directory, so LOAD needs no directory prefix.

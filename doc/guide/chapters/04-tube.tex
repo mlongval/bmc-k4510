@@ -107,7 +107,12 @@ glyphs, which is what BBS ANSI art is made of.
 A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,
 any shell command --- and BBC BASIC's own file words (\verb|LOAD|,
 \verb|SAVE|) read and write the machine's filesystem directly, because the
-co-processor lives inside \texttt{fs/} too.
+co-processor lives inside \texttt{fs/} too. The Tube starts in the shell's
+current directory, so \verb|CD BBCBASIC| then \verb|BBC| lets
+\verb|LOAD "KALEID.BBC"| work with no directory prefix; the machine's
+filesystem is the co-processor's whole world --- \texttt{fs/} is shown as
+\texttt{/}, the host tree above it hidden, and \verb|*CD ..| stops at the
+root.
 
 \begin{aside}
 \textbf{Edges, honestly:} \texttt{POINT(} and \texttt{TINT} are not

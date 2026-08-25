@@ -179,6 +179,8 @@
  * sorted, directories with SIZE = $FFFFFFFF. */
 
 void    fs_set_root(const char *dir);
+const char *fs_get_root(void);
+const char *fs_get_cwd(void);
 
 /* --- DMA ($D200) -------------------------------------------------------- */
 /* All addresses physical, 28-bit, little-endian. Transfers are instant (§0.5). */
