@@ -44,7 +44,9 @@ static uint8_t cx, cols, rows, mode, dirty, running = 1, pend, cmdlen;
 static const char *note = "";
 
 /* ---- screen ------------------------------------------------------------- */
-static void put(char c) { REG(TERM) = (uint8_t)c; }
+static uint8_t clip, sx;         /* while clip is set, drop anything past the right edge:
+                                    on the last row a wrap scrolls the whole screen */
+static void put(char c) { if (clip) { if (sx >= cols) return; sx++; } REG(TERM) = (uint8_t)c; }
 static void say(const char *s) { while (*s) put(*s++); }
 static void num(unsigned long v) { char b[8]; uint8_t i = 0; if (!v) { put('0'); return; } while (v) { b[i++] = (char)('0' + v % 10); v /= 10; } while (i) put(b[--i]); }
 static void at(uint8_t r, uint8_t c) { put(27); put('['); num((unsigned long)r + 1); put(';'); num((unsigned long)c + 1); put('H'); }
@@ -134,11 +136,13 @@ static void draw(void)
     at((uint8_t)(rows - 1), 0);
     if (mode == 2) { put(':'); say(cmd); eeol(); at((uint8_t)(rows - 1), (uint8_t)(cmdlen + 1)); return; }
     sgr("7");
+    clip = 1; sx = 0;                                /* text only: the escapes are not columns */
     say(" "); say(name[0] ? name : "[no name]");
     if (dirty) say(" [+]");
     say("  "); num(cy + 1); put('/'); num(nlines); say("  col "); num((unsigned long)cx + 1);
     if (mode == 1) say("   -- INSERT --");
     if (*note) { say("   "); say(note); }
+    clip = 0;
     eeol();
     sgr("0");
     at((uint8_t)(cy - top), (uint8_t)(cx - hoff));
@@ -174,6 +178,23 @@ static void split(void)                       /* Enter in insert mode */
     far_put(tmp, SLOT(cy + 1), 256);
     cy++; cx = 0; line_in(cy); dirty = 1;
 }
+/* Backspace at column 0: pull this line onto the end of the one above and
+ * close the gap. Refused rather than truncated if the result would not fit
+ * in a 255-character slot. */
+static void join_prev(void)
+{
+    uint8_t plen, i;
+    if (!cy) return;
+    far_get(SLOT(cy - 1), tmp, 256);
+    plen = tmp[0];
+    if ((unsigned)plen + ln[0] > 255) { note = "line would be too long"; return; }
+    for (i = 0; i < ln[0]; i++) tmp[plen + 1 + i] = ln[i + 1];
+    tmp[0] = (uint8_t)(plen + ln[0]);
+    far_put(tmp, SLOT(cy - 1), 256);
+    close_at(cy);
+    cy--; cx = plen; line_in(cy); dirty = 1;
+}
+
 static void do_cmd(void)
 {
     uint8_t i = 0, w = 0, q = 0;
@@ -209,7 +230,7 @@ void main(void)
         if (mode == 1) {                                   /* insert */
             if (k == 0x1B) { mode = 0; if (cx) cx--; }
             else if (k == 0x0D) split();
-            else if (k == 0x08) { if (cx) { cx--; del_ch(); } else if (cy) { note = "join: not yet"; } }
+            else if (k == 0x08) { if (cx) { cx--; del_ch(); } else join_prev(); }
             else if (k == 0x89) del_ch();
             else if (k == 0x82) { if (cx) cx--; }
             else if (k == 0x83) { if (cx < ln[0]) cx++; }

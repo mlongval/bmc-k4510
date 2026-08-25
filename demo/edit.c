@@ -31,10 +31,13 @@ static uint32_t zpr32(uint8_t a) { return (uint32_t)REG(a) | ((uint32_t)REG(a+1)
 static char name[NAMEMAX];
 static unsigned len, cur, top;              /* bytes used; cursor; offset of the top screen line */
 static uint8_t cols, rows, dirty, running = 1;
-static uint8_t msg[40];
+static const char *msg = "";
+static uint8_t quitp;            /* Ctrl-X seen once on a modified file */
 
 /* ---- the screen, through JIM ------------------------------------------- */
-static void put(char c) { REG(TERM) = (uint8_t)c; }
+static uint8_t clip, sx;         /* while clip is set, drop anything past the right edge:
+                                    on the last row a wrap scrolls the whole screen */
+static void put(char c) { if (clip) { if (sx >= cols) return; sx++; } REG(TERM) = (uint8_t)c; }
 static void say(const char *s) { while (*s) put(*s++); }
 static void num(unsigned v) { char b[6]; uint8_t i = 0; if (!v) { put('0'); return; } while (v) { b[i++] = (char)('0' + v % 10); v /= 10; } while (i) put(b[--i]); }
 static void at(uint8_t r, uint8_t c) { put(27); put('['); num((unsigned)r + 1); put(';'); num((unsigned)c + 1); put('H'); }
@@ -88,11 +91,13 @@ static void draw(void)
     }
     at((uint8_t)(rows - 1), 0);
     sgr("7");
+    clip = 1; sx = 0;                                /* text only: the escapes are not columns */
     say(" "); say(name[0] ? name : "(no name)");
     if (dirty) say(" *");
     say("  line "); num(line_no()); say(" col "); num((unsigned)ccol + 1);
-    say("   ^O save  ^X exit");                      /* say so, rather than make anyone guess */
-    if (msg[0]) { say("   "); say((const char *)msg); }
+    if (*msg) { say("   "); say(msg); }              /* the message earns the room over the hints */
+    else say("   ^O save  ^X exit");
+    clip = 0;
     eeol();                                          /* fill to the edge and no further: printing cols
                                                         spaces here overran the last line and scrolled
                                                         the whole screen up by one */
@@ -107,7 +112,6 @@ static void load_file(void)
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)BUF);
     st = rom_load();
     len = st ? 0 : (unsigned)zpr32(0xF6);
-    if (st == 1) { msg[0] = 0; say(""); }            /* a new file is not an error */
     if (len > BUFMAX) len = BUFMAX;
 }
 static void save_file(void)
@@ -115,8 +119,8 @@ static void save_file(void)
     uint8_t st;
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)BUF); zp32(0xF6, (uint32_t)len);
     st = rom_save();
-    if (st) { msg[0] = 'n'; msg[1] = 'o'; msg[2] = 't'; msg[3] = ' '; msg[4] = 's'; msg[5] = 'a'; msg[6] = 'v'; msg[7] = 'e'; msg[8] = 'd'; msg[9] = 0; }
-    else { msg[0] = 's'; msg[1] = 'a'; msg[2] = 'v'; msg[3] = 'e'; msg[4] = 'd'; msg[5] = 0; dirty = 0; }
+    if (st) msg = "NOT saved";
+    else { msg = "saved"; dirty = 0; }
 }
 
 /* ---- keys --------------------------------------------------------------- */
@@ -143,14 +147,14 @@ void main(void)
     cols = REG(TERM + 5); rows = REG(TERM + 6);
     if (!cols) cols = 80;
     if (!rows) rows = 30;
-    msg[0] = 0;
     load_file();
     REG(TERM + 4) = 2;                                /* JIM: clear and home */
     REG(TERM + 0x0E) = 1;                             /* its cursor */
     while (running) {
         draw();
         do { k = rom_getin(); } while (!k);
-        msg[0] = 0;
+        if (k != 0x18) quitp = 0;                     /* any other key takes back the intent to quit */
+        msg = "";
         switch (k) {
         case 0x82: if (cur) cur--; break;                          /* left  */
         case 0x83: if (cur < len) cur++; break;                    /* right */
@@ -163,7 +167,10 @@ void main(void)
         case 0x08: if (cur) { cur--; closeup(cur, 1); dirty = 1; } break;
         case 0x89: if (cur < len) { closeup(cur, 1); dirty = 1; } break;   /* delete */
         case 0x0F: case 0x13: save_file(); break;                  /* Ctrl-O, Ctrl-S */
-        case 0x18: running = 0; break;                             /* Ctrl-X */
+        case 0x18:                                                 /* Ctrl-X */
+            if (dirty && !quitp) { quitp = 1; msg = "MODIFIED -- ^X again to discard, ^O to save"; }
+            else running = 0;
+            break;
         case 0x0D: if (len < BUFMAX) { openup(cur, 1); BUF[cur++] = '\n'; dirty = 1; } break;
         default:
             if (k >= 0x20 && k < 0x7F && len < BUFMAX) { openup(cur, 1); BUF[cur++] = (char)k; dirty = 1; }
