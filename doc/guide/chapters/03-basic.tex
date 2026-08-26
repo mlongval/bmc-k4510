@@ -44,3 +44,32 @@ leaves BASIC for the shell (\verb|@| is accepted too, a survivor from an
 earlier machine). Escape or Ctrl-C stops a running program (and
 silences the SIDs); the program's variables survive for \verb|PRINT|-style
 post-mortems.
+
+\section{Editing the program in VI}
+\verb|*VI| and \verb|*EDIT|, with nothing after them, edit the program that
+is in memory:
+
+\begin{type}
+10 PRINT "HELLO"
+*VI
+\end{type}
+
+\noindent BASIC writes the program to a temp file, opens the editor on it,
+and reads it back when you leave --- so what you type in the editor is what
+you \verb|LIST| afterwards. Give either one a file name and nothing special
+happens: \verb|*VI notes.txt| is the ordinary \verb|*| escape, and the
+editor edits that file.
+
+The trip out and back is not free. The editors load where the interpreter
+lives, so the shell command underneath is \verb|SWAP|, which puts all
+64\,KB and the screen aside first and restores them afterwards. And because
+the program is written out and read back, \emph{variables do not survive} ---
+this is an immediate-mode thing, like \verb|LOAD|. The temp file
+(\pth{EDITTMP.BAS}) is left behind, which is occasionally a useful accident.
+
+\begin{aside}
+\textbf{Why the first line is blank:} \verb|SAVE| starts its output with a
+newline, so the editor opens on an empty line~1 with the program below it.
+Harmless --- BASIC ignores it on the way back in --- but it is why the line
+count is one more than you expect.
+\end{aside}

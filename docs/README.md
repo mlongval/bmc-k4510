@@ -25,8 +25,8 @@ folder. One letter apart, sorry.)
 |---|---|
 | `BUILD-LOG.md` | **The diary. Read this first.** Every session, in order, with the reasoning — not just what changed. |
 | `K4510-Design.md` | The machine's design document: what it is and why. `make-pdf.sh` / `make-epub.sh` render it. |
-| `VICKE-SPEC.md` | The video chip: registers, modes, layers, sprites, blitter, SHEILA. |
-| `VIDEO-OPTIONS.md` | The video routes considered before VICKe was chosen. |
+| `VICKY-SPEC.md` | The video chip: registers, modes, layers, sprites, blitter, SHEILA. |
+| `VIDEO-OPTIONS.md` | The video routes considered before VICKY was chosen. |
 | `PORTABILITY.md` | What the desktop and Pi builds share, and where the host seam is. |
 | `FEATURES.txt` | The historical feature ballot (A–K), all built. Decisions now happen in conversation and land in `BUILD-LOG.md`. |
 | `bmc-k4510-45gs02-decision.md` | Why the 45GS02 core, and why unchanged. |

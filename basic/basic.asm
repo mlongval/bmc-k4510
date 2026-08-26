@@ -446,7 +446,7 @@ Ibuffs		= IRQ_vec+$14
 Ibuffe		= Ibuffs+$7E; end of input buffer (K4510: 126 characters)
 
 Ram_base		= $0800	; K4510: start of user RAM
-Ram_top		= $C000	; K4510 stage 3: the interpreter lives above BASIC's RAM ($BC00 tail, $C000 slice, $E000 half)
+Ram_top		= $BE00	; K4510 stage 3: the interpreter lives above BASIC's RAM ($BE00 tail, $C000 slice, $E000 half)
 
 ; This start can be changed to suit your system
 

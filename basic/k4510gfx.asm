@@ -1,5 +1,5 @@
 ; ---- K4510 graphics commands for EhBASIC ---------------------------------
-; GRAPHICS n   0 = off, 1 = 320x240, 2 = 640x480 (8 bpp bitmap on VICKe layer 1,
+; GRAPHICS n   0 = off, 1 = 320x240, 2 = 640x480 (8 bpp bitmap on VICKY layer 1,
 ;              above the text; index 0 is transparent; clears the bitmap)
 ; GCLS         clear the bitmap
 ; PLOT x,y,c   LINE x1,y1,x2,y2,c   TRI x1,y1,x2,y2,x3,y3,c   (blitter ops)
@@ -220,7 +220,7 @@ K_PALETTE
 
 ; ---- sprites (K4510): SPRITE n,x,y   SPRDEF n,page,w,h,bpp   SPROFF n ----
 ; The attribute table lives at SPRTAB ($03F800); each statement re-points
-; VICKe at it and enables sprites, so the ROM's VIDEO restore (which turns
+; VICKY at it and enables sprites, so the ROM's VIDEO restore (which turns
 ; sprites off) is undone by the next sprite statement. The table is cleared
 ; once (gsprinit, reset at cold start).
 
@@ -247,7 +247,7 @@ k_spr_base
 	LDA	#1
 	STA	gsprinit
 k_sb_ok
-	LDA	#<SPRTAB		; VICKe: table pointer + enable (cheap, every call)
+	LDA	#<SPRTAB		; VICKY: table pointer + enable (cheap, every call)
 	STA	VK+$0A
 	LDA	#>SPRTAB
 	STA	VK+$0B

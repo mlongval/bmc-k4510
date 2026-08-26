@@ -25,7 +25,7 @@ both just work. Type \verb|*QUIT| to hand the console back to the shell.
 The console cannot show what it cannot see, so the Tube speaks up: MODE,
 GCOL, PLOT, MOVE, DRAW, CIRCLE and the palette arrive at the machine as
 escape sequences, and the Tube's gatekeeper (the \emph{Tube ULA}) executes
-them on the VICKe blitter. \verb|SOUND| and \verb|ENVELOPE|-less music go
+them on the VICKY blitter. \verb|SOUND| and \verb|ENVELOPE|-less music go
 the same way, onto the machine's four-channel sound sequencer and out
 through the SIDs --- the classic Beeb \texttt{SOUND chan,amp,pitch,dur},
 queued per channel like the original.
@@ -36,7 +36,7 @@ RUN
 \end{type}
 
 \screen{shots/bbc.png}{\texttt{KALEID.BBC}: MODE 2 kaleidoscope, drawn by
-BBC BASIC on the Tube, painted by VICKe.}
+BBC BASIC on the Tube, painted by VICKY.}
 
 The \texttt{/BBCBASIC} directory carries a period programme selection:
 \texttt{KALEID}, \texttt{CIRCLES}, \texttt{ROSES}, \texttt{MOUNTAIN},
@@ -45,7 +45,7 @@ The \texttt{/BBCBASIC} directory carries a period programme selection:
 sequencer's party piece.
 
 \section{Sprites}
-VICKe has 128 hardware sprites, and BBC BASIC reaches them the way RISC OS
+VICKY has 128 hardware sprites, and BBC BASIC reaches them the way RISC OS
 reached its own: \verb|VDU 23,27| selects and shapes, \verb|PLOT &ED|
 places. There is no sprite file. A sprite is \emph{captured} from the
 bitmap after BBC BASIC has drawn it with the words it already knows:

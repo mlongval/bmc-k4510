@@ -79,6 +79,7 @@ k_setname
 ; ---- @command: the rest of the statement goes to the ROM shell ----------
 ; The cruncher left the text verbatim after the @, terminated by the [EOL] 0.
 K_AT
+	JSR	k_ateditor		; *VI / *EDIT on their own edit THIS program (and do not return)
 	LDY	#1
 	LDA	(Bpntrl),Y		; @BYE / @EXIT / @QUIT: leave BASIC for the shell (a cold start)
 	CMP	#'B'
@@ -262,6 +263,7 @@ k_fi_restore
 ; ---- SAVE ----
 k4510_save
 	JSR	k_getname
+k_save_named				; entry with fname already set (the *VI / *EDIT hook)
 	JSR	k_setname
 	STZ	savecnt
 	STZ	savecnt+1

@@ -150,7 +150,7 @@ cpu65_nmi/irq/execution_debug_callback()    monitor hooks; can be stubs
 ```
 
 Everything else — the 256 MB array, lazy page commit, the I/O decode,
-VICKe's register window — sits behind those. The MEGA65's
+VICKY's register window — sits behind those. The MEGA65's
 `memory_mapper.c` (1,243 lines, 32 hypervisor references) is the file
 we do **not** take; it is the MEGA65 platform. We write our own, far
 smaller, because our memory map has no C64/C65 compatibility banking

@@ -14,7 +14,7 @@ the SID sound chip --- it borrows openly and then outgrows.
   under the ROM. It runs at 40.5\,MHz.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
-\item \textbf{Video: VICKe} --- 640$\times$480, 256 colours from a 24-bit
+\item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
   palette, four layers, 128 sprites, a blitter that draws lines and filled
   triangles, and a display-list coprocessor named SHEILA. Smaller modes
   (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
@@ -118,7 +118,7 @@ page on the right, the screen-font list open over them.}
   Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
 \item[Machine] \emph{save state} and \emph{load state}, four slots
   each (the whole machine --- CPU, every used page of the 256~MB, the
-  banks and MAP, VICKe, the devices, JIM --- to \texttt{k4510-slotN.k4s}
+  banks and MAP, VICKY, the devices, JIM --- to \texttt{k4510-slotN.k4s}
   beside the settings file; the row shows when the slot was written;
   the Tube co-processor is not in the file and is stopped by a load);
   reset; power cycle (memory cleared, ROM reloaded); stop the Tube

@@ -6,7 +6,7 @@ rom/*.bin
 rom/*.lst
 test/maptest
 test/dmatest
-test/vicketest
+test/vickytest
 test/capture
 test/sidtest
 test/fstest
@@ -52,3 +52,6 @@ fs/SYSTEM/chargen.bin
 
 # your own startup script: yours, not the repo's (see /SYSTEM/STARTUP.SAMPLE)
 fs/STARTUP.BAT
+
+# the temp file *VI / *EDIT save the BASIC program through
+fs/EDITTMP.BAS

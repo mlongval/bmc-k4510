@@ -150,7 +150,7 @@ BMC64's Pi layer is emulator-agnostic. VICE is one tenant; plus4emu
 is another; we will be the third.
 
 ### New shape
-- `k4510core/` — Xemu `cpu65.c` (unchanged), our memory, VICKe,
+- `k4510core/` — Xemu `cpu65.c` (unchanged), our memory, VICKY,
   reSID + fmopl as libraries. Plain C, no VICE headers.
 - Desktop frontend: SDL2 directly, a Makefile, no autotools.
 - Pi frontend: implement `emux_api.h` against BMC64's common layer,
@@ -164,7 +164,7 @@ write small ones), and the `xk4510` skeleton from earlier tonight
 
 ### Decision gate: the spike
 Nothing else until this runs:
-**`cpu65.c` + 64 KB RAM + one VICKe text layer in an SDL window +
+**`cpu65.c` + 64 KB RAM + one VICKY text layer in an SDL window +
 Wozmon in ROM + typing works. No VICE anywhere.**
 If it is a few hundred lines and runs, the pivot is confirmed by a
 program rather than an argument. If it is a swamp, we learn that
@@ -174,7 +174,7 @@ cheaply. The bmc64 `k4510` branch stays as the fallback.
 
 ## 2026-08-22 (overnight) — The spike ran. Pivot confirmed.
 
-**Gate:** `cpu65.c` + 64 KB RAM + one VICKe text layer in an SDL window
+**Gate:** `cpu65.c` + 64 KB RAM + one VICKY text layer in an SDL window
 + Wozmon in ROM + typing works. No VICE anywhere.
 **Result: passed, all four steps, in one night.** 961 lines of ours
 around 3,000 of Xemu's. Screenshot: `images/spike-wozmon-2026-08-22.png`.
@@ -189,7 +189,7 @@ k4510/
   core/xemu/emutools_basicdefs.h   the shim: 60 lines, the core's whole environment
   core/hypervisor.h                in_hypervisor = false (constant)
   core/mem.c/.h                    64 KB RAM, the 11 callbacks, ROM protect, keyboard regs
-  core/vicke.c/.h                  one 80x60 text layer, 8x8 glyphs, ASCII indices
+  core/vicky.c/.h                  one 80x60 text layer, 8x8 glyphs, ASCII indices
   sdl/main.c                       SDL2 window, 40.5 MHz/60 Hz, keyboard -> FIFO
   rom/wozmon.a                     Wozmon retargeted; ACME --cpu m65; 4 KB at $F000
   test/cputest.c  test/woztest.c   both ALL OK
@@ -212,7 +212,7 @@ to uppercase (1976 monitor).
   bug of mine (`$9B` is `STX $nnnn,Y`, 3 bytes, not a NOP).
 
 ### Step 2 — pixels (commit 38563c9)
-- `vicke_render()` reads screen RAM at `$0800` every frame into an 8-bit
+- `vicky_render()` reads screen RAM at `$0800` every frame into an 8-bit
   framebuffer; the frontend owns palette and window. Two colours, C64
   blues, for now.
 - Font: ASCII-ordered 8x8 built at load from `chargen` (uppercase set).
@@ -246,7 +246,7 @@ matrix stands.
 - 64 KB flat RAM, MAP ignored → Phase 3: 256 MB + 28-bit MAP.
 - Apple-1-shaped keyboard regs → the real K4510 I/O map.
 - C64 chargen → own font, lowercase, backslash.
-- Two-colour VICKe with fixed geometry → register block, colour RAM.
+- Two-colour VICKY with fixed geometry → register block, colour RAM.
 - Uppercase fold in the frontend → the ROM's problem, not SDL's.
 
 ### Phase 3 spine, same night (commit d2b59d9)
@@ -295,8 +295,8 @@ Decisions waiting for you, in order of how much they block:
    the design doc.
 3. Push `k4510` to GitHub (private)? Name: `mlongval/bmc-k4510`?
 
-Next baby step, my pick: **VICKe palette + 8 bpp bitmap layer with a
-register block at `$D000`** (VICKE-SPEC §13 step 1). That retires the
+Next baby step, my pick: **VICKY palette + 8 bpp bitmap layer with a
+register block at `$D000`** (VICKY-SPEC §13 step 1). That retires the
 spike's fixed text layer as the only display and starts the real chip.
 
 ---
@@ -319,31 +319,31 @@ Doc: I/O map stands as proposed; merge the plan; push.
   one author / no community, not the code. Toolchain: Arm GNU
   `aarch64-none-elf`, on p15 when the time comes.
 
-## 2026-08-22 night 2 — VICKe, step by step
+## 2026-08-22 night 2 — VICKY, step by step
 
-### VICKe step 1 (commit 0105db3) — palette + bitmap + text behind registers
-`core/vicke.c` is a chip now: 256-byte register file at `$D000` (see
-`vicke.h` header comment for the map), palette write port with
+### VICKY step 1 (commit 0105db3) — palette + bitmap + text behind registers
+`core/vicky.c` is a chip now: 256-byte register file at `$D000` (see
+`vicky.h` header comment for the map), palette write port with
 auto-increment, four 16-byte layer groups, per-scanline composition.
 Bitmap 1/2/4/8 bpp; tile/text 8x8 1-bpp from a glyph set in RAM. No
 video memory: font at phys `$010000` (frontend places it until the
 system ROM carries it), ROM `VINIT` programs the chip at reset. The
 C-side text path is gone — Wozmon is displayed through the registers.
-`test/vicketest` ALL OK. 5 tests green. Pushed to GitHub.
+`test/vickytest` ALL OK. 5 tests green. Pushed to GitHub.
 
-### VICKe step 3 — tiles and text32 (pushed)
+### VICKY step 3 — tiles and text32 (pushed)
 Tile mode: 8–64 px cells, 2-byte map entries (10-bit index, H/V flip,
 4-bit palette offset), at the layer's bpp — 8 bpp tiles are the
 full-colour tiles the spec wants. `text8` (1 byte/cell, Wozmon) and
 `text32` (glyph16 + reverse + fg + bg bytes), both 8x8 or 8x16. Tested.
 
-### VICKe step 5 — sprites (pushed)
+### VICKY step 5 — sprites (pushed)
 128 sprites from a 16-byte-entry table in RAM (`$D00A` pointer): signed
 X/Y, 28-bit data, 4/8 bpp, H/V flip, width and height 8–64 chosen
 independently, Z-slot (drawn after layer 0–3). Sprite-sprite and
 sprite-layer collision bitmaps at `$40`/`$50`, clear-on-read. Tested.
 
-### VICKe step 6 — copper and interrupts (pushed)
+### VICKY step 6 — copper and interrupts (pushed)
 Copper list in RAM (`$D060` pointer): END/WAIT/MOVE/SKIP/JUMP/IRQ, run
 at each scanline start, restarts per frame. IRQSTAT/IRQMASK at `$04/05`
 with vblank, raster-compare, copper, collision; ack by writing 1s. The
@@ -352,11 +352,11 @@ from the chip — raster IRQs work for real. Tested. Wozmon still runs.
 - **The coprocessor is named SHEILA** (Doc). Renamed in code, spec and
   design doc; `VR_SHEILA`/`VR_SHEILACTL`/`VI_SHEILA`.
 
-### VICKe step 7 — blitter (pushed)
+### VICKY step 7 — blitter (pushed)
 `$D070-$D082`: SRC/DST 28-bit, W/H, strides, ops copy/keyed/fill/AND/
 OR/XOR, H/V flip, instant, 8 bpp. Tested.
 
-**VICKe status after night 2:** every item in VICKE-SPEC §13 steps 1–7
+**VICKY status after night 2:** every item in VICKY-SPEC §13 steps 1–7
 exists and is tested — palette, bitmap 1/2/4/8 bpp, tiles 8–64 px with
 flips, text8/text32 at 8x8/8x16, 4 layers, 128 sprites with collisions,
 SHEILA, blitter, IRQs, scanline-granular CPU. Not yet: active-area/
@@ -388,7 +388,7 @@ PCM, stereo, model select per chip from software.
 
 ## Morning summary, 2026-08-22 (second night)
 
-**What exists now:** a K4510 with every capability in VICKE-SPEC §13
+**What exists now:** a K4510 with every capability in VICKY-SPEC §13
 steps 1–7, four SIDs, 256 MB + MAP, DMA, a Wozmon ROM and a demo ROM,
 on GitHub with six headless tests. Lines of ours ≈ 2,600; vendored:
 Xemu's core (3k) and reSID (3k). **The demo is running on the t480i5
@@ -396,7 +396,7 @@ desktop with sound**; `images/demo-sheila-2026-08-22.jpg` is what it
 looks like.
 
 Done tonight, in order: I/O map agreed → plan merged into the design
-doc → GitHub → VICKe registers/palette/bitmap/text → tiles/text32 →
+doc → GitHub → VICKY registers/palette/bitmap/text → tiles/text32 →
 sprites → SHEILA (named by Doc) + IRQs + scanline CPU → blitter →
 index-0-transparent fix → demo ROM + capture tool → reSID + audio.
 
@@ -441,9 +441,9 @@ a colour terminal, a shell, and files from the host.
   (2) DMA copy is memmove-safe, so it does not replicate a seed row;
   `cls` copies row 0 to each row. (3) `$0800–$5300` is the text32
   screen; loading a file there paints its bytes as cell colours.
-- **8 tests green**: cpu, woz, map, dma, vicke, sid, fs, rom.
+- **8 tests green**: cpu, woz, map, dma, vicky, sid, fs, rom.
 - **Screenshots of all tests** in `images/`: `tests-2026-08-22.png`
-  (console output), `test-*-2026-08-22.png` (one per VICKe stage and per
+  (console output), `test-*-2026-08-22.png` (one per VICKY stage and per
   ROM), `tests-visual-2026-08-22.jpg` (contact sheet),
   `rom-stage2-2026-08-22.jpg`.
 
@@ -464,7 +464,7 @@ C with cc65, in `k4510/demo/`, built as 8 KB ROMs (`make demos` →
   banks via per-sprite PALOFS; the sprite table is double buffered by
   flipping `SPRTAB`; SHEILA paints the sky gradient (16 MOVEs) and the
   floor. 640×480.
-- **cube** — 320×240 in the **new lowres mode** (VICKe CTRL bit1: every
+- **cube** — 320×240 in the **new lowres mode** (VICKY CTRL bit1: every
   pixel doubled; layers and sprites see 320×240, RASTER/SHEILA still
   count 480 lines). Two 4-bpp frame buffers at `$110000`/`$120000`,
   reached through the 45GS02 **MAP window** (`demo/crt0.s
@@ -480,12 +480,12 @@ C with cc65, in `k4510/demo/`, built as 8 KB ROMs (`make demos` →
   skip the interior. ~16 s per image, then 3 s of palette cycling, then
   the next zoom level (5 levels into the seahorse valley).
 
-**Bug found by the balls (real VICKe bug):** the collision registers
+**Bug found by the balls (real VICKY bug):** the collision registers
 `COLSS $40-$4F` / `COLSL $50-$5F` sat exactly on **layer 3's register
 block** (`$10 + 3×$10 = $40`). The first time two balls touched, the
 collision bits "enabled" layer 3 with garbage settings and the screen
 filled with junk. Moved to **`COLSS $90-$9F`, `COLSL $A0-$AF`**
-(vicke.h, spec). Tests still 8/8.
+(vicky.h, spec). Tests still 8/8.
 
 Other lessons: (1) DMA fill takes its byte from the **SRC register's
 low byte**, not from memory at SRC. (2) SHEILA instructions are 4 bytes
@@ -515,7 +515,7 @@ suggestion." So:
   `INFO -s` can show volume/gates/filter.
 - **`INFO [-v -c -m -g -s -f -t]`**: version, CPU (nominal + *measured*
   clock: `speed_loop` in crt0 counts an 18-cycle loop for one frame →
-  40.42 MHz), memory map + last load, VICKe state (resolution, layers,
+  40.42 MHz), memory map + last load, VICKY state (resolution, layers,
   sprites, SHEILA, raster, IRQ mask), the four SIDs, host files, date/
   time/uptime. No flags = everything. Screenshot
   `images/rom-stage3-info-2026-08-22.png`.
@@ -541,7 +541,7 @@ The step I proposed: what a *program* is on this machine.
 - **`.prg` format:** 4-byte header — load address, run address — then
   the image. `LOAD name.prg` honours it (`LOAD name.prg addr` overrides
   the load address); `RUN name.prg` loads and runs; `RUN` alone reruns
-  the last one; `RUN addr` still works. The ROM re-initialises VICKe
+  the last one; `RUN addr` still works. The ROM re-initialises VICKY
   (including the first 16 palette entries) and clears the screen when
   the program returns.
 - **Program environment** (`demo/prg.cfg`, `demo/prg0.s`): code at
@@ -582,11 +582,11 @@ the frequency registers mean what they mean on a C64.
 
 The review itself is `PORTABILITY.md`: host dependencies live in two
 files (`mem.c`: mmap + ROM loading; `io.c`: the storage device's POSIX
-file calls and `time()`), everything else — cpu65, VICKe, reSID — is
+file calls and `time()`), everything else — cpu65, VICKY, reSID — is
 clean; alignment/endianness/pointer-size checked; proposed `core/host.h`
 seam (alloc, log, clock, eight file calls) as the first commit of the Pi
 work. Pi 3B+ extrapolation: 17–33 ms single-core → CPU emulation and
-VICKe+SID on separate cores is probably needed, and the per-line
+VICKY+SID on separate cores is probably needed, and the per-line
 interface already allows it.
 
 p15 is reachable (16 threads, gcc/make/git, no cross toolchain yet) —
@@ -666,7 +666,7 @@ gave up; now it retries and shows ok/failed counts on screen.
 
 **What this means for the port:** the emulation core (3.4–4.1 ms on the
 i5) should land around **16–19 ms on one Pi core** — marginal alone,
-comfortable once CPU emulation and VICKe+SID run on separate cores
+comfortable once CPU emulation and VICKY+SID run on separate cores
 (the library's core split exists for exactly this). Presentation at
 640×480 output is ~7 ms on core 0, or free to the application core
 with the split's presentation worker. 256 MB allocates in 4 ms. The
@@ -720,7 +720,7 @@ Doc: "Pi frontend and C64 keyboard on GPIO it is." Same evening:
   TV overscan crops 480p edges → `overscan_*` margins in `config.txt`.
 
 Still to do on the Pi, in order: **measure** (`INFO -c` on the Pi is
-the number), the **core split** (CPU on one core, VICKe+SID on another,
+the number), the **core split** (CPU on one core, VICKY+SID on another,
 presentation on a third), a real-time clock (network or a saved
 date), and the desktop's Shift+Esc quit becomes a reboot.
 
@@ -743,7 +743,7 @@ date), and the desktop's Shift+Esc quit becomes a reboot.
   and 720p output resamples the font (640→960 is 1.5×, uneven). Final:
   **640×480 output, 1:1 present, no margins**; the TV scales. If a TV
   crops, its "Just Scan"/"Screen Fit" setting is the fix.
-- **VICKe 640×240** (CTRL bit2, lines doubled) beside 320×240 (bit1).
+- **VICKY 640×240** (CTRL bit2, lines doubled) beside 320×240 (bit1).
   **ROM `MODE 0|1|2`**: 80×60 / 80×30 / 40×30 text; COLS/ROWS are
   variables now; `INFO -g` reports the mode. Photo of MODE 2 on the TV:
   `screenshots/IMG_6020.jpeg`.
@@ -754,17 +754,17 @@ date), and the desktop's Shift+Esc quit becomes a reboot.
   by the host, which is why the split moved balls and mandel but not
   the cube. Single-buffering cannot help it; it just tears.
   The honest fix is in the design, not the program: a **line-draw op in
-  the blitter** (VICKE-SPEC §8 already allows "instant" blits) would
+  the blitter** (VICKY-SPEC §8 already allows "instant" blits) would
   make wireframes free, the way the span fill already is via DMA.
   Proposed, not done.
 
 **Blitter LINE + TRIANGLE (same night).** Doc: "not a purist — if you
-can make it faster, do." Ops 6 and 7, clipped; `vicketest` gained two
+can make it faster, do." Ops 6 and 7, clipped; `vickytest` gained two
 checks. Cube: **15 → 60 fps, wireframe and solid**. First try (lines
 only) gave 60/22: the solid half was still bound by 450 DMA span
 setups per frame, each with a 32-bit multiply in cc65 — the triangle
 op removed the edge walker and the spans both. Lesson for every later
-program: on this machine, geometry goes to VICKe, not to the CPU.
+program: on this machine, geometry goes to VICKY, not to the CPU.
 
 ## 2026-08-22 (night) — The MATH unit
 
@@ -814,7 +814,7 @@ Doc: "Step 1: stand up EhBASIC. Step 2: add graphics commands."
 **Groundwork, because BASIC owns the machine.** EhBASIC uses zero page
 `$00-$E5` and `$EF-$FF`, page 3, and wants a contiguous program area.
 So the ROM became a host: (1) its **text screen moved to far memory
-(`$030000`)** — VICKe reads it there, the ROM writes it with flat
+(`$030000`)** — VICKY reads it there, the ROM writes it with flat
 stores and DMA, the cursor blink in the IRQ borrows `$02-$05` and puts
 them back — which frees **`$0800-$9FFF`, 38 KB, for programs**;
 (2) every jump-table call **swaps the ROM's zero page (`$02-$21`) in
@@ -833,7 +833,7 @@ bytes free**. `PRINT 2+2`, loops, `SQR`, `PI`, strings all correct.
 
 **Graphics keywords** (`basic/k4510gfx.asm`, six new tokens spliced
 into the command, keyword and LIST tables): `GRAPHICS n` (0 off,
-1 = 320×240, 2 = 640×480; 8-bpp bitmap on VICKe layer 1 above the
+1 = 320×240, 2 = 640×480; 8-bpp bitmap on VICKY layer 1 above the
 text, index 0 transparent, cleared on entry), `GCLS`, `PLOT x,y,c`,
 `LINE x1,y1,x2,y2,c`, `TRI x1,y1,x2,y2,x3,y3,c` — all blitter ops, so
 instant — and `PALETTE i,r,g,b`. Arguments go through EhBASIC's own
@@ -1120,7 +1120,7 @@ Commit `1a73d89`, pushed; 10 suites green; emulator restarted on the laptop.
   resulting "copy: from.to dest" from nowhere cost an hour. The ROM owns
   its palette; EhBASIC asks.)
 - **`DUMP [note]` / `@DUMP note`** (item 3): SYS `$D5F0` write → the
-  host writes `dumps/dump-NNN.txt` with CPU, MAP/banks/far gate, VICKe
+  host writes `dumps/dump-NNN.txt` with CPU, MAP/banks/far gate, VICKY
   layers, SID shadows, FS/DMA/MATH registers, the text screen, the
   shell log (every shell line + DUMP notes, via `$D5F1`), the last 256
   keys, the last 4096 opcode fetches (runs collapsed), zero page,
@@ -1320,7 +1320,7 @@ entry stub at `$0250` that banks block 7 and jumps — the loader must
 not bank it: the ROM still runs from block 7 until the program is
 entered; found the hard way, SP=$F398). The player swaps only its own
 36 zero-page bytes ($40-$63) around each call into the tune — the tune
-keeps the rest of the zero page. VICKe registers the tune pokes
+keeps the rest of the zero page. VICKY registers the tune pokes
 (thinking they are the VIC-II) are put back every frame.
 
 **The machine grew one rule for it:** the I/O page `$D000` and the stub
@@ -1469,7 +1469,7 @@ emulator restarted.
   wired through all four EhBASIC tables (defs, CTBL vectors, crunch
   dictionary, LIST names); the attribute table lives at $03F800,
   cleared by DMA on first use, and every sprite statement re-points
-  VICKe at it — so the ROM's video restore (sprites off) is undone by
+  VICKY at it — so the ROM's video restore (sprites off) is undone by
   the next statement.
 - **`INVADER2.BAS`** (DEMOS key J): Space Invaders with hardware
   sprites — 24 invaders + ship + bullet + bomb as 16x16 4-bpp shapes
@@ -1591,7 +1591,7 @@ First attempt interpreted them in the console ROM: **2 KB over the
 24 KB ROM budget**. The fix is nicer than the plan: the **Tube ULA**
 (core/io.c) — on a real Beeb just the FIFO chip — watches the byte
 stream itself and executes the machine escapes before the console ever
-sees them. K4G drives the VICKe blitter: 640x480 8bpp bitmap at
+sees them. K4G drives the VICKY blitter: 640x480 8bpp bitmap at
 $200000 (EhBASIC's GRAPHICS surface), layer 1 over the text, colour 0
 transparent, BBC 1280x1024 bottom-left coordinates scaled on, BBC
 logical colours in palette 16-31 with per-MODE default maps. PLOT does
@@ -1658,7 +1658,7 @@ screens wiped, no output, hours of bisecting ROMs that were entirely
 innocent. The culprit was `run_at()`'s **unconditional `cls()` when a
 program returns** (why chrout.prg ends with "press a key"). SAY would
 print and the ROM would erase it a millisecond later. Fix: snapshot
-the VICKe controls around the call; only a program that actually drew
+the VICKY controls around the call; only a program that actually drew
 gets the video restore + clear. Print-only programs now behave like
 commands — output stays.
 
@@ -1787,7 +1787,7 @@ directory — moved here, build checkout reset clean.)
 ## 2026-08-24 (s) — the diary moves in with the code
 
 Doc: "keeping the docs in the main repo is a better idea for now." So
-this file, the design doc, VICKE-SPEC, the decision records, FEATURES
+this file, the design doc, VICKY-SPEC, the decision records, FEATURES
 and the curated images now live in `docs/` of the k4510 repo itself —
 versioned and pushed with the machine they describe. The old
 standalone docs repo on ubuntu-s1 stays behind as a local archive
@@ -2617,7 +2617,7 @@ replacement for data/font8.bin -- adopting it would retire the ROM's
 last GPL font row), **bescii/** (CC0, v3 Mono + glyphs source only;
 the full clone stays in the archive staging), and the
 `hex2chargen.py` converter. No wiring yet -- the text-font choice and
-the VICKe PETSCII story are open decisions. **CREDITS.md** joined the
+the VICKY PETSCII story are open decisions. **CREDITS.md** joined the
 repo root: LICENSES.md is the legal record, CREDITS.md is the thanks
 -- from Gábor Lénárt's CPU core to Wozniak's 256 bytes. And the
 LICENSES.md table gained the row it had always been missing: tube/
@@ -2718,7 +2718,7 @@ On the desktop the Tube co-processor is a child *process* on a pty —
 `forkpty`, `execl ../tube/bbcbasic`, `read` — and a bare-metal Pi has
 none of those words. What it has is a spare core: Circle runs devices
 on 0, the emulator on 1, presentation on 2, and core 3 was parked
-"for VICKe later". So the co-processor is now Richard Russell's
+"for VICKY later". So the co-processor is now Richard Russell's
 interpreter compiled INTO the kernel and running on core 3 — which
 makes it, without any metaphor, the second processor. The Tube ULA in
 io.c (graphics to the blitter, SOUND to the sequencer) is untouched;
@@ -2794,11 +2794,11 @@ read lower than the desktop's.
 
 Doc: "write some demos for bbcbasic that show off the graphics
 capabilities including sprites." The Tube ULA knew lines, triangles,
-rectangles, circles and the palette; VICKe's 128 hardware sprites were
+rectangles, circles and the palette; VICKY's 128 hardware sprites were
 out of BBC BASIC's reach. Acorn had already chosen the syntax in 1987:
 RISC OS selected a sprite with `VDU 23,27,0,n|` and plotted it with
 `PLOT &ED,x,y`. That is now ours, with one twist the Beeb never had
-and VICKe makes free: a sprite is CAPTURED from the bitmap
+and VICKY makes free: a sprite is CAPTURED from the bitmap
 (`MOVE x,y : VDU 23,27,1,n,w,h|`, 8/16/32/64 a side) after BBC BASIC
 has drawn it with the words it already knows, and once placed it is a
 register write — moving sixty-four of them each frame costs the
@@ -2813,7 +2813,7 @@ re-init clears it.
 
 Three demos in /BBCBASIC, period style: **SPRITES** (eight balls drawn
 once with CIRCLE FILL — logical colour 8 turned orange by VDU 19 —
-captured, cloned to 64, bounced by VICKe), **INVADERS** (two frames of
+captured, cloned to 64, bounced by VICKY), **INVADERS** (two frames of
 the 1978 alien from DATA strings, 4-pixel cells laid with PLOT 101 at
 y = k × 8.5334 so the 15/32 vertical scale lands each cell on exactly
 four rows; ten sprites march, animate by re-cloning the other frame
@@ -3004,7 +3004,7 @@ ROM's Tube loop and once for telnet.prg. But the Tube ULA already
 parses this very byte stream on the host. So the terminal is a chip:
 JIM, at $DA00 (FRED, JIM, SHEILA — the Beeb's three pages; SHEILA is
 the backgrounds already). core/term.c, one C file shared by the
-desktop and the Pi; it draws straight into the VICKe text32 map the
+desktop and the Pi; it draws straight into the VICKY text32 map the
 ROM console uses, inside the window the ROM programs into it (COLS,
 ROWS, origin, stride, default colours — video_init writes them), so
 the console and the terminal share one screen and one cursor.
@@ -3903,7 +3903,7 @@ menu"); this is what got built from it.
   the host fills. Draws only when dirty.
 - `ui_draw.c/h` — cells into a 640x480 8-bit overlay (0 = see
   through), double-line box, its own palette by name (the machine's
-  C64 set, fixed, so a guest that zeroed the VICKe palette cannot
+  C64 set, fixed, so a guest that zeroed the VICKY palette cannot
   hide the menu), its own font (font8-unscii.bin, public domain;
   falls back to the kernel font in RAM).
 
@@ -3915,11 +3915,11 @@ nothing. Shift+F7 still reaches BBC BASIC; the key itself is a setting
 (F7 / F8 / F11 / Pause).
 
 **The host** (sdl/main.c, which is also the Pi's core 1): while open,
-no CPU, no VICKe, no SID (the audio ring drains to silence) — the
+no CPU, no VICKY, no SID (the audio ring drains to silence) — the
 frame buffer holds the last picture, composited at half brightness
 under the overlay. Border width/colour = the texture drawn inset over
 a cleared background; volume = the samples scaled into the ring; font
-= mem_load at $010000 (the ROM points VICKe there) — the two PETSCII
+= mem_load at $010000 (the ROM points VICKY there) — the two PETSCII
 chargens (open-roms, PXLfont) rearranged into ASCII/CP437 order on
 the way (letters and digits from the lower-case set, the box glyphs
 the ROM and JIM use from the graphics set), which turns the deferred
@@ -4016,7 +4016,7 @@ Debug knob added on the way: K4510_TERMLOG=file logs every byte JIM
 receives (desktop only).
 
 Guide: chapter 7, Pascal. Not yet: the MATH unit behind `single`
-(the flag-plant), a graph unit on VICKe, sysutils/graph are raw's
+(the flag-plant), a graph unit on VICKY, sysutils/graph are raw's
 stubs.
 
 ## 2026-08-25 (ak) — the flag-plant: Pascal's single on the MATH unit
@@ -4055,14 +4055,14 @@ the unit is also smaller code.
 Not done: SYSTEM's own Sqrt/Sin/Cos (Pascal polynomials in
 lib/system.pas) still run in software — routing them means patching
 system.pas itself, a step further into the checkout than install.py
-takes; a graph unit on VICKe.
+takes; a graph unit on VICKY.
 
 ## 2026-08-25 (al) — save states: the menu's first "future hook"
 
 Doc's order for the day: 5, 6, 3, 2, 4 of the list — save-state slots
 first. core/state.c: a chunked file (tag, length, bytes; the header
 K4510ST1), each module contributing its own chunks through a hook
-(mem: MAP, the bank registers, the far gate; vicke: registers,
+(mem: MAP, the bank registers, the far gate; vicky: registers,
 palette, raster compare, SHEILA's pc/wait; io: frames, the keyboard
 queue, fs cwd and registers, DMA, MATH, SYS, the SID shadows, the
 sequencer, the Tube ULA's graphics state; term: JIM whole) plus the
@@ -4121,10 +4121,10 @@ as text; test/capture learned the same `~` waits on the way, because
 a spawned co-processor is slower to answer than an in-process one and
 keystrokes were outrunning WordStar's opening menu.
 
-## 2026-08-25 (ao) — GRAPH on VICKe
+## 2026-08-25 (ao) — GRAPH on VICKY
 
 Item 2. lib/graph_k4510.inc + graphh_k4510.inc: Mad Pascal's GRAPH unit
-gets VICKe's layer 1 — the 640×480 8-bit bitmap at $200000 that BBC
+gets VICKY's layer 1 — the 640×480 8-bit bitmap at $200000 that BBC
 BASIC's ULA draws on — over the console. The primitives the unit
 requires of a target: InitGraph (layer registers, DMA clear, the video
 control byte's line-doubling bits cleared, because the ROM's MODE 1 is
@@ -4292,18 +4292,18 @@ C64 blue. Four bytes of ROM2 came back with it.
 cells over a machine showing 30 rows of doubled ones, so its text was
 half the size of everything under it. `ui_cell_h()` sets the overlay's
 cell height (8 or 16, the glyph rows drawn twice for 16) and `UI_ROWS`
-follows; the frontend reads VICKe's CTRL each frame and passes 16 for any
+follows; the frontend reads VICKY's CTRL each frame and passes 16 for any
 mode with doubled lines, marking the menu dirty when it changes. Columns
 stay 8 wide -- 40 would have squeezed the two panes.
 
-**Two more resolutions.** VICKe's CTRL grew two bits: bit3 shortens the
+**Two more resolutions.** VICKY's CTRL grew two bits: bit3 shortens the
 field to 200 lines (40 blank lines above and below, BGCOL) and bit4
 quarters the columns. With the existing bit1/bit2 that gives MODE 3 =
 320x200 (40x25 text -- the C64's geometry) and MODE 4 = 160x200 (20x25,
 four screen pixels per pixel of the machine). The glass and the raster
 are unchanged at 640x480 and 0-479, so in MODE 3 the picture's first line
-is raster line 40 -- said out loud in vicke.h and in the guide, because
-SHEILA lists and raster IRQs count the glass. vicketest gained checks 8
+is raster line 40 -- said out loud in vicky.h and in the guide, because
+SHEILA lists and raster IRQs count the glass. vickytest gained checks 8
 and 9. ROM2: 25 bytes free.
 
 `tools/romfree.py` is the free-space parser, now in the tree instead of
@@ -4321,7 +4321,7 @@ branch. Scaling already applied live; it just had nothing to show against.
 
 **Resolution is in the Video menu**, and it is the first setting the host
 cannot perform by itself: PCOLS, PROWS, the stride and the margin are the
-ROM's, and writing VICKe's CTRL alone would leave the text laid out for
+ROM's, and writing VICKY's CTRL alone would leave the text laid out for
 the old mode. So the menu *asks* -- $D521 bits 5-7 are (mode + 1), bit 1
 is the margin, MODE's two parameters in one byte -- and `mode_do()` in the
 ROM performs it on the next key poll. Resident on purpose: banked commands
@@ -4329,7 +4329,7 @@ read keys too and sw_call does not nest.
 
 Two consequences worth writing down. The machine has to be *running* to
 notice, so an outstanding request thaws it from behind the menu until
-VICKe's CTRL says the mode took, or two seconds pass (a program that never
+VICKY's CTRL says the mode took, or two seconds pass (a program that never
 reads a key). And the request must be held for ten frames rather than
 retired the moment CTRL matches -- for a margin-only change the mode
 already matches, so the obvious test cleared the request before the guest
@@ -4422,7 +4422,7 @@ reached this one. The archive copy is retired; this file is the diary.
 ## 2026-08-26: three faults Doc found in the menu build
 
 **640x480 did not survive a reboot, and the saved margin never applied.**
-One root cause, and an ugly one: VICKe's CTRL is 0 at reset, and 0 is also
+One root cause, and an ugly one: VICKY's CTRL is 0 at reset, and 0 is also
 exactly the bit pattern for 640x480, so the frontend read a machine that
 had not booted yet as "already in 640x480".  With that mode saved it posted
 no request at all -- and then, when the ROM came up in its own MODE 1, the
@@ -4507,7 +4507,7 @@ All three added to `CREDITS.md` and to the guide's Thank You chapter.
 Randy Rossi goes in the bare-metal section, where he belongs twice over:
 BMC64 is why this machine has a Pi port at all (the route was always
 meant to be its `emux_api` seam), and the VIC-II Kawari is the precedent
-for VICKe — extending an 8-bit machine's video chip is working inside
+for VICKY — extending an 8-bit machine's video chip is working inside
 the tradition, not outside it. minch (aminch) has BMC64 now. Kim Lemon
 goes in heritage: Lemon64 since 1998, twenty-eight years, and a good
 half of the small facts this project needed.
@@ -4584,3 +4584,43 @@ Verified both ways: the detector against a synthetic log with two
 overfull boxes (reported both, exit 1), and a full end-to-end
 `./make-guide.sh` on this host -- shots recaptured from the running
 machine, XeLaTeX twice, margin check clean, 57 pages, exit 0.
+
+## 2026-08-26: *VI and *EDIT edit the program in memory
+
+Doc asked for a way to edit the running EhBASIC program in one of the
+machine's editors and come back. `*VI` and `*EDIT`, with nothing after
+them, now do it: SAVE to a temp file, run the editor, LOAD it back. With
+an argument they are the ordinary `*` escape, so `*VI notes.txt` still
+edits that file -- the distinction costs nothing and keeps the surprise
+out.
+
+Three things had to be true, and all three were already there. SAVE
+writes plain text (so the editor needs to know nothing about BASIC). SWAP
+is what makes the round trip possible at all: vi.prg lives at $5FFC-$7C64
+and EhBASIC at $7000, so the editor lands on top of the interpreter, and
+SWAP puts all 64 KB and the screen aside first. And k4510_load does not
+return -- it feeds the file through the input vector and ends at Ready,
+which is exactly where the user should be left.
+
+**EhBASIC had no room.** Both interpreter slices are hard against
+hardware ceilings ($D000 is the I/O page, $FF00 the ROM stub): the $C000
+slice had 13 bytes free, the $E000 half 56, the page-2 loan 34. 103 bytes,
+fragmented, against a ~220-byte hook. So EhBASIC gained a fourth K4SG
+segment -- the header always carried a segment count -- a 512-byte tail at
+$BE00 in what used to be the top of BASIC's RAM, with Ram_top lowered to
+pay for it. 47103 bytes free becomes 46591.
+
+Two traps, both about where memory is visible from:
+- The shell line cannot live in the tail. $BE00 is inside the sideways
+  window, and when the stub hands control to the ROM, block 5 is the
+  ROM's view, not BASIC's -- the ROM read garbage and answered "?". The
+  line is copied into Ibuffs (page 3, plain RAM both sides agree on, the
+  same reason fname lives at $03C0) before the call.
+- The command pointer cannot live in ut1_pl/ut1_ph. SAVE runs k_getname
+  and LIST, which both use them. It lives in zero page $07-$08 instead.
+
+Verified end to end: `10 PRINT "ZAPZAP"`, `*VI`, `j x :wq`, and EhBASIC
+lists `0 PRINT "ZAPZAP"`. `*EDIT` brings up the nano-like one. `*ECHO ...`
+and `*SWAP VI NOTES.TXT` still pass through untouched. basictest green
+(34 EhBASIC checks + 28 BBC) -- after rebuilding test/tubetest, which was
+a day-old binary and failed on nothing at all.

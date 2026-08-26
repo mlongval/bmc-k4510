@@ -8,7 +8,7 @@ frontends (`sdl/`, `test/`) are host code by definition.*
 
 Per emulated frame, host time, 600-frame average:
 
-| what runs          | CPU    | VICKe  | reSID   | palette | total   |
+| what runs          | CPU    | VICKY  | reSID   | palette | total   |
 |--------------------|--------|--------|---------|---------|---------|
 | idle shell, before | 1.94   | 0.53   | **21.54** | 0.37  | 24.37 ms |
 | idle shell, after  | 1.89   | 0.50   | 0.63    | 0.36    | 3.38 ms |
@@ -24,14 +24,14 @@ also restores the C64 meaning of the frequency registers.
 Extrapolation to a Pi 3B+ (Cortex-A53 @ 1.4 GHz, in-order, ~5–8× slower
 than this i5 single-threaded): 17–33 ms per frame if everything stays on
 one core. The Pi has four cores. The split falls out naturally —
-CPU emulation on one core, VICKe + reSID on another — and the per-line
+CPU emulation on one core, VICKY + reSID on another — and the per-line
 interface already exists, so **the plan is feasible but not free**; the
 first Pi measurement decides whether we need the second core or not.
 "palette" is desktop-only (the Pi writes 8-bit indexed directly).
 
 ## Host dependencies found
 
-Everything below is in two files. cpu65.c, vicke.c, sid.cc and reSID are
+Everything below is in two files. cpu65.c, vicky.c, sid.cc and reSID are
 clean C/C++ with no OS calls.
 
 | where | call | Pi/Circle answer |
@@ -53,7 +53,7 @@ clean C/C++ with no OS calls.
 - **Pointer size:** `k4510_ram` is indexed with `uint32_t`; no pointer
   stored in emulated memory.
 - **Stack use:** the largest stack objects are `capture`'s, not the
-  core's. `vicke.c` keeps its 640-byte line scratch in `static`.
+  core's. `vicky.c` keeps its 640-byte line scratch in `static`.
   `sid_render` has a 32 KB `static short tmp[4][4096]`. Circle's default
   kernel stack is 128 KB; fine.
 - **64-bit assumptions:** none. `long` appears once (`ftell`).
@@ -78,9 +78,9 @@ of the Pi branch rather than a separate refactor.
 
 ## Not a portability issue, but noted while reading
 
-- `vicke_line` runs SHEILA and the raster IRQ for odd lines in lowres
+- `vicky_line` runs SHEILA and the raster IRQ for odd lines in lowres
   before returning — correct, and worth keeping that way.
-- `io_frame_tick` is called from `vicke_end_frame`: the core's only
+- `io_frame_tick` is called from `vicky_end_frame`: the core's only
   video→io dependency. Fine; the Pi frontend calls the same functions.
 - The keyboard FIFO is 256 bytes with no overflow signal. Typing via the
   Pi's USB keyboard (Circle's `CUSBKeyboardDevice`) arrives the same way

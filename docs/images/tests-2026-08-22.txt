@@ -41,7 +41,7 @@ K4510 C-18: block DMA
 3. overlapping scroll:  row0 now=1 row58 now=59 row59 untouched=59
 
 ALL OK
-VICKe step 1
+VICKY step 1
 1. bitmap: px(10,10)=7 hole(150,150)=2 (index 0 transparent -> BGCOL)
 2. text over bitmap: (0,0)=19  (20,0)=7 (space: transparent, bitmap shows)
 3. tiles 16x16 4bpp: cell0 (0,5)=1 (12,5)=2 | cell1 flipped+palofs3 (16,5)=50 (28,5)=49
@@ -59,9 +59,9 @@ ALL OK
 2. DIR: 2 entries, out.bin seen=1
 
 ALL OK
-banner: BMC-K4510   system ROM stage 2   45GS02 / VICKe / SHEILA
+banner: BMC-K4510   system ROM stage 2   45GS02 / VICKY / SHEILA
 screen:
-  |BMC-K4510   system ROM stage 2   45GS02 / VICKe / SHEILA
+  |BMC-K4510   system ROM stage 2   45GS02 / VICKY / SHEILA
   |256 MB   4 x SID   host filesystem at $D300   type HELP
   |
   |] E000.E00F

@@ -49,7 +49,7 @@ consequences for the programmer:
   line (\texttt{RUN HELLO one two}, or just \texttt{HELLO one two});
   \verb|ParamStr(0)| is the whole tail.
 \item \verb|uses k4510| gives every chip as a typed variable at its
-  address --- \verb|VICKE[reg]|, \verb|SIDREG[]|, \verb|DMA_SRC|,
+  address --- \verb|VICKY[reg]|, \verb|SIDREG[]|, \verb|DMA_SRC|,
   \verb|FS_CMD|, \verb|SYS_FRAMES|, \verb|MATH_F[]|, \verb|TERM_CX|
   and the rest --- plus \verb|FarPeek|/\verb|FarPoke| into the 256~MB
   through the 45GS02's flat addressing, \verb|DmaCopy|/\verb|DmaFill|,
@@ -94,8 +94,8 @@ transcendentals are in the \texttt{k4510} unit --- \verb|MathSqrt|,
 unit's own polynomial \verb|Sqrt|, \verb|Sin| and \verb|Cos|, which
 still work and are still slower.
 
-\section{Graphics on VICKe}
-\verb|uses graph| draws on VICKe's layer~1: a 640$\times$480 8-bit bitmap
+\section{Graphics on VICKY}
+\verb|uses graph| draws on VICKY's layer~1: a 640$\times$480 8-bit bitmap
 at \texttt{\$200000} --- the one BBC BASIC's ULA uses too --- over the
 console, which stays visible wherever the picture is transparent
 (colour~0), as in a BBC MODE. \verb|InitGraph(0)| switches the video to

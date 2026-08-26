@@ -1,4 +1,4 @@
-# VICKe — Video Chip Specification
+# VICKY — Video Chip Specification
 
 *VIC-Kawari extended. Pronounced "Vicky".*
 
@@ -125,7 +125,7 @@ is the ancestor.
   executed once per frame in raster order.
 - Instructions:
   - `WAIT` line, optionally line+pixel
-  - `MOVE` value → VICKe register
+  - `MOVE` value → VICKY register
   - `SKIP` if beam past position
   - `JUMP` / end
 - What it buys, all without a single CPU raster interrupt:
@@ -189,13 +189,13 @@ neither reference chip can do.
 
 ## 10. Timing and interrupts
 
-- CPU synchronises with VICKe at **raster-line granularity** (C-10).
+- CPU synchronises with VICKY at **raster-line granularity** (C-10).
 - Interrupt sources: vertical blank, raster compare, copper
   instruction, sprite collision.
 - **No badlines. No sprite/raster fetch conflicts. No grey dot. No
   cycle-exact behaviour of any kind.**
 
-## 11. Explicitly not in VICKe
+## 11. Explicitly not in VICKY
 
 Stated so the boundary is not re-litigated later:
 

@@ -82,7 +82,7 @@ alongside `crt_pi_idx.c`) — a real but bounded change.
 
 ## 2. The candidates
 
-### A. Stay the course — VIC-II + Kawari ("VICKe" as an extension)
+### A. Stay the course — VIC-II + Kawari ("VICKY" as an extension)
 
 What the *real* Kawari actually offers, for calibration, since we have
 been treating it as more than it is: 640×200 16-colour bitmap with 8×8
@@ -159,7 +159,7 @@ constraint we do not share and should not imitate — see §3.
 
 **For:** the copper is the best idea in 1980s home computing and the
 blitter model is proven. Names like Agnus/Denise/Paula are the reason
-"VICKe" is a good name.
+"VICKY" is a good name.
 
 **Against:** bitplanes, for the reasons in §1. Borrow the copper, leave
 the planes.
@@ -191,7 +191,7 @@ all. Also puts a protocol between software and the screen, so the
 demoscene-adjacent tricks the copper enables become impossible. I would
 rule this out on identity grounds, not technical ones.
 
-### G. Clean sheet — VICKe as an actual chip design
+### G. Clean sheet — VICKY as an actual chip design
 
 Design the chip the fantasy machine deserves, informed by all of the
 above.
@@ -293,12 +293,12 @@ Two things reduce that cost more than they first appear:
 - **Phase 1** keeps the inherited VIC-II purely as scaffolding — the
   exit criterion is "the machine initialises and produces a frame", and
   any renderer satisfies it. Do not extend it.
-- **Phase 4** builds VICKe properly, in the shippable order the plan
+- **Phase 4** builds VICKY properly, in the shippable order the plan
   already uses: palette and chunky bitmap layer first, then tiles, then
   sprites, then the copper, then the blitter. The VIC-II is removed
-  when the first VICKe layer renders, not before.
+  when the first VICKY layer renders, not before.
 - The **per-scanline rewrite** stops being a rewrite of somebody else's
-  cycle-exact chip and becomes simply how VICKe is written in the first
+  cycle-exact chip and becomes simply how VICKY is written in the first
   place. That is a strictly easier job than the plan currently
   describes.
 
@@ -333,7 +333,7 @@ up to three pixels to reach an arbitrary colour.
 
 The interesting part: HAM is cheap for us. It is a per-pixel branch in
 a renderer we are writing anyway — no silicon, no bandwidth argument.
-A "HAM-like" layer mode is a plausible VICKe feature and would give
+A "HAM-like" layer mode is a plausible VICKY feature and would give
 near-truecolour still images on a machine that otherwise shows 256
 colours.
 

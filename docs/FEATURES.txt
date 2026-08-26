@@ -525,7 +525,7 @@ CROSS-REFERENCES
  K. PROGRAMS BIGGER THAN THE WINDOW  (added 2026-08-23; K-01..K-04 BUILT the same day, commit 358592e -- see BUILD-LOG)
 ===============================================================================
  Context: the 45GS02 addresses 256 MB of DATA freely (flat [ptr],Z ops,
- DMA, VICKe's 28-bit pointers) but its PC is 16 bits, so CODE executes
+ DMA, VICKY's 28-bit pointers) but its PC is 16 bits, so CODE executes
  only inside the 64 KB window, repositioned by MAP. MAP is hostile from
  C and tedious from assembly (A/X/Y/Z setup, megabyte nibbles, 4-block
  masks, IRQs masked until EOM, "mapping block 0 unmaps $1000"). cc65

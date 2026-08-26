@@ -210,7 +210,7 @@ ordering is the right one.
 
 ## 2. Video — ratified
 
-**Resolved 2026-08-21c: clean sheet. The chip is VICKe.** The survey in
+**Resolved 2026-08-21c: clean sheet. The chip is VICKY.** The survey in
 `VIDEO-OPTIONS.md` is closed and its recommendation taken: the VIC-II is
 not carried into this machine as a substrate. It was inheritance — no
 software requires it, its constraints are silicon economies we do not
@@ -218,9 +218,9 @@ pay, and keeping it meant carrying a cycle-exact renderer the plan had
 already committed to gutting. The same test that deferred the disks and
 never-carried-in the cartridge subsystem applies to it.
 
-**VICKe** — VIC-Kawari extended, pronounced "Vicky", named in the
+**VICKY** — VIC-Kawari extended, pronounced "Vicky", named in the
 company of Agnus, Denise and Paula. The full capability list is
-`VICKE-SPEC.md`; the ballot rows below are revised to match it, and
+`VICKY-SPEC.md`; the ballot rows below are revised to match it, and
 where a row simply no longer applies it says so rather than being
 deleted, so the reasoning stays visible.
 
@@ -231,12 +231,12 @@ main RAM directly by 28-bit pointer, with no video memory of its own.**
 
 | # | Feature | Decision |
 |---|---|---|
-| B-01 | VIC-II base | **Drop** — revised 2026-08-21c. Scaffolding for Phase 1 only, removed as soon as VICKe's first layer renders |
-| B-02 | Kawari hires engine | **Superseded** by VICKe's layer model |
-| B-03 | Extended registers | **Superseded** — VICKe has its own flat register file, not an `extraRegs[]` bolt-on |
+| B-01 | VIC-II base | **Drop** — revised 2026-08-21c. Scaffolding for Phase 1 only, removed as soon as VICKY's first layer renders |
+| B-02 | Kawari hires engine | **Superseded** by VICKY's layer model |
+| B-03 | Extended registers | **Superseded** — VICKY has its own flat register file, not an `extraRegs[]` bolt-on |
 | B-04 | Magic-knock unlock | **Drop** — registers always live |
 | B-05 | Blitter | **Keep and extend** — the one piece of the Kawari port carried forward largely intact |
-| B-06 | Private video RAM | **Drop** — VICKe addresses main RAM by 28-bit pointer; there is no video memory to be private |
+| B-06 | Private video RAM | **Drop** — VICKY addresses main RAM by 28-bit pointer; there is no video memory to be private |
 | B-07 | Colour depth | 256 colours |
 | B-08 | Colour cells | Byte-wide |
 | B-09 | Resolutions | **Multiple: 640×200, 640×400, 640×480**, with 800×600 and 1024×768 as stretch |
@@ -260,15 +260,15 @@ line register changes, the "grey dot" bug. It does per-cycle dispatch
 and per-cycle state updates for all of that, and you are right that we
 will never run those demos.
 
-**This section is largely retired by the VICKe decision, and it is
+**This section is largely retired by the VICKY decision, and it is
 worth saying why it stopped being hard.** The catch used to be that the
 Kawari port is built on top of `viciisc`, with the hires engine's
 counters and badline logic woven into that per-cycle structure — so the
 work was "keep Kawari's engine while thinning the per-cycle machinery
 underneath it", a delicate operation on somebody else's code.
 
-With a clean sheet there is nothing to thin. VICKe is *defined* at
-scanline granularity (`VICKE-SPEC.md` §0.3); the per-cycle machinery is
+With a clean sheet there is nothing to thin. VICKY is *defined* at
+scanline granularity (`VICKY-SPEC.md` §0.3); the per-cycle machinery is
 never written in the first place. The largest single performance lever
 in the project turns out to be a decision rather than a refactor, which
 is the strongest practical argument the clean sheet had.
@@ -866,7 +866,7 @@ ours and small. There is no third category; that was VICE.
 ```
 k4510/                        t480i5 ~/Projects/BMC-K4510/k4510, git
   core/xemu/    cpu65.c + headers      Xemu, byte-for-byte (GPL2)
-  core/         shim, mem, vicke, (sid, opl, io, dma to come)
+  core/         shim, mem, vicky, (sid, opl, io, dma to come)
   sdl/          desktop frontend: window, audio, input
   pi/           emux_api implementation for BMC64 (Phase 6)
   rom/          system ROM sources, ACME --cpu m65
@@ -911,7 +911,7 @@ seconds. The Pi half of Phase 0 (stock BMC64 boots on the 3B+, baseline
 number) moves to Phase 6 — it is not on the critical path any more.
 
 ### ~~Phase 1 — skeleton~~ done 2026-08-22
-A window, a frame, a running CPU. (`sdl/main.c`, `core/vicke.c` text
+A window, a frame, a running CPU. (`sdl/main.c`, `core/vicky.c` text
 layer.)
 
 ### ~~Phase 2 — CPU~~ done 2026-08-22
@@ -926,7 +926,7 @@ Q ops verified. Wozmon runs from ROM.
 
   | Range | Device |
   |---|---|
-  | `$D000-$D0FF` | VICKe registers |
+  | `$D000-$D0FF` | VICKY registers |
   | `$D100-$D1FF` | keyboard, joysticks, mouse |
   | `$D200-$D2FF` | DMA (C-18) |
   | `$D300-$D3FF` | storage / host filesystem (D-09) |
@@ -937,12 +937,12 @@ Q ops verified. Wozmon runs from ROM.
 
 - ~~Block DMA (C-18): RAM→RAM copy/fill/swap at `$D200`, instant.~~ done
 - Storage DMA (D-10): file→RAM via `$D300` + the same engine.
-- Interrupts: a single IRQ line with a status/mask register pair; VICKe
+- Interrupts: a single IRQ line with a status/mask register pair; VICKY
   raster and vblank, keyboard, timer. NMI for the monitor's break key.
 - **Exit:** `maptest` extended for DMA; Wozmon unchanged on the new map.
 
-### Phase 4a — VICKe
-Per `VICKE-SPEC.md` §13, in that order, each a commit with a test:
+### Phase 4a — VICKY
+Per `VICKY-SPEC.md` §13, in that order, each a commit with a test:
 palette + 8 bpp bitmap layer → remaining depths + layer registers →
 tiles → text as a tile variant (retiring the spike's fixed text layer)
 → more layers → sprites → copper → blitter. Own font comes in with the
@@ -1007,7 +1007,7 @@ Settings, menus (BMC64's on the Pi; minimal on the desktop).
 | ASK-9 | survey MORPHEUS, CP/M-65 for a syscall shape | Phase 5.2 |
 | 256-colour ceiling vs RGB path | gates HAM, 1024-colour | Phase 4a / 6 |
 | Appendix B | US-International dead-key coverage | §6c |
-| Host memory | 256 MB + VICKe buffers + Circle on a 1 GB Pi — measure | Phase 6 |
+| Host memory | 256 MB + VICKY buffers + Circle on a 1 GB Pi — measure | Phase 6 |
 
 ## 5. Risks — revised
 
