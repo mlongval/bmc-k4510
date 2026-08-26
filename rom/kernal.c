@@ -136,7 +136,13 @@ static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
  * symbols are untouched -- a caps lock, not a shift lock. The flag lives
  * here and every key the ROM reads passes through caps(). */
 static uint8_t capslock;
-static uint8_t caps(uint8_t k) { return (capslock && k >= 'a' && k <= 'z') ? (uint8_t)(k - 32) : k; }
+static uint8_t caps(uint8_t k)
+{
+    if (!capslock) return k;
+    if (k >= 'a' && k <= 'z') return (uint8_t)(k - 32);
+    if (k >= 'A' && k <= 'Z') return (uint8_t)(k + 32);   /* shifted: a caps lock gives the OTHER case */
+    return k;
+}
 /* The host's F7 menu asks for a video mode through $D521 bits 5-7 (mode + 1,
  * 0 = nothing asked).  The ROM has to be the one to do it: the console's
  * PCOLS/PROWS/stride are the ROM's, and writing VICKY's CTRL alone would
@@ -515,7 +521,12 @@ static void run_at(uint16_t a)
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
     draw_cursor(0);
     REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
-    call_prog(TRAMP);
+    { uint8_t cl = capslock; capslock = 0;       /* a program wants the keys as they were typed:
+                                                 * with caps lock on, VI's :q arrives as :Q and
+                                                 * there is no way out of the editor.  The shell
+                                                 * gets its caps lock back when the program ends. */
+      call_prog(TRAMP);
+      capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
     if (v0 != REG(VICKY + 0) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
         l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
