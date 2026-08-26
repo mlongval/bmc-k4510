@@ -148,11 +148,10 @@ through the \texttt{*} escape: \verb|*CAPSLOCK| in BBC BASIC or EhBASIC.
 \verb|EXEC name| runs a text file as shell commands, one per line. A line
 whose first character is \verb|#| is a comment, and a blank line is
 ignored. At power-on the machine runs \verb|/STARTUP.BAT| as such a
-script, if it exists. It says so while it waits ---
-\verb|STARTUP.BAT -- hold a key to skip| --- and gives you half a
-second's grace; a key held or typed in that window skips it, says
-\verb|STARTUP.BAT skipped|, and the keystroke is not lost. It is the place to put your
-aliases; \texttt{/SYSTEM/STARTUP.SAMPLE} is one to copy from.
+script, if it exists --- straight in, with no pause and nothing to
+catch. It is the place to put your aliases;
+\texttt{/SYSTEM/STARTUP.SAMPLE} is one to copy from. If one ever stops
+the machine booting, page~\pageref{sec:badstartup} is the way out.
 
 \section{The monitor}
 \verb|MON| (old-timers may type \verb|WOZ|) opens the machine monitor at a
@@ -224,23 +223,17 @@ pixels doubled or quadrupled sideways. Raster lines and SHEILA's display
 list count the glass, 0--479, not the mode --- so in MODE~3 the first line
 of your picture is raster line~40.
 
-\section{When STARTUP.BAT is the problem}
+\section{When STARTUP.BAT is the problem}\label{sec:badstartup}
 \texttt{/STARTUP.BAT} runs at power-on, and a bad one runs at every
-power-on. The machine says so at the banner:
-
-\begin{type}
-STARTUP.BAT -- hold a key to skip
-\end{type}
-
-\noindent and gives you half a second. Hold any key and it says
-\texttt{STARTUP.BAT skipped} instead of running it. If that moment is hard
-to catch, switch it off in the F7 menu under Shell:
+power-on. There is no moment to catch --- the machine boots straight into
+it --- so the way out is not a key held at the right instant but a switch
+that stays where you put it: the F7 menu, under Shell:
 \emph{Run STARTUP.BAT}. That setting is the host's, kept in
 \texttt{k4510.cfg}, so it survives a power cycle and no wedged program in
 the machine can take it away from you. Boot clean, fix the file, switch it
 back on.
 
-On the desktop there is a third way, for one boot only:
+On the desktop there is a second way, for one boot only:
 
 \begin{type}
 ./k4510 --no-startup.bat

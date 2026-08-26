@@ -60,7 +60,15 @@ those labels; I write the check against whatever they wrote.
 send the filename format and question list. Nothing in the book promises the
 bug-report droplet Doc has floated, either, until it exists.
 
-## Fixed today, from the coding session's correction
+## Fixed today, from the coding session's corrections
+
+**The hold-a-key window is out of the book** (their 05cf6d4 removed it from
+the machine). It was an instruction in two places -- 2.7 and 2.10 -- and in
+`shots/boot.png`, which showed the line. Both passages now say there is no
+moment to catch and lead with the F7 switch, which is the durable one;
+`--no-startup.bat` follows as the one-run answer. The figure is recaptured.
+`INFO` is only named, never quoted, so its new two-line form needs nothing.
+
 
 The page told people `INFO -v` identifies their build. It does not:
 `core/io.c:445` is a fixed `"k4510 0.3"` and `ROM_VERSION` is `"stage 4"` --
