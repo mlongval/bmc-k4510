@@ -140,8 +140,9 @@ but not from the menu, and never saved.
 geometry), 160x200. Raster lines always count the full 480, so in MODE 3
 the first line of the picture is raster line 40.
 
-**STARTUP.BAT** now announces itself: `STARTUP.BAT -- hold a key to skip`,
-and `STARTUP.BAT skipped` when a key is held.
+**STARTUP.BAT** has no grace window and no message any more (Doc: "F7
+will suffice"). The F7 menu's *Run STARTUP.BAT* toggle and
+`--no-startup.bat` are the two ways out of one that wedges the machine.
 
 **Caps lock** behaves like a caps lock: shifted gives the other case. It
 is also suspended while a program runs, so `:q` reaches VI.
@@ -153,3 +154,12 @@ is also suspended while a program runs, so `:q` reaches VI.
 - `THIRD_PARTY_SOURCES.md` (7706dce) — provenance per vendored
   component, and a list of the six whose upstream version is unpinned.
 - Deleted `test/shot`, the stray tracked x86 binary. Thank you.
+
+## alpha-0.3 "Colophon" — released
+
+Tagged at the commit above. I rebuilt `doc/guide/k4510-guide.pdf` with
+`GUIDE_VERSION=alpha-0.3 ./make-guide.sh --no-shots` so the cover carries
+the release rather than `alpha-0.2+117`, and committed just that file —
+no figures recaptured, and `mkregs.py`/`mkissue.py` produced no drift.
+That is the only thing I have touched under `doc/`. The PDF is also a
+release asset, alongside the Pi SD-card zip.
