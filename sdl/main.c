@@ -153,8 +153,12 @@ int k4510_frontend_main(int argc, char **argv)
                                      /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
     static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT], ov[UI_W * UI_H];
-    static uint32_t pal[256], dpal[256];
+    static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
+    static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
+    static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
     int fullscreen_applied = 0;
+    int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
+#define MODE_REQ_FRAMES 120                        /* two seconds for the guest to notice, then give up */
 
     SDL_AudioSpec want = { 0 }, have;
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
@@ -208,8 +212,42 @@ int k4510_frontend_main(int argc, char **argv)
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
           if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
           if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }
+        /* The machine's video mode.  Only the ROM can change it -- the console's
+         * PCOLS/PROWS/stride are its -- so the menu asks through $D521 bits 5-7
+         * and the ROM acts on its next key poll.  Which means the machine has to
+         * be running: a frozen one would never see the request, and the point of
+         * choosing a resolution in the menu is watching it happen.  So an
+         * outstanding request thaws the machine until VICKe's CTRL says it took,
+         * or until the wait runs out (a program that never reads a key). */
+        { static int mode_shown = -1, margin_shown = -1, mode_req, mode_wait;
+          static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
+          uint8_t ctrl = (uint8_t)(vicke_read(VR_CTRL) & (2 | 4 | 8 | 16));
+          int machine = -1;
+          for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == ctrl) machine = i;
+          if (mode_shown < 0) { mode_shown = machine < 0 ? settings_get(SET_VIDEO_MODE) : machine;
+                                margin_shown = settings_get(SET_VIDEO_MARGIN); }
+          if (mode_req) {
+              /* Hold it long enough for the machine to actually read the byte.  The
+               * machine only runs while the request stands (it is frozen behind the
+               * menu otherwise), so clearing it the instant CTRL already matches --
+               * which it does for a margin-only change -- would retire the request
+               * before the ROM ever saw it. */
+              int held = MODE_REQ_FRAMES - mode_wait;
+              int done = held >= 10 && machine == mode_req - 1;
+              if (done || --mode_wait <= 0) { mode_req = 0; if (machine >= 0) mode_shown = machine; }
+          } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {       /* the user picked a mode */
+              mode_shown = settings_get(SET_VIDEO_MODE);
+              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;    /* two seconds to be noticed */
+          } else if (settings_get(SET_VIDEO_MARGIN) != margin_shown) {   /* or turned the margin off */
+              margin_shown = settings_get(SET_VIDEO_MARGIN);
+              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;    /* same mode, new margin */
+          } else if (machine >= 0 && machine != mode_shown) {            /* or the guest ran MODE itself */
+              mode_shown = machine; settings_set(SET_VIDEO_MODE, machine); menu_dirty();
+          }
+          mode_pending = mode_req; }
+
         int open = menu_is_open();
-        if (!open) {                                         /* the machine runs; while the menu is open it is frozen and silent */
+        if (!open || mode_pending) {                         /* the machine runs; while the menu is open it is frozen and silent */
             int vol = settings_get(SET_AUDIO_VOLUME);
             vicke_begin_frame(fb, VICKE_WIDTH);
             for (int y = 0; y < VICKE_HEIGHT; y++) {
@@ -236,7 +274,9 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
-        io_set_opts(settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0);   /* the ROM reads this at $D521 */
+        io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)   /* the ROM reads this at $D521 */
+                    | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
+                    | (uint8_t)(mode_pending << SYSOPT_MODE_SHIFT));
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
             if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */
@@ -252,40 +292,50 @@ int k4510_frontend_main(int argc, char **argv)
             SDL_SetTextureScaleMode(tex, smooth_applied == SMOOTH_SHARP ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
             SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_SHARPFIT ? SDL_TRUE : SDL_FALSE);
         }
-        /* Scanlines are the machine's, not the menu's, and never a figure's */
-        { int want = shooting ? SCAN_OFF : settings_get(SET_VIDEO_SCANLINES);
-          if (open) want = SCAN_OFF;
-          scan_applied = want; }
+        /* Scanlines are never a figure's -- but they ARE the menu's: the point
+         * of choosing them there is seeing them, so the overlay is drawn
+         * through the same path the machine's picture is. */
+        scan_applied = shooting ? SCAN_OFF : settings_get(SET_VIDEO_SCANLINES);
 
-        /* the palette, once a frame instead of once a pixel: the inner loop
-         * then reads two tables and stores twice */
+        /* the palettes, once a frame instead of once a pixel: the inner loop
+         * then reads two tables and stores twice.  Four of them -- the
+         * machine's colours and the menu's, each at full and at scanline
+         * brightness -- so the menu dims and darkens without a branch. */
         { static const int num[SCAN_COUNT] = { 4, 3, 2, 1 };            /* quarters of full brightness */
           int n = num[scan_applied];
+#define SCANDIM(c) (0xFF000000u | ((((c) >> 16 & 255) * n / 4) << 16) \
+                                | ((((c) >>  8 & 255) * n / 4) <<  8) \
+                                |  (((c)       & 255) * n / 4))
           for (int i = 0; i < 256; i++) {
-              uint32_t c = vicke_palette_rgb(i);
-              pal[i] = 0xFF000000u | c;
-              dpal[i] = 0xFF000000u | ((((c >> 16) & 255) * n / 4) << 16)
-                                    | ((((c >> 8) & 255) * n / 4) << 8)
-                                    |  (((c & 255) * n / 4));
-          } }
+              uint32_t c = vicke_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
+              pal[i]  = 0xFF000000u | c;   dpal[i]  = SCANDIM(c);
+              mpal[i] = 0xFF000000u | h;   mdpal[i] = SCANDIM(h);
+          }
+          for (int i = 0; i < UIC_COUNT; i++) {
+              uint32_t c = ui_palette_rgb(i);
+              upal[i] = 0xFF000000u | c;   udpal[i] = SCANDIM(c);
+          }
+#undef SCANDIM
+        }
 
         void *pixels; int pitch;
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
-        if (scan_applied != SCAN_OFF) {
-            for (int y = 0; y < VICKE_HEIGHT; y++) {
-                uint32_t *d0 = (uint32_t *)((uint8_t *)pixels + (2 * y) * pitch);
-                uint32_t *d1 = (uint32_t *)((uint8_t *)pixels + (2 * y + 1) * pitch);
-                const uint8_t *src = fb + y * VICKE_WIDTH;
-                for (int x = 0; x < VICKE_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
-            }
-        } else {
-            for (int y = 0; y < VICKE_HEIGHT; y++) {
-                uint32_t *dst = (uint32_t *)((uint8_t *)pixels + y * pitch);
-                const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
-                if (!open) for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = pal[src[x]];
-                else for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | (o[x] ? ui_palette_rgb(o[x]) : ((vicke_palette_rgb(src[x]) >> 1) & 0x7F7F7F));
-            }
-        }
+        { int tall = scan_applied != SCAN_OFF;         /* two texture rows per line of the machine */
+          for (int y = 0; y < VICKE_HEIGHT; y++) {
+              const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
+              uint32_t *d0 = (uint32_t *)((uint8_t *)pixels + (tall ? 2 * y : y) * pitch);
+              uint32_t *d1 = tall ? (uint32_t *)((uint8_t *)pixels + (2 * y + 1) * pitch) : NULL;
+              if (!open) {
+                  if (tall) for (int x = 0; x < VICKE_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
+                  else      for (int x = 0; x < VICKE_WIDTH; x++) d0[x] = pal[src[x]];
+              } else if (tall) {
+                  for (int x = 0; x < VICKE_WIDTH; x++)
+                      if (o[x]) { d0[x] = upal[o[x]]; d1[x] = udpal[o[x]]; }
+                      else      { d0[x] = mpal[src[x]]; d1[x] = mdpal[src[x]]; }
+              } else {
+                  for (int x = 0; x < VICKE_WIDTH; x++) d0[x] = o[x] ? upal[o[x]] : mpal[src[x]];
+              }
+          } }
         SDL_UnlockTexture(tex);
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
           uint32_t bc = vicke_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));

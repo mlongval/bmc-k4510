@@ -15,6 +15,8 @@ typedef enum {
     SET_VIDEO_BORDER,        /* INT  pixels of border around the picture */
     SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
     SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
+    SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
+    SET_VIDEO_MARGIN,        /* BOOL the one-cell gap at the top and the left (79 columns, not 80) */
     SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
     SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
@@ -37,6 +39,10 @@ typedef struct {
 } set_desc;
 /* the font choices, in the ENUM's order */
 enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN, FONT_COUNT };
+/* video modes, in the ENUM's order -- the shell's MODE 0-4 */
+enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
+#define VMODE_SAVE_MAX VMODE_320x240   /* 320x200 and below are live only: a machine that came back
+                                        * from a power cycle in 160x200 would be a bad place to be */
 /* scanline strengths, in the ENUM's order */
 enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
 /* scaling, in the ENUM's order */

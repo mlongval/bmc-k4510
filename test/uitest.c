@@ -66,6 +66,25 @@ int main(void)
     io_set_opts(settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0);
     CHECK((io_read(IO_SYS_OPTS) & SYSOPT_CPMCOM) != 0, "switched on, the guest sees it on");
     printf("3. the shell toggle reaches the guest at $D521\n");
+
+    /* 4. the video mode: asked for through the same byte, and never saved below 320x240 */
+    settings_defaults();
+    settings_set(SET_VIDEO_MODE, VMODE_320x200);
+    io_set_opts((uint8_t)((VMODE_320x200 + 1) << SYSOPT_MODE_SHIFT));
+    CHECK((io_read(IO_SYS_OPTS) >> SYSOPT_MODE_SHIFT) == VMODE_320x200 + 1, "the guest is asked for the mode at $D521");
+    io_set_opts(0);
+    CHECK((io_read(IO_SYS_OPTS) & SYSOPT_MODE) == 0, "and the request clears");
+
+    settings_set(SET_VIDEO_MODE, VMODE_160x200);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "160x200 can be chosen");
+    settings_save(cfg);
+    settings_defaults();
+    settings_load(cfg);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "but 320x240 is what survives a save");
+    { FILE *f = fopen(cfg, "a"); if (f) { fputs("video.mode = 160x200\n", f); fclose(f); } }
+    settings_load(cfg);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "and a hand-edited file is clamped on the way in");
+    printf("4. the mode request, and 320x240 as the floor for what is saved\n");
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

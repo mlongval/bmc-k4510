@@ -15,6 +15,8 @@ static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
     { "Screen font",   MI_SETTING, SET_VIDEO_FONT },
+    { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
+    { "Left/top margin", MI_SETTING, SET_VIDEO_MARGIN },
     { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
@@ -48,7 +50,7 @@ static const item_t shell_items[] = {
 static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
-static const menu_t video_menu   = { "Video",   video_items,   6 };
+static const menu_t video_menu   = { "Video",   video_items,   8 };
 static const menu_t audio_menu   = { "Audio",   audio_items,   1 };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, 8 };

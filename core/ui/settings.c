@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen" };   /* the last one is renamed by the host if /SYSTEM/chargen.bin is absent */
+static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
@@ -14,6 +15,8 @@ static const set_desc desc[SET_COUNT] = {
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
     { "video.font",          "Screen font",    ST_ENUM,  FONT_KERNEL8, 0, 0, 0, font_names, FONT_COUNT, SF_LIVE },
+    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x240, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
+    { "video.margin",        "Left/top margin",ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* the ROM boots with it on: 79x29 */
     { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_SHARP, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
@@ -61,6 +64,11 @@ const char *settings_text(set_id id, char *buf, int max)
 static const char *file_text(set_id id, char *buf, int max)   /* what goes in the file: raw numbers, enum names */
 {
     const set_desc *d = &desc[id];
+    /* 320x200 and 160x200 are live only.  A machine that came back from a
+     * power cycle in 160x200 is a place you cannot easily steer out of, so
+     * what reaches the file is never below 320x240. */
+    if (id == SET_VIDEO_MODE && value[id] > VMODE_SAVE_MAX)
+        { snprintf(buf, (size_t) max, "%s", vmode_names[VMODE_SAVE_MAX]); return buf; }
     if (d->type == ST_ENUM || d->type == ST_CHORD || d->type == ST_BOOL) return settings_text(id, buf, max);
     snprintf(buf, (size_t) max, "%d", value[id]); return buf;
 }
@@ -96,6 +104,8 @@ int settings_load(const char *path)
         int id = find_key(k);
         if (id >= 0) value[id] = parse_value((set_id) id, v);
     }
+    /* and again on the way in, in case the file was edited by hand */
+    if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_MAX;
     fclose(f); changed = 0;
     return 0;
 }

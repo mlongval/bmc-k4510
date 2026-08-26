@@ -3491,3 +3491,39 @@ and 9. ROM2: 25 bytes free.
 
 `tools/romfree.py` is the free-space parser, now in the tree instead of
 being rewritten into /tmp every time.
+
+## 2026-08-25 (later still): the menu previews what it changes
+
+**Scanlines are the menu's now.** Choosing them did nothing while the menu
+was up, because the scanline path writes two texture rows per line of the
+machine and never composited the overlay -- so the frontend forced them
+off whenever the menu was open, and you chose blind. One loop now does
+both, with four palettes built per frame (the machine's colours and the
+menu's, each at full and at scanline brightness) so the composite costs no
+branch. Scaling already applied live; it just had nothing to show against.
+
+**Resolution is in the Video menu**, and it is the first setting the host
+cannot perform by itself: PCOLS, PROWS, the stride and the margin are the
+ROM's, and writing VICKe's CTRL alone would leave the text laid out for
+the old mode. So the menu *asks* -- $D521 bits 5-7 are (mode + 1), bit 1
+is the margin, MODE's two parameters in one byte -- and `mode_do()` in the
+ROM performs it on the next key poll. Resident on purpose: banked commands
+read keys too and sw_call does not nest.
+
+Two consequences worth writing down. The machine has to be *running* to
+notice, so an outstanding request thaws it from behind the menu until
+VICKe's CTRL says the mode took, or two seconds pass (a program that never
+reads a key). And the request must be held for ten frames rather than
+retired the moment CTRL matches -- for a margin-only change the mode
+already matches, so the obvious test cleared the request before the guest
+had ever run with it. The row also reads back: type `MODE 3` at the prompt
+and the menu shows 320x200.
+
+**320x200 and 160x200 are live only.** Doc's call, and a good one: what
+reaches k4510.cfg is clamped to 320x240 on the way out *and* on the way
+back in, so a hand-edited file cannot leave the machine somewhere it is
+hard to steer out of after a power cycle. uitest check 4 covers both.
+
+ROM1C 16 bytes free, ROM2 15. The first cut of this cost 43 bytes in
+ROM1C -- the cc65 spill of one local -- and putting the margin in its own
+$D521 bit instead of sharing the mode's field bought most of it back.

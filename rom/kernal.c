@@ -134,10 +134,30 @@ static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
  * here and every key the ROM reads passes through caps(). */
 static uint8_t capslock;
 static uint8_t caps(uint8_t k) { return (capslock && k >= 'a' && k <= 'z') ? (uint8_t)(k - 32) : k; }
+/* The host's F7 menu asks for a video mode through $D521 bits 5-7 (mode + 1,
+ * 0 = nothing asked).  The ROM has to be the one to do it: the console's
+ * PCOLS/PROWS/stride are the ROM's, and writing VICKe's CTRL alone would
+ * leave the text laid out for the old mode.  Resident on purpose -- banked
+ * commands read keys too, and sw_call does not nest.
+ * No "is it already that mode?" test: the host holds the request only until
+ * it sees VICKe's CTRL change, and doing it twice is doing it once.  That
+ * keeps the whole thing ~20 bytes, which is what the resident ROM has. */
+static void video_init(void);
+static void cls(void);
+#pragma code-name (push, "CODE")
+static void mode_do(void)
+{
+    vmode  = (uint8_t)((REG(SYS + 0x21) >> 5) - 1);
+    margin = (uint8_t)((REG(SYS + 0x21) >> 1) & 1);
+    video_init(); cls();
+}
+#pragma code-name (pop)
+
 /* GETIN shows the cursor while a program waits for a key (BASIC reads this way) */
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
+    if (REG(SYS + 0x21) & 0xE0) mode_do();          /* rare: the F7 menu asked for a mode */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     if (!cursor_vis) draw_cursor(1);
     return 0;
