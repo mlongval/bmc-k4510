@@ -143,10 +143,17 @@ int k4510_frontend_main(int argc, char **argv)
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKE_WIDTH, VICKE_HEIGHT);
+    /* Two rows of texture per line of the machine, so scanlines cost a second
+     * store rather than a second surface: with them off only the top half is
+     * written and copied, so it costs nothing at all. */
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                         VICKE_WIDTH, VICKE_HEIGHT);
+                                         VICKE_WIDTH, VICKE_HEIGHT * 2);
+    int scan_applied = -1, smooth_applied = -1, logical_tall = -1;
+    const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
+                                     /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
     static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT], ov[UI_W * UI_H];
+    static uint32_t pal[256], dpal[256];
     int fullscreen_applied = 0;
 
     SDL_AudioSpec want = { 0 }, have;
@@ -237,28 +244,67 @@ int k4510_frontend_main(int argc, char **argv)
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
         menu_draw(ov);
 
+        if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
+            smooth_applied = settings_get(SET_VIDEO_SMOOTH);
+            SDL_SetTextureScaleMode(tex, smooth_applied == SMOOTH_SHARP ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
+            SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_SHARPFIT ? SDL_TRUE : SDL_FALSE);
+        }
+        /* Scanlines are the machine's, not the menu's, and never a figure's */
+        { int want = shooting ? SCAN_OFF : settings_get(SET_VIDEO_SCANLINES);
+          if (open) want = SCAN_OFF;
+          scan_applied = want; }
+
+        /* the palette, once a frame instead of once a pixel: the inner loop
+         * then reads two tables and stores twice */
+        { static const int num[SCAN_COUNT] = { 4, 3, 2, 1 };            /* quarters of full brightness */
+          int n = num[scan_applied];
+          for (int i = 0; i < 256; i++) {
+              uint32_t c = vicke_palette_rgb(i);
+              pal[i] = 0xFF000000u | c;
+              dpal[i] = 0xFF000000u | ((((c >> 16) & 255) * n / 4) << 16)
+                                    | ((((c >> 8) & 255) * n / 4) << 8)
+                                    |  (((c & 255) * n / 4));
+          } }
+
         void *pixels; int pitch;
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
-        for (int y = 0; y < VICKE_HEIGHT; y++) {
-            uint32_t *dst = (uint32_t *)((uint8_t *)pixels + y * pitch);
-            const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
-            if (!open) for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | vicke_palette_rgb(src[x]);
-            else for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | (o[x] ? ui_palette_rgb(o[x]) : ((vicke_palette_rgb(src[x]) >> 1) & 0x7F7F7F));
+        if (scan_applied != SCAN_OFF) {
+            for (int y = 0; y < VICKE_HEIGHT; y++) {
+                uint32_t *d0 = (uint32_t *)((uint8_t *)pixels + (2 * y) * pitch);
+                uint32_t *d1 = (uint32_t *)((uint8_t *)pixels + (2 * y + 1) * pitch);
+                const uint8_t *src = fb + y * VICKE_WIDTH;
+                for (int x = 0; x < VICKE_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
+            }
+        } else {
+            for (int y = 0; y < VICKE_HEIGHT; y++) {
+                uint32_t *dst = (uint32_t *)((uint8_t *)pixels + y * pitch);
+                const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
+                if (!open) for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = pal[src[x]];
+                else for (int x = 0; x < VICKE_WIDTH; x++) dst[x] = 0xFF000000u | (o[x] ? ui_palette_rgb(o[x]) : ((vicke_palette_rgb(src[x]) >> 1) & 0x7F7F7F));
+            }
         }
         SDL_UnlockTexture(tex);
-        { int b = settings_get(SET_VIDEO_BORDER); uint32_t bc = vicke_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
-          SDL_Rect dr = { b, b, VICKE_WIDTH - 2 * b, VICKE_HEIGHT - 2 * b };
+        { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
+          uint32_t bc = vicke_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
+          int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
+          SDL_Rect half = { 0, 0, VICKE_WIDTH, VICKE_HEIGHT };
+          SDL_Rect dr = { b * k, b * k, (VICKE_WIDTH - 2 * b) * k, (VICKE_HEIGHT - 2 * b) * k };
+          if (tall != logical_tall) {                            /* 4:3 either way: 640x480, or 1280x960 */
+              logical_tall = tall;
+              SDL_RenderSetLogicalSize(ren, VICKE_WIDTH * k, VICKE_HEIGHT * k);
+          }
           SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
           SDL_RenderClear(ren);
-          SDL_RenderCopy(ren, tex, NULL, &dr); }
+          SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              if (f) { fprintf(f, "P6 %d %d 255\n", VICKE_WIDTH, VICKE_HEIGHT); SDL_LockTexture(tex, NULL, &pixels, &pitch);
-                       for (int y = 0; y < VICKE_HEIGHT; y++) for (int x = 0; x < VICKE_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
+              int sh = (scan_applied != SCAN_OFF) ? VICKE_HEIGHT * 2 : VICKE_HEIGHT;   /* the tall texture is two rows a line */
+              if (f) { fprintf(f, "P6 %d %d 255\n", VICKE_WIDTH, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
+                       for (int y = 0; y < sh; y++) for (int x = 0; x < VICKE_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
                        SDL_UnlockTexture(tex); fclose(f); }
               running = 0; } }
     }

@@ -15,6 +15,8 @@ typedef enum {
     SET_VIDEO_BORDER,        /* INT  pixels of border around the picture */
     SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
     SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
+    SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
+    SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
@@ -35,6 +37,10 @@ typedef struct {
 } set_desc;
 /* the font choices, in the ENUM's order */
 enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN, FONT_COUNT };
+/* scanline strengths, in the ENUM's order */
+enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
+/* scaling, in the ENUM's order */
+enum { SMOOTH_SHARP, SMOOTH_SOFT, SMOOTH_SHARPFIT, SMOOTH_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */
