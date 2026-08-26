@@ -4454,3 +4454,38 @@ in 20 columns.
 
 ROM1C 9 bytes free, ROM2 8.  All 13 tests green; uitest 4 covers the
 restriction.
+
+## 2026-08-26: the alias engine moves to a bank of its own
+
+ROM1C had 9 bytes free and ROM2 had 8, which is not a place to work from.
+The only movable thing in ROM1C was the alias engine -- about 1.4 KB of
+it -- and it was resident for a real reason: the alias table lived in
+sideways bank 2, alias_map() wrote the same bank register sw_call uses, so
+banked alias code would have unmapped itself mid-instruction.
+
+The fix is to stop mapping anything. The engine and its table now live in
+the SAME bank: a new SW2 in the ROM image (the loader needed no change --
+mem_load_rom already copies every appended bank to $0FF00000 in order), the
+table moved from $A000 to $B000 so the code can have the bottom of the
+bank, and sw_call(2, ...) puts both in the window at once. SW2 is filled
+with zeroes rather than $FF, so an untouched table reads as empty and costs
+no initialising code at all.
+
+Two details. sw_call takes void(*)(const char*), so alias_expand's answer
+comes back in `alias_hit', a byte of resident BSS. And the engine calls
+only resident helpers (getname, puts_, error, k_chrout) -- while a bank is
+engaged, bank 0's commands are not in the window.
+
+That freed 1486 bytes of ROM1C, and since ROM1C and ROM2 are both always
+mapped, moving video_init and blank_row from CODE2 to CODE is pure link
+placement and cost nothing. The result:
+
+    ROM1C   9 -> 836 free
+    ROM2    8 -> 631 free
+    SW2     6762 free (new)
+
+Verified beyond the test suite, because this is the code every unknown
+command goes through: STARTUP.BAT's aliases still arrive at boot; defining,
+listing, expanding and removing all work; arguments still append (D /PRG ->
+DIR /PRG); chained aliases resolve; and a self-referential one still stops
+at depth 4 and leaves the machine alive.

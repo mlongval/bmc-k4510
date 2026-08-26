@@ -61,6 +61,7 @@ static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1
 static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)(y + OY) * PCOLS + x + OX) * 4; }
 #define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
 static uint8_t tpl_fg, tpl_bg, tpl_cols, cellbuf[4];
+#pragma code-name (push, "CODE")   /* resident either way: ROM1C is where the room is */
 static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included */
 {
     if (tpl_fg != fg || tpl_bg != bg || tpl_cols != PCOLS) {     /* (re)build the template: one cell, copied across */
@@ -73,6 +74,8 @@ static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included
     /* a whole physical row (the margin column stays blank because every row is blanked whole) */
     w32(DMA + 0, ROWTPL); w32(DMA + 4, SCREEN + (uint32_t)y * PCOLS * 4); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
 }
+
+#pragma code-name (pop)
 
 static void draw_cursor(uint8_t on)
 {
@@ -948,20 +951,25 @@ static void cmd_clg(const char *p)
  * Records are name\0 expansion\0 and end at a zero where a name would start;
  * a redefined or removed name is tombstoned with a 1 in its first byte.
  *
- * While the bank is engaged, bank 0's commands are NOT in the window, so all
- * of this is resident code (CODE, $C000) and does its own case folding: it
- * maps, works, and unmaps again before anything is dispatched. Everything it
- * reads from the caller -- the shell line, the C stack -- is resident too. */
-#pragma code-name (push, "CODE")
-#pragma rodata-name (push, "RODATA")
+ * The engine and its table live in the SAME bank (2), which is why none of
+ * this needs to map anything: sw_call(2, ...) puts both in the window at once.
+ * It used to be resident code that mapped the table under itself, and that
+ * cost ROM1C about 1.4 KB for something only the shell ever calls.
+ * Bank 2 is filled with zeroes in the ROM image, so an untouched table reads
+ * as empty and needs no initialising.  The engine does its own case folding
+ * and calls only resident helpers (getname, puts_, error): while a bank is
+ * engaged, bank 0's commands are not in the window, and sw_call does not nest.
+ * Everything it reads from the caller -- the shell line, the C stack -- is
+ * resident too, and the expanded line is copied into `line' before returning. */
+#pragma code-name (push, "SWCODE2")
+#pragma rodata-name (push, "SWRODATA2")
 #define ALIAS_BANK  2
-#define ALIAS_TAB   ((char *) 0xA000u)
+#define ALIAS_TAB   ((char *) 0xB000u)      /* the table sits above the engine, in the same bank */
 #define ALIAS_SCRAP ((char *) 0xBF00u)      /* the last page: where the expanded line is built */
 #define ALIAS_LIMIT ((char *) 0xBEF0u)      /* the table may grow to here */
 #define ALIAS_SEND  ((char *) 0xBFF0u)
 static uint8_t alias_depth;
-static void alias_map(void)   { w32(BANK + 20, 0x0FF00000UL + ((uint32_t)(ALIAS_BANK - 1) << 13)); }
-static void alias_unmap(void) { REG(BANK + 23) = 0x80; }
+static uint8_t alias_hit;                 /* BSS, so resident: alias_expand cannot return one */
 static char afold(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
 static uint8_t asame(const char *a, const char *b)
 {
@@ -973,12 +981,13 @@ static char *alias_end(void) { char *q = ALIAS_TAB; while (*q) { ANEXT(q); ANEXT
 
 /* the shell has run out of other ideas: is the first word an alias? if so the
  * expanded line replaces `line' and the caller runs it again */
-static uint8_t alias_expand(const char *p0)
+static void alias_expand(const char *p0)          /* sw_call takes void(*)(const char*): the answer
+                                                   * comes back in alias_hit, which is resident */
 {
     char want[24]; const char *args = p0; char *q, *n, *e, *w; uint8_t i;
-    if (!getname(&args, want)) return 0;
+    alias_hit = 0;
+    if (!getname(&args, want)) return;
     skipsp(&args);
-    alias_map();
     for (q = ALIAS_TAB; *q; ) {
         n = q; ANEXT(q); e = q; ANEXT(q);
         if (*n != 1 && asame(n, want)) {
@@ -988,15 +997,14 @@ static uint8_t alias_expand(const char *p0)
             *w = 0;
             for (i = 0; i < sizeof line - 1 && ALIAS_SCRAP[i]; i++) line[i] = ALIAS_SCRAP[i];
             line[i] = 0;                                  /* args came out of line: it is free to overwrite now */
-            alias_unmap();
-            return 1;
+            alias_hit = 1;
+            return;
         }
     }
-    alias_unmap();
-    return 0;
+    alias_hit = 0;
 }
 
-static void alias_kill(const char *want)                  /* tombstone every definition of a name; the bank must be mapped */
+static void alias_kill(const char *want)                  /* tombstone every definition of a name */
 {
     char *q, *n;
     for (q = ALIAS_TAB; *q; ) { n = q; ANEXT(q); ANEXT(q); if (*n != 1 && asame(n, want)) *n = 1; }
@@ -1007,27 +1015,23 @@ static void cmd_alias(const char *p)
     char want[24]; char *q, *n, *e, *w; const char *s; uint8_t col;
     if (!getname(&p, want)) {                             /* ALIAS on its own: list them */
         uint8_t any = 0;
-        alias_map();
         for (q = ALIAS_TAB; *q; ) {
             n = q; ANEXT(q); e = q; ANEXT(q);
             if (*n == 1) continue;
             any = 1; col = cx; puts_(n); pad(col + 12); puts_(e); newline();
         }
-        alias_unmap();
         if (!any) puts_("no aliases"), newline();
         return;
     }
     skipsp(&p);
-    alias_map();
     alias_kill(want);                                     /* ALIAS name, with nothing after it, just removes */
-    if (!*p) { alias_unmap(); return; }
+    if (!*p) return;
     w = alias_end();
-    if (w + strlen(want) + strlen(p) + 3 >= ALIAS_LIMIT) { alias_unmap(); error("alias: full"); return; }
+    if (w + strlen(want) + strlen(p) + 3 >= ALIAS_LIMIT) { error("alias: full"); return; }
     for (s = want; *s; ) *w++ = *s++;
     *w++ = 0;
     while (*p) *w++ = *p++;
     *w++ = 0; *w = 0;
-    alias_unmap();
 }
 
 #pragma code-name (pop)
@@ -1097,7 +1101,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
     if (is_cmd(&p, "SWAP"))    { cmd_swap(p); return; }
-    if (is_cmd(&p, "ALIAS"))   { cmd_alias(p); return; }
+    if (is_cmd(&p, "ALIAS"))   { sw_call(ALIAS_BANK, cmd_alias, p); return; }
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
@@ -1115,7 +1119,8 @@ static void shell_line(const char *p)
       } }
     { char nm[NAMEMAX]; const char *q = p0;               /* a CP/M program is a real program too */
       if (getname(&q, nm) && try_com(nm, q)) return; }
-    if (alias_depth < 4 && alias_expand(p0)) {        /* last of all, so an alias never shadows a real command */
+    if (alias_depth < 4) sw_call(ALIAS_BANK, alias_expand, p0);   /* last of all, so an alias never shadows a real command */
+    if (alias_depth < 4 && alias_hit) {
         alias_depth++; shell_line(line); alias_depth--; return;
     }
     error("? (HELP lists the commands; MON is the monitor)");
@@ -1169,6 +1174,7 @@ static const uint8_t c64pal[16][3] = {
 /* VICKe CTRL for each MODE: halve columns (2), halve lines (4), 200-line
  * field (8), quarter columns (16).  See core/vicke.h. */
 static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
+#pragma code-name (push, "CODE")
 static void video_init(void)
 {
     uint8_t i;
@@ -1193,6 +1199,7 @@ static void video_init(void)
     REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;
 }
 
+#pragma code-name (pop)
 /* the VIDEO system call ($FF92): the text screen's mode and palette back, screen contents kept */
 void k_video(void) { video_init(); }
 /* ---- the Tube's chips ---------------------------------------------------
