@@ -10,7 +10,7 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
-#include "../core/vicke.h"
+#include "../core/vicky.h"
 static uint8_t fb[640 * 480];
 static void row(int r, char *out) { for (int c = 0; c < 80; c++) { uint8_t ch = mem_peek(0x30000 + (r * 80 + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : ' '; } out[80] = 0; for (int i = 79; i >= 0 && out[i] == ' '; i--) out[i] = 0; }
 static int on_screen(const char *s) { char r[81]; for (int i = 0; i < 60; i++) { row(i, r); if (strstr(r, s)) return 1; } return 0; }
@@ -26,9 +26,9 @@ int main(int argc, char **argv)
     io_reset(); cpu65_reset();
     for (fr = 0; fr < maxf; fr++) {
         if (fr >= 5 && ki < kn && fr >= wait_until) { uint8_t k = (uint8_t)keys[ki++]; if (k == '~') wait_until = fr + 30; else kbd_push(k == '\n' ? 0x0D : k); }
-        vicke_begin_frame(fb, 640);
-        for (int y = 0; y < 480; y++) { cpu65.irqLevel = vicke_irq() ? 1 : 0; cpu65_step(40500000 / 60 / 480); vicke_line(y); }
-        vicke_end_frame();
+        vicky_begin_frame(fb, 640);
+        for (int y = 0; y < 480; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(40500000 / 60 / 480); vicky_line(y); }
+        vicky_end_frame();
         if (marker && ki >= kn && marker_seen(marker)) { seen = 1; break; }
     }
     for (int i = 0; i < 60; i++) { char r[81]; row(i, r); if (*r) printf("%s\n", r); }

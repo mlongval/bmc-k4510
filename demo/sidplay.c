@@ -2,7 +2,7 @@
  * on SID 0, the way a C64 would: the player lives under the ROM at $E000
  * (K-05) so the tune may own $0400-$CFFF; the zero page is swapped around
  * every call into the tune; play() runs at the tune's rate (50 Hz PAL,
- * 60 Hz NTSC or CIA) from the frame counter. VICKe registers a tune may
+ * 60 Hz NTSC or CIA) from the frame counter. VICKY registers a tune may
  * poke (it thinks they are the VIC-II) are put back every frame.
  *   chooser: cursor keys, PgUp/PgDn, Enter plays, Esc leaves
  *   playing: +/- next/previous song, space next file, Esc back to the list */

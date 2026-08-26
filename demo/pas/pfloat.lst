@@ -524,7 +524,7 @@ Source: pfloat.a65
    619
    620 				; ------------------------------------------------------------
    621
-   622 = D000			VICKE_BASE	= $D000
+   622 = D000			VICKY_BASE	= $D000
    623 = D400			SID_BASE	= $D400
    624 = D500			SYS_BASE	= $D500
    625 = D700			MATH_BASE	= $D700
@@ -544,8 +544,8 @@ Source: pfloat.a65
    639 = 000D			FS_RM	= $0D
    640 = 000E			FS_RMDIR	= $0E
    641 = 000F			FS_GETCWD	= $0F
-   642 = D000			adr.VICKE	= $D000
-   643 1027			.var VICKE	= adr.VICKE .word
+   642 = D000			adr.VICKY	= $D000
+   643 1027			.var VICKY	= adr.VICKY .word
    644 = D100			KBD	= $D100
    645 = D101			KBDST	= $D101
    646 = D102			KBDPEEK	= $D102
@@ -593,7 +593,7 @@ Source: pfloat.a65
    688 = DA0C			TERM_BG	= $DA0C
    689 = DA0E			TERM_FLAGS	= $DA0E
    690
-   691 = 1027 00 D0		VICKE
+   691 = 1027 00 D0		VICKY
    691 = 1029 00 D4		SIDREG
    691 = 102B 00 D5		SYS
    691 = 102D 0D D5		SYS_FRAMES24

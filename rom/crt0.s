@@ -42,7 +42,7 @@ _exit:  jmp _exit
 ; The cursor cell is in far memory; the IRQ borrows $02-$05 for the flat
 ; pointer and restores them, so it is safe whatever program owns the zero page.
 irq:    pha
-        lda $D004               ; VICKe IRQSTAT
+        lda $D004               ; VICKY IRQSTAT
         pha
         and #1                  ; vblank?
         beq @ack

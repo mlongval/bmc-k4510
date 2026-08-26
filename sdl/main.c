@@ -1,7 +1,7 @@
 /* K4510 desktop frontend -- spike version.
  *
  * SDL2 window, 60 Hz. Each frame: run the 45GS10 for a frame's worth of
- * cycles, feed keys into the keyboard register, let VICKe render screen
+ * cycles, feed keys into the keyboard register, let VICKY render screen
  * RAM. The ROM (Wozmon) does everything else.
  */
 #include <SDL.h>
@@ -12,7 +12,7 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
-#include "../core/vicke.h"
+#include "../core/vicky.h"
 #include "../core/sid.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
@@ -35,7 +35,7 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
 }
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 #define CYCLES_PER_FRAME (CPU_HZ / 60)
-#define CYCLES_PER_LINE  (CYCLES_PER_FRAME / VICKE_HEIGHT)
+#define CYCLES_PER_LINE  (CYCLES_PER_FRAME / VICKY_HEIGHT)
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
 {
@@ -120,7 +120,7 @@ int k4510_frontend_main(int argc, char **argv)
     settings_load(cfg);
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
-    int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKe at $010000 */
+    int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
 #ifdef K4510_PI
@@ -139,20 +139,20 @@ int k4510_frontend_main(int argc, char **argv)
     sid_init((double)CPU_HZ, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       VICKE_WIDTH * SCALE, VICKE_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
+                                       VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
-    SDL_RenderSetLogicalSize(ren, VICKE_WIDTH, VICKE_HEIGHT);
+    SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
     /* Two rows of texture per line of the machine, so scanlines cost a second
      * store rather than a second surface: with them off only the top half is
      * written and copied, so it costs nothing at all. */
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                         VICKE_WIDTH, VICKE_HEIGHT * 2);
+                                         VICKY_WIDTH, VICKY_HEIGHT * 2);
     int scan_applied = -1, smooth_applied = -1, logical_tall = -1;
     const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
                                      /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
-    static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT], ov[UI_W * UI_H];
+    static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT], ov[UI_W * UI_H];
     static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
     static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
@@ -217,11 +217,11 @@ int k4510_frontend_main(int argc, char **argv)
          * and the ROM acts on its next key poll.  Which means the machine has to
          * be running: a frozen one would never see the request, and the point of
          * choosing a resolution in the menu is watching it happen.  So an
-         * outstanding request thaws the machine until VICKe's CTRL says it took,
+         * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
         { static int mode_shown = -1, margin_shown = -1, mode_req, mode_wait;
           static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
-          uint8_t c = vicke_read(VR_CTRL);
+          uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
                                                          * video_init runs, CTRL is 0 -- which is NOT
@@ -262,16 +262,16 @@ int k4510_frontend_main(int argc, char **argv)
         int open = menu_is_open();
         if (!open || mode_pending) {                         /* the machine runs; while the menu is open it is frozen and silent */
             int vol = settings_get(SET_AUDIO_VOLUME);
-            vicke_begin_frame(fb, VICKE_WIDTH);
-            for (int y = 0; y < VICKE_HEIGHT; y++) {
-                cpu65.irqLevel = vicke_irq() ? 1 : 0;
+            vicky_begin_frame(fb, VICKY_WIDTH);
+            for (int y = 0; y < VICKY_HEIGHT; y++) {
+                cpu65.irqLevel = vicky_irq() ? 1 : 0;
                 cpu65_step(CYCLES_PER_LINE);
-                vicke_line(y);
+                vicky_line(y);
                 { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
                   for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
             }
-            vicke_end_frame();
-            cpu65.irqLevel = vicke_irq() ? 1 : 0;
+            vicky_end_frame();
+            cpu65.irqLevel = vicky_irq() ? 1 : 0;
         }
         /* what the menu asked for */
         { int act = menu_take_action();
@@ -289,12 +289,12 @@ int k4510_frontend_main(int argc, char **argv)
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
-            if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */
+            if (open) vicky_repaint(fb, VICKY_WIDTH);    /* frozen: nothing else would draw the new chargen */
         }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
         /* the menu takes the machine's own row grid: 30 rows over a 240-line
          * mode, 60 over 640x480, so its lines sit on the picture's lines */
-        if (ui_cell_h((vicke_read(VR_CTRL) & 6) ? 16 : 8)) menu_dirty();
+        if (ui_cell_h((vicky_read(VR_CTRL) & 6) ? 16 : 8)) menu_dirty();
         menu_draw(ov);
 
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
@@ -317,7 +317,7 @@ int k4510_frontend_main(int argc, char **argv)
                                 | ((((c) >>  8 & 255) * n / 4) <<  8) \
                                 |  (((c)       & 255) * n / 4))
           for (int i = 0; i < 256; i++) {
-              uint32_t c = vicke_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
+              uint32_t c = vicky_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
               pal[i]  = 0xFF000000u | c;   dpal[i]  = SCANDIM(c);
               mpal[i] = 0xFF000000u | h;   mdpal[i] = SCANDIM(h);
           }
@@ -331,30 +331,30 @@ int k4510_frontend_main(int argc, char **argv)
         void *pixels; int pitch;
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
         { int tall = scan_applied != SCAN_OFF;         /* two texture rows per line of the machine */
-          for (int y = 0; y < VICKE_HEIGHT; y++) {
-              const uint8_t *src = fb + y * VICKE_WIDTH, *o = ov + y * UI_W;
+          for (int y = 0; y < VICKY_HEIGHT; y++) {
+              const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + y * UI_W;
               uint32_t *d0 = (uint32_t *)((uint8_t *)pixels + (tall ? 2 * y : y) * pitch);
               uint32_t *d1 = tall ? (uint32_t *)((uint8_t *)pixels + (2 * y + 1) * pitch) : NULL;
               if (!open) {
-                  if (tall) for (int x = 0; x < VICKE_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
-                  else      for (int x = 0; x < VICKE_WIDTH; x++) d0[x] = pal[src[x]];
+                  if (tall) for (int x = 0; x < VICKY_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
+                  else      for (int x = 0; x < VICKY_WIDTH; x++) d0[x] = pal[src[x]];
               } else if (tall) {
-                  for (int x = 0; x < VICKE_WIDTH; x++)
+                  for (int x = 0; x < VICKY_WIDTH; x++)
                       if (o[x]) { d0[x] = upal[o[x]]; d1[x] = udpal[o[x]]; }
                       else      { d0[x] = mpal[src[x]]; d1[x] = mdpal[src[x]]; }
               } else {
-                  for (int x = 0; x < VICKE_WIDTH; x++) d0[x] = o[x] ? upal[o[x]] : mpal[src[x]];
+                  for (int x = 0; x < VICKY_WIDTH; x++) d0[x] = o[x] ? upal[o[x]] : mpal[src[x]];
               }
           } }
         SDL_UnlockTexture(tex);
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
-          uint32_t bc = vicke_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
+          uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
-          SDL_Rect half = { 0, 0, VICKE_WIDTH, VICKE_HEIGHT };
-          SDL_Rect dr = { b * k, b * k, (VICKE_WIDTH - 2 * b) * k, (VICKE_HEIGHT - 2 * b) * k };
+          SDL_Rect half = { 0, 0, VICKY_WIDTH, VICKY_HEIGHT };
+          SDL_Rect dr = { b * k, b * k, (VICKY_WIDTH - 2 * b) * k, (VICKY_HEIGHT - 2 * b) * k };
           if (tall != logical_tall) {                            /* 4:3 either way: 640x480, or 1280x960 */
               logical_tall = tall;
-              SDL_RenderSetLogicalSize(ren, VICKE_WIDTH * k, VICKE_HEIGHT * k);
+              SDL_RenderSetLogicalSize(ren, VICKY_WIDTH * k, VICKY_HEIGHT * k);
           }
           SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
           SDL_RenderClear(ren);
@@ -365,9 +365,9 @@ int k4510_frontend_main(int argc, char **argv)
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              int sh = (scan_applied != SCAN_OFF) ? VICKE_HEIGHT * 2 : VICKE_HEIGHT;   /* the tall texture is two rows a line */
-              if (f) { fprintf(f, "P6 %d %d 255\n", VICKE_WIDTH, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
-                       for (int y = 0; y < sh; y++) for (int x = 0; x < VICKE_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
+              int sh = (scan_applied != SCAN_OFF) ? VICKY_HEIGHT * 2 : VICKY_HEIGHT;   /* the tall texture is two rows a line */
+              if (f) { fprintf(f, "P6 %d %d 255\n", VICKY_WIDTH, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
+                       for (int y = 0; y < sh; y++) for (int x = 0; x < VICKY_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
                        SDL_UnlockTexture(tex); fclose(f); }
               running = 0; } }
     }

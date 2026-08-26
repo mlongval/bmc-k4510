@@ -10,7 +10,7 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
-#include "../core/vicke.h"
+#include "../core/vicky.h"
 
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)

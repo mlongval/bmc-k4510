@@ -19,4 +19,4 @@ out=$(./test/headless rom/kernal.bin "PGRAPH
 ~ECHO BACK FROM GRAPH
 ~~" 900 2>&1) || { echo "$out"; echo "pastest: FAILED: pgraph"; exit 1; }
 echo "$out" | grep -q "BACK FROM GRAPH" || { echo "$out"; echo "pastest: FAILED: pgraph did not hand the shell back"; exit 1; }
-echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, GRAPH on VICKe, all back to the shell)"
+echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, GRAPH on VICKY, all back to the shell)"

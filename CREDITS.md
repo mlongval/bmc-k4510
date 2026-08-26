@@ -50,7 +50,7 @@ Thank you:
   all: the route there was always meant to be BMC64's `emux_api` seam.
   Also the **VIC-II Kawari** — a modern drop-in VIC-II with modes the
   original never had, and the proof that extending an 8-bit machine's
-  video chip is working inside the tradition, not outside it. VICKe is
+  video chip is working inside the tradition, not outside it. VICKY is
   a more reckless cousin of that idea.
 - **minch** (aminch) — BMC64's maintainer since Randy handed it over,
   carrying it onto the newer Pis.
@@ -94,7 +94,7 @@ build.
 
 ## The machine's other author
 
-Most of the K4510's own code — VICKe, SHEILA, the DMA engine, the ROM,
+Most of the K4510's own code — VICKY, SHEILA, the DMA engine, the ROM,
 K/OS, the Tube ULA, the editors, the Pi port — was written in
 conversation with Claude (Anthropic's Claude Code), over several months
 of long sessions with a build log to prove it. The design decisions are

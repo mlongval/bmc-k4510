@@ -1,7 +1,7 @@
 ; BMC-K4510 demo ROM: SHEILA gradient, text layer, a bouncing sprite.
-; Everything below is done by the 45GS02 through VICKe's registers.
+; Everything below is done by the 45GS02 through VICKY's registers.
 !cpu m65
-VICKE  = $D000
+VICKY  = $D000
 FONT   = $010000
 SCREEN = $0800
 SPRTAB = $2000          ; sprite table (128 x 16)
@@ -18,80 +18,80 @@ RESET:  cld
         ldx #$FF
         txs
         lda #0
-        sta VICKE+$00
+        sta VICKY+$00
         ; palette: 0 = black, 1 = white, 16..47 = sky gradient (dark blue -> light)
         lda #16
-        sta VICKE+$06
+        sta VICKY+$06
         ldx #0
 .pal:   lda #$10
-        sta VICKE+$07           ; R
+        sta VICKY+$07           ; R
         txa
         asl
         clc
         adc #$20
-        sta VICKE+$08           ; G = 32 + 2i
+        sta VICKY+$08           ; G = 32 + 2i
         txa
         asl
         asl
         clc
         adc #$60
-        sta VICKE+$09           ; B = 96 + 4i  (commits, index++)
+        sta VICKY+$09           ; B = 96 + 4i  (commits, index++)
         inx
         cpx #32
         bne .pal
         ; entry 48 = ball colour (orange), 49 = ball shade
         lda #48
-        sta VICKE+$06
+        sta VICKY+$06
         lda #$FF
-        sta VICKE+$07
+        sta VICKY+$07
         lda #$80
-        sta VICKE+$08
+        sta VICKY+$08
         lda #$20
-        sta VICKE+$09
+        sta VICKY+$09
         lda #$C0
-        sta VICKE+$07
+        sta VICKY+$07
         lda #$50
-        sta VICKE+$08
+        sta VICKY+$08
         lda #$10
-        sta VICKE+$09
+        sta VICKY+$09
         ; text layer 0: map SCREEN, glyphs FONT, 80/row, palofs 0 -> fg index 1 (white)
         lda #80
-        sta VICKE+$16
+        sta VICKY+$16
         lda #0
-        sta VICKE+$17
+        sta VICKY+$17
         lda #<SCREEN
-        sta VICKE+$1C
+        sta VICKY+$1C
         lda #>SCREEN
-        sta VICKE+$1D
+        sta VICKY+$1D
         lda #0
-        sta VICKE+$1E
-        sta VICKE+$1F
+        sta VICKY+$1E
+        sta VICKY+$1F
         lda #<FONT
-        sta VICKE+$18
+        sta VICKY+$18
         lda #>FONT
-        sta VICKE+$19
+        sta VICKY+$19
         lda #^FONT
-        sta VICKE+$1A
+        sta VICKY+$1A
         lda #0
-        sta VICKE+$1B
-        sta VICKE+$11
+        sta VICKY+$1B
+        sta VICKY+$11
         lda #%00000101
-        sta VICKE+$10
+        sta VICKY+$10
         jsr CLS
         jsr TEXT
         jsr BALL
         jsr SHEILA
         lda #16
-        sta VICKE+$01           ; initial background
+        sta VICKY+$01           ; initial background
         lda #1
-        sta VICKE+$00           ; display on
+        sta VICKY+$00           ; display on
         jsr SOUND
         ; ---- main loop: wait vblank, move the ball ----
-LOOP:   lda VICKE+$04
+LOOP:   lda VICKY+$04
         and #1
         beq LOOP
         lda #1
-        sta VICKE+$04           ; ack vblank
+        sta VICKY+$04           ; ack vblank
         ; x += dx
         lda BX
         clc
@@ -187,7 +187,7 @@ TEXT:   ldx #0
         inx
         bne .v
 .done:  rts
-MSG1:   !text "BMC-K4510   45GS02 + VICKe + SHEILA", 0
+MSG1:   !text "BMC-K4510   45GS02 + VICKY + SHEILA", 0
 MSG2:   !text "sky: SHEILA palette bands   ball: sprite 0, 16x16, 8 bpp, moved on vblank", 0
 MSG3:   !text "text layer 0 over a SHEILA gradient  --  everything on screen is 45GS02 code talking to registers", 0
 
@@ -274,14 +274,14 @@ BALL:   ; 16x16 8bpp ball: index 48, shade 49 on the lower-right, 0 outside a ro
         lda #1
         sta DY
         lda #<SPRTAB
-        sta VICKE+$0A
+        sta VICKY+$0A
         lda #>SPRTAB
-        sta VICKE+$0B
+        sta VICKY+$0B
         lda #0
-        sta VICKE+$0C
-        sta VICKE+$0D
+        sta VICKY+$0C
+        sta VICKY+$0D
         lda #1
-        sta VICKE+$0E           ; sprites on
+        sta VICKY+$0E           ; sprites on
         rts
 
 SHEILA: ; 32 bands of 15 lines: WAIT n*15 ; MOVE BGCOL, 16+n
@@ -325,14 +325,14 @@ SHEILA: ; 32 bands of 15 lines: WAIT n*15 ; MOVE BGCOL, 16+n
         lda #0
         sta SHLIST+256          ; END (32 bands x 8 bytes = 256; Y would wrap)
         lda #<SHLIST
-        sta VICKE+$60
+        sta VICKY+$60
         lda #>SHLIST
-        sta VICKE+$61
+        sta VICKY+$61
         lda #0
-        sta VICKE+$62
-        sta VICKE+$63
+        sta VICKY+$62
+        sta VICKY+$63
         lda #1
-        sta VICKE+$64           ; SHEILA on
+        sta VICKY+$64           ; SHEILA on
         rts
 
 CLS:    lda #<SCREEN

@@ -1,6 +1,6 @@
 /* BMC-K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS10.
  *
- * A colour text terminal on VICKe text32, a keyboard driver, the host
+ * A colour text terminal on VICKY text32, a keyboard driver, the host
  * filesystem, and a shell that keeps Wozmon's syntax and adds files,
  * 28-bit memory access through DMA, INFO, and a handful of utilities.
  * 24 KB ROM at $A000-$FFFF with the I/O hole at $D000 (rom/k4510.cfg).
@@ -8,9 +8,9 @@
 #include <stdint.h>
 #include <string.h>
 
-/* ---- hardware (mirrors core/io.h and core/vicke.h) -------------------- */
+/* ---- hardware (mirrors core/io.h and core/vicky.h) -------------------- */
 #define REG(a) (*(volatile uint8_t *)(a))
-#define VICKE  0xD000u
+#define VICKY  0xD000u
 #define KBD    0xD100u
 #define KBDST  0xD101u
 #define DMA    0xD200u
@@ -139,11 +139,11 @@ static uint8_t capslock;
 static uint8_t caps(uint8_t k) { return (capslock && k >= 'a' && k <= 'z') ? (uint8_t)(k - 32) : k; }
 /* The host's F7 menu asks for a video mode through $D521 bits 5-7 (mode + 1,
  * 0 = nothing asked).  The ROM has to be the one to do it: the console's
- * PCOLS/PROWS/stride are the ROM's, and writing VICKe's CTRL alone would
+ * PCOLS/PROWS/stride are the ROM's, and writing VICKY's CTRL alone would
  * leave the text laid out for the old mode.  Resident on purpose -- banked
  * commands read keys too, and sw_call does not nest.
  * No "is it already that mode?" test: the host holds the request only until
- * it sees VICKe's CTRL change, and doing it twice is doing it once.  That
+ * it sees VICKY's CTRL change, and doing it twice is doing it once.  That
  * keeps the whole thing ~20 bytes, which is what the resident ROM has. */
 static void video_init(void);
 static void cls(void);
@@ -167,7 +167,13 @@ uint8_t k_getin(void)
 {
     if (REG(SYS + 0x21) & 0x10) mode_do();          /* rare: the F7 menu asked for a mode */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
-    if (!cursor_vis) draw_cursor(1);
+    /* Not while JIM is showing its own: a program that draws through the
+     * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the
+     * console's cursor would be a second one -- blinking to a different
+     * clock, parked on whatever cell the shell last left it on, reversing
+     * whatever the program has since drawn there. */
+    if (REG(TERM + 0x0E)) { if (cursor_vis) draw_cursor(0); }
+    else if (!cursor_vis) draw_cursor(1);
     return 0;
 }
 
@@ -492,7 +498,7 @@ static void run_at(uint16_t a)
     /* snapshot the video controls: a program that drew gets the text mode
      * put back and a clean screen; one that only printed keeps its output
      * on screen (so SAY, and disk commands like it, behave like commands) */
-    uint8_t v0 = REG(VICKE + 0), l1 = REG(VICKE + 0x20), l2 = REG(VICKE + 0x30), l3 = REG(VICKE + 0x40), sc = REG(VICKE + 0x0E);
+    uint8_t v0 = REG(VICKY + 0), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E);
     for (i = 0; i < sizeof tpl; i++) t[i] = tpl[i];
     for (b = 5; b <= 7; b++) {
         uint8_t *slot = t + 2 + 3 * (b - 5);
@@ -511,8 +517,8 @@ static void run_at(uint16_t a)
     REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
     call_prog(TRAMP);
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
-    if (v0 != REG(VICKE + 0) || l1 != REG(VICKE + 0x20) || l2 != REG(VICKE + 0x30) ||
-        l3 != REG(VICKE + 0x40) || sc != REG(VICKE + 0x0E)) {
+    if (v0 != REG(VICKY + 0) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
+        l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
         video_init();
         cls();
     }
@@ -591,7 +597,7 @@ static void cmd_color(const char *p)
     uint8_t d; uint32_t f, b = bg;
     f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
     skipsp(&p); if (*p) b = parsehex(&p, &d);
-    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKE + 1) = bg;
+    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
     cls();
 }
 #pragma code-name (pop)
@@ -643,28 +649,28 @@ static void info_mem(void)
 
 static void info_video(void)
 {
-    uint8_t ctrl = REG(VICKE), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
-    label("VIDEO"); puts_("VICKe "); puts_((ctrl & 2) ? "320x240" : (ctrl & 4) ? "640x240" : "640x480"); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
-    onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKE + 1)); puts_(", raster "); putdec(r16(VICKE + 2) & 0x1FF);
-    puts_(", irq mask $"); puthex(REG(VICKE + 5)); newline();
+    uint8_t ctrl = REG(VICKY), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
+    label("VIDEO"); puts_("VICKY "); puts_((ctrl & 2) ? "320x240" : (ctrl & 4) ? "640x240" : "640x480"); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
+    onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKY + 1)); puts_(", raster "); putdec(r16(VICKY + 2) & 0x1FF);
+    puts_(", irq mask $"); puthex(REG(VICKY + 5)); newline();
     for (n = 0; n < 4; n++) {
-        L = 0x10 + n * 0x10; lc = REG(VICKE + L);
+        L = 0x10 + n * 0x10; lc = REG(VICKY + L);
         pad(8); puts_("layer "); k_chrout('0' + n); puts_(": ");
         if (!(lc & 1)) { puts_("off"); newline(); continue; }
         puts_(modenames[(lc >> 1) & 3]); k_chrout(' '); putdec(1 << ((lc >> 3) & 3)); puts_(" bpp");
         if (((lc >> 1) & 3) == 1) { puts_(", "); putdec(8 << ((lc >> 5) & 3)); puts_("px tiles"); }
         if (((lc >> 1) & 3) >= 2) { puts_(", 8x"); putdec((lc & 0x20) ? 16 : 8); puts_(" cells"); }
-        puts_(", stride "); putdec(r16(VICKE + L + 6)); puts_(", scroll "); putdec(r16(VICKE + L + 2)); k_chrout(','); putdec(r16(VICKE + L + 4)); newline();
-        pad(17); puts_("data $"); puthex28(r32(VICKE + L + 8)); puts_("  map $"); puthex28(r32(VICKE + L + 12)); newline();
+        puts_(", stride "); putdec(r16(VICKY + L + 6)); puts_(", scroll "); putdec(r16(VICKY + L + 2)); k_chrout(','); putdec(r16(VICKY + L + 4)); newline();
+        pad(17); puts_("data $"); puthex28(r32(VICKY + L + 8)); puts_("  map $"); puthex28(r32(VICKY + L + 12)); newline();
     }
-    t = r32(VICKE + 0x0A);
-    pad(8); puts_("sprites "); onoff(REG(VICKE + 0x0E) & 1);
-    if (REG(VICKE + 0x0E) & 1) {
+    t = r32(VICKY + 0x0A);
+    pad(8); puts_("sprites "); onoff(REG(VICKY + 0x0E) & 1);
+    if (REG(VICKY + 0x0E) & 1) {
         for (i = 0; i < 128; i++) if (peek(t + (uint32_t)i * 16 + 8) & 1) cnt++;
         puts_(", table $"); puthex28(t); puts_(", "); putdec(cnt); puts_(" of 128 enabled");
     }
     newline();
-    pad(8); puts_("SHEILA "); onoff(REG(VICKE + 0x64) & 1); puts_(", list $"); puthex28(r32(VICKE + 0x60)); newline();
+    pad(8); puts_("SHEILA "); onoff(REG(VICKY + 0x64) & 1); puts_(", list $"); puthex28(r32(VICKY + 0x60)); newline();
 }
 
 static void info_sound(void)
@@ -931,9 +937,9 @@ static void cmd_caps(const char *p)
 static void cmd_clg(const char *p)
 {
     uint32_t addr, len; (void)p;
-    if (!(REG(VICKE + 0x20) & 1)) { error("clg: no bitmap on screen"); return; }
-    addr = r32(VICKE + 0x28) & 0x0FFFFFFFUL;
-    len = (uint32_t) r16(VICKE + 0x26) * ((REG(VICKE + 0) & 6) ? 240UL : 480UL);
+    if (!(REG(VICKY + 0x20) & 1)) { error("clg: no bitmap on screen"); return; }
+    addr = r32(VICKY + 0x28) & 0x0FFFFFFFUL;
+    len = (uint32_t) r16(VICKY + 0x26) * ((REG(VICKY + 0) & 6) ? 240UL : 480UL);
     if (len) dma_fill(0, addr, len);
 }
 #pragma code-name (pop)
@@ -1171,8 +1177,8 @@ static const uint8_t c64pal[16][3] = {
     {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
     {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
 
-/* VICKe CTRL for each MODE: halve columns (2), halve lines (4), 200-line
- * field (8), quarter columns (16).  See core/vicke.h. */
+/* VICKY CTRL for each MODE: halve columns (2), halve lines (4), 200-line
+ * field (8), quarter columns (16).  See core/vicky.h. */
 static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
 #pragma code-name (push, "CODE")
 static void video_init(void)
@@ -1180,20 +1186,20 @@ static void video_init(void)
     uint8_t i;
     PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : vmode >= 3 ? 25 : 30;
     COLS = PCOLS - margin; ROWS = PROWS - margin;
-    REG(VICKE + 0) = 0;
-    REG(VICKE + 1) = C_BG;
-    for (i = 0; i < 16; i++) { REG(VICKE + 6) = i; REG(VICKE + 7) = c64pal[i][0]; REG(VICKE + 8) = c64pal[i][1]; REG(VICKE + 9) = c64pal[i][2]; }
+    REG(VICKY + 0) = 0;
+    REG(VICKY + 1) = C_BG;
+    for (i = 0; i < 16; i++) { REG(VICKY + 6) = i; REG(VICKY + 7) = c64pal[i][0]; REG(VICKY + 8) = c64pal[i][1]; REG(VICKY + 9) = c64pal[i][2]; }
     /* layer 0: text32, 8x8, map SCREEN, glyphs FONT, 80 cells/row */
-    w16(VICKE + 0x16, PCOLS);
-    w32(VICKE + 0x1C, SCREEN);
-    w32(VICKE + 0x18, FONT);
-    w16(VICKE + 0x12, 0); w16(VICKE + 0x14, 0);
-    REG(VICKE + 0x11) = 0;
-    REG(VICKE + 0x10) = 0x01 | (3 << 1);      /* enable | text32 */
-    for (i = 1; i < 4; i++) REG(VICKE + 0x10 + i * 0x10) = 0;
-    REG(VICKE + 0x0E) = 0; REG(VICKE + 0x64) = 0;
-    REG(VICKE + 5) = 1;                        /* IRQ on vblank */
-    REG(VICKE + 0) = (uint8_t)(1 | ctrlmode[vmode]);
+    w16(VICKY + 0x16, PCOLS);
+    w32(VICKY + 0x1C, SCREEN);
+    w32(VICKY + 0x18, FONT);
+    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, 0);
+    REG(VICKY + 0x11) = 0;
+    REG(VICKY + 0x10) = 0x01 | (3 << 1);      /* enable | text32 */
+    for (i = 1; i < 4; i++) REG(VICKY + 0x10 + i * 0x10) = 0;
+    REG(VICKY + 0x0E) = 0; REG(VICKY + 0x64) = 0;
+    REG(VICKY + 5) = 1;                        /* IRQ on vblank */
+    REG(VICKY + 0) = (uint8_t)(1 | ctrlmode[vmode]);
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
     REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;
@@ -1205,7 +1211,7 @@ void k_video(void) { video_init(); }
 /* ---- the Tube's chips ---------------------------------------------------
  * BBC BASIC's graphics VDU stream and SOUND statements travel down the
  * Tube as ESC]K4G;... / ESC]K4S;... strings; the Tube ULA (core/io.c)
- * executes them itself, on the VICKe blitter and the sound sequencer at
+ * executes them itself, on the VICKY blitter and the sound sequencer at
  * $D5E0, before they ever reach this console -- the job the BBC Micro's
  * I/O processor did for its co-processors. Only MODE (K4G;22) is passed
  * through as well, because the console must switch its own text geometry
@@ -1221,7 +1227,7 @@ static void bbg_mode22(uint8_t n)
     }
     if (!bgon) { oldvm = vmode; oldmg = margin; bgon = 1; }
     vmode = 0; margin = 0; video_init(); cls();          /* 640x480, 80x60 text under the bitmap */
-    REG(VICKE + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
+    REG(VICKY + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
 }
 /* BBCBASIC / CPM: the console connected to the Tube co-processor, which
  * runs Richard Russell's BBC BASIC (console edition) or RunCPM, each with

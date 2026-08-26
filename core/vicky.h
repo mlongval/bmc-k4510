@@ -1,9 +1,9 @@
-/* VICKe -- the K4510 video chip.
+/* VICKY -- the K4510 video chip.
  *
- * Register block at IO_VICKE ($D000), 256 bytes, byte-addressed. Every
+ * Register block at IO_VICKY ($D000), 256 bytes, byte-addressed. Every
  * pointer is a 28-bit physical address into main RAM; there is no video
  * memory. Rendering is per scanline into an 8-bit indexed framebuffer the
- * frontend supplies; the frontend applies vicke_palette_rgb().
+ * frontend supplies; the frontend applies vicky_palette_rgb().
  *
  *   $00  CTRL      bit0 display enable; the rest pick the mode.  The glass is
  *                  always 640x480 and the raster lines are always 0..479 --
@@ -62,7 +62,7 @@
  * line about to be drawn.
  *   00 END                       stop until next frame
  *   01 WAIT lo hi                wait for line >= (hi<<8|lo)
- *   02 MOVE reg val              write val to VICKe register reg
+ *   02 MOVE reg val              write val to VICKY register reg
  *   03 SKIP lo hi                skip next instruction if line >= value
  *   04 JUMP a0 a1 a2             continue at 24-bit address
  *   05 IRQ                       set IRQSTAT bit2
@@ -93,13 +93,13 @@
  * the ground (text32 bg is never transparent). Changed 2026-08-22 from
  * "opaque in the lowest layer" so SHEILA backgrounds show under text.
  */
-#ifndef K4510_VICKE_H
-#define K4510_VICKE_H
+#ifndef K4510_VICKY_H
+#define K4510_VICKY_H
 #include <stdint.h>
 
-#define VICKE_WIDTH   640
-#define VICKE_HEIGHT  480
-#define VICKE_LAYERS  4
+#define VICKY_WIDTH   640
+#define VICKY_HEIGHT  480
+#define VICKY_LAYERS  4
 
 /* register offsets */
 #define VR_CTRL     0x00
@@ -136,7 +136,7 @@
 #define VR_LY1      0x8A
 #define VR_LX2      0x8C
 #define VR_LY2      0x8E
-#define VICKE_SPRITES 128
+#define VICKY_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
 #define VL_CTRL     0
 #define VL_PALOFS   1
@@ -151,16 +151,16 @@
 #define VL_MODE_TEXT   2    /* text8  */
 #define VL_MODE_TEXT32 3
 
-void     vicke_reset(void);
-uint8_t  vicke_read(uint8_t reg);
-void     vicke_write(uint8_t reg, uint8_t v);
-void     vicke_render(uint8_t *fb, int pitch);        /* one full frame (tests) */
+void     vicky_reset(void);
+uint8_t  vicky_read(uint8_t reg);
+void     vicky_write(uint8_t reg, uint8_t v);
+void     vicky_render(uint8_t *fb, int pitch);        /* one full frame (tests) */
 /* Scanline-granular interface for the frontend: run the CPU between lines. */
-void     vicke_begin_frame(uint8_t *fb, int pitch);
-void     vicke_line(int y);                           /* render line y, run SHEILA, raise IRQs */
-void     vicke_end_frame(void);                       /* vblank */
-void     vicke_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */
-int      vicke_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
-uint32_t vicke_palette_rgb(int index);                /* 0x00RRGGBB */
+void     vicky_begin_frame(uint8_t *fb, int pitch);
+void     vicky_line(int y);                           /* render line y, run SHEILA, raise IRQs */
+void     vicky_end_frame(void);                       /* vblank */
+void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */
+int      vicky_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
+uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
 
 #endif

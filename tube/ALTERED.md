@@ -20,10 +20,10 @@ Alterations, all marked with [BMC-K4510] comments:
   edition previously dropped -- 16 (CLG), 18 (GCOL), 19 (palette),
   25 (PLOT) and 29 (origin), plus the mode number on 22 (MODE) -- as
   `ESC ] K4G ; <args> BEL` strings, which the K4510 console interprets
-  onto its VICKe video chip.
+  onto its VICKY video chip.
 
 - src/bbccos.c: xeqvdu() forwards VDU 23,27 (Acorn's sprite hook) as
-  `ESC ] K4G ; 23,27,... BEL`; the K4510's Tube ULA keeps VICKe's
+  `ESC ] K4G ; 23,27,... BEL`; the K4510's Tube ULA keeps VICKY's
   hardware sprites behind it.
 
 - src/bbccos.c: *DIR lists subdirectories (with a trailing /) whatever

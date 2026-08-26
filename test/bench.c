@@ -1,5 +1,5 @@
 /* Headless frame-time benchmark: how much host time does one emulated
- * frame cost, split into CPU / VICKe / reSID?  bench ROM FRAMES "keys"
+ * frame cost, split into CPU / VICKY / reSID?  bench ROM FRAMES "keys"
  * Keys are typed one per frame from frame 5 (like capture); timing starts
  * after WARMUP frames so the program being measured is already running. */
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
-#include "../core/vicke.h"
+#include "../core/vicky.h"
 #include "../core/sid.h"
 #define WARMUP 120
 static uint8_t fb[640 * 480];
@@ -26,21 +26,21 @@ int main(int argc, char **argv)
     for (int fr = 0; fr < WARMUP + frames; fr++) {
         if (fr >= 5 && ki < kn) { uint8_t k = (uint8_t)keys[ki++]; kbd_push(k == '\n' ? 0x0D : k); }
         int m = fr >= WARMUP; double t0, t1;
-        vicke_begin_frame(fb, 640);
+        vicky_begin_frame(fb, 640);
         for (int y = 0; y < 480; y++) {
-            cpu65.irqLevel = vicke_irq() ? 1 : 0;
+            cpu65.irqLevel = vicky_irq() ? 1 : 0;
             t0 = now(); cpu65_step(40500000 / 60 / 480); t1 = now(); if (m) tc += t1 - t0;
-            t0 = t1; vicke_line(y); t1 = now(); if (m) tv += t1 - t0;
+            t0 = t1; vicky_line(y); t1 = now(); if (m) tv += t1 - t0;
             { int16_t tmp[256]; t0 = t1; sid_render(40500000 / 60 / 480, tmp, 256); t1 = now(); if (m) ts += t1 - t0; }
         }
-        vicke_end_frame();
+        vicky_end_frame();
         /* palette expansion, as the SDL frontend does it (the Pi would write 8-bit directly) */
-        t0 = now(); for (int y = 0; y < 480; y++) for (int x = 0; x < 640; x++) rgb[x] = vicke_palette_rgb(fb[y * 640 + x]); t1 = now(); if (m) tp += t1 - t0;
+        t0 = now(); for (int y = 0; y < 480; y++) for (int x = 0; x < 640; x++) rgb[x] = vicky_palette_rgb(fb[y * 640 + x]); t1 = now(); if (m) tp += t1 - t0;
         if (m) measured++;
     }
     (void)rgb;
     double f = 1000.0 / measured;
-    printf("%-16s %4d frames: cpu %6.2f ms  vicke %6.2f ms  resid %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
+    printf("%-16s %4d frames: cpu %6.2f ms  vicky %6.2f ms  resid %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
            kn ? keys : "(idle shell)", measured, tc * f, tv * f, ts * f, tp * f, (tc + tv + ts + tp) * f);
     return 0;
 }

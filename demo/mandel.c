@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: Mandelbrot set on the MATH unit. 320x240 (VICKe lowres),
+/* BMC-K4510 demo: Mandelbrot set on the MATH unit. 320x240 (VICKY lowres),
  * 8 bpp bitmap at $200000, drawn row by row through a RAM buffer and DMA.
  * Every number is an IEEE single in one of the unit's eight registers at
  * $D700; an operation is two byte writes (FARG, FOP) and works in place,

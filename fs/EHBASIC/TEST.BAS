@@ -62,7 +62,7 @@
 422 R$=STR$(PEEK(54528)+256*PEEK(54529))+" kHz"
 424 R$=R$+STR$(PEEK(54530)+256*PEEK(54531))+" MB counter"
 426 R$=R$+STR$(FZ)+" ->"+STR$(PEEK(54541)+256*PEEK(54542)):GOSUB 9100
-470 T$="Graphics (VICKe bitmap over the text)"
+470 T$="Graphics (VICKY bitmap over the text)"
 472 G$="GRAPHICS 2, PLOT LINE TRI PALETTE GCLS, back"
 474 E$="draws, then GRAPHICS 0 restores":GOSUB 9000
 480 GRAPHICS 2:PLOT 10,10,17:LINE 0,0,639,479,18

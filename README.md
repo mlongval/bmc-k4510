@@ -89,7 +89,7 @@ Insert, power on, and the K4510 boots in about three seconds.
   and CCP sources...): `unzip A0.zip -d fs/CPM/` installs it; it is not
   committed here (mixed provenance -- see `fs/CPM/.gitignore`).
 - **Debugging:** `DUMP [note]` in the shell (or `*DUMP note` from BASIC) writes
-  `dumps/dump-NNN.txt` on the host: CPU, banks, VICKe, SIDs, the screen, the
+  `dumps/dump-NNN.txt` on the host: CPU, banks, VICKY, SIDs, the screen, the
   shell log, the last keys, the last 4096 PCs, low memory -- paste it or point
   Claude at it.
 - **Memory:** 256 MB, flat 28-bit, reached by MAP, DMA and the flat forms;
@@ -109,7 +109,7 @@ Insert, power on, and the K4510 boots in about three seconds.
   and the C64's 38911 is a fond memory; Forth's dictionary grew to
   ~31.7 KB;
   `LOAD` understands segmented `K4SG` files (see `demo/segdemo.c`, `demo/far.h`).
-- **VICKe**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from
+- **VICKY**, the video chip: 640×480 / 640×240 / 320×240, 256 colours from
   24-bit, four layers (bitmap / tile / text), 128 sprites with no per-line
   limit, a blitter with copy/fill/logic/**line/triangle** ops, and
   **SHEILA**, a display-list coprocessor in the Amiga copper's tradition.
@@ -152,7 +152,7 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
 ## Layout
 
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
-    core/        memory, I/O devices, VICKe, SID glue, MATH unit, host seam
+    core/        memory, I/O devices, VICKY, SID glue, MATH unit, host seam
     core/resid/  reSID (GPL-2.0-or-later)
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout

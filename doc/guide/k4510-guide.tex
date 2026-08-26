@@ -6,6 +6,11 @@
 \usepackage[a5paper,nomarginpar,bottom=2cm,top=1.4cm,inner=1.6cm,outer=1.0cm,footskip=1cm]{geometry}
 \usepackage{style/k4510}
 \usepackage{booktabs}
+% make-guide.sh writes version.tex (git description + build date); these
+% defaults keep a hand-run xelatex working.
+\newcommand{\guideversion}{unversioned}
+\newcommand{\guidedate}{\today}
+\IfFileExists{version.tex}{\input{version}}{}
 \title{The BMC-K4510 User's and Programmer's Guide}
 \author{}\date{}
 \begin{document}
@@ -17,7 +22,12 @@
 \vspace{6mm}{\Large USER'S AND PROGRAMMER'S GUIDE\par}
 \vspace{3mm}{\large\color{kyellow} a fantasy 8/16-bit computer\par}
 \vfill
-{\small\color{kyellow} Draft --- 45GS10 \(\cdot\) VICKY \(\cdot\) 4 SIDs \(\cdot\) 256\,MB\par}
+{\small\color{kyellow}
+Draft version: \guideversion{} \textperiodcentered{} CPU 45GS10
+\textperiodcentered{} VICKY \textperiodcentered{} 4 reSIDs
+\textperiodcentered{} 256\,MB RAM\par
+\vspace{2mm}
+Date: \guidedate\par}
 \end{titlepage}
 \nopagecolor
 \frontmatter

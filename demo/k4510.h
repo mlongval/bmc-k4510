@@ -1,12 +1,12 @@
 /* Shared hardware access for the K4510 demo programs (cc65, .prg run from
- * the system ROM). Mirrors core/io.h and core/vicke.h. */
+ * the system ROM). Mirrors core/io.h and core/vicky.h. */
 #ifndef K4510_DEMO_H
 #define K4510_DEMO_H
 #include <stdint.h>
 #include <string.h>
 
 #define REG(a) (*(volatile uint8_t *)(a))
-#define VICKE  0xD000u
+#define VICKY  0xD000u
 #define KBD    0xD100u
 #define KBDST  0xD101u
 #define DMA    0xD200u

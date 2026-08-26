@@ -6,19 +6,19 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
-#include "../core/vicke.h"
+#include "../core/vicky.h"
 #include "../core/sid.h"
 #include "../core/state.h"
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
-#define CYCLES_PER_LINE (40500000 / 60 / VICKE_HEIGHT)
-static uint8_t fb[VICKE_WIDTH * VICKE_HEIGHT];
+#define CYCLES_PER_LINE (40500000 / 60 / VICKY_HEIGHT)
+static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];
 static void frames(int n)
 {
     while (n--) {
-        vicke_begin_frame(fb, VICKE_WIDTH);
-        for (int y = 0; y < VICKE_HEIGHT; y++) { cpu65.irqLevel = vicke_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicke_line(y); int16_t t[256]; sid_render(CYCLES_PER_LINE, t, 256); }
-        vicke_end_frame();
+        vicky_begin_frame(fb, VICKY_WIDTH);
+        for (int y = 0; y < VICKY_HEIGHT; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicky_line(y); int16_t t[256]; sid_render(CYCLES_PER_LINE, t, 256); }
+        vicky_end_frame();
     }
 }
 static void type(const char *s) { while (*s) { kbd_push(*s == '\n' ? 0x0D : (uint8_t) *s); s++; frames(1); } }

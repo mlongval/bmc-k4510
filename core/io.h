@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #define IO_BASE        0xD000u
-#define IO_VICKE       0xD000u   /* $D000-$D0FF  (Phase 4a)              */
+#define IO_VICKY       0xD000u   /* $D000-$D0FF  (Phase 4a)              */
 #define IO_INPUT       0xD100u   /* $D100-$D1FF  keyboard, joysticks     */
 #define IO_DMA         0xD200u   /* $D200-$D2FF  block DMA (C-18)        */
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
@@ -23,7 +23,7 @@
 #define SYSOPT_MODE    0xE0     /*    bits 5-7: the video mode the menu is asking for.
                                  *    The ROM performs it the next time it reads a key -- the frontend
                                  *    cannot do it alone, the console's PCOLS/PROWS/stride are the
-                                 *    ROM's.  The host clears it once VICKe's CTRL shows the mode. */
+                                 *    ROM's.  The host clears it once VICKY's CTRL shows the mode. */
 #define SYSOPT_MODE_SHIFT 5
 void    io_set_opts(uint8_t v);
 int     io_mode_acked(void);      /* 1 once: the guest performed the video-mode request */
@@ -207,7 +207,7 @@ const char *fs_get_cwd(void);
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);
-void    io_frame_tick(void);                 /* called by VICKe at vblank */
+void    io_frame_tick(void);                 /* called by VICKY at vblank */
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);
 

@@ -54,5 +54,5 @@ grid design) — not done yet; staged for when/if its look is chosen.
    LICENSES.md: the `tube/` BBCTTY vendoring (zlib, R.T. Russell).**
 3. Decide the text-mode font (font8-unscii.bin is the zero-work
    license upgrade) and the PETSCII story (openroms ROM is drop-in;
-   VICKe wiring + any charset-switch plumbing is new work).
+   VICKY wiring + any charset-switch plumbing is new work).
 4. CREDITS.md draft is staged next to this file — verify and vendor.

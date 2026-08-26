@@ -254,7 +254,7 @@ Source: hello.a65
    348
    349 				; ------------------------------------------------------------
    350
-   351 = D000			VICKE_BASE	= $D000
+   351 = D000			VICKY_BASE	= $D000
    352 = D400			SID_BASE	= $D400
    353 = D500			SYS_BASE	= $D500
    354 = D700			MATH_BASE	= $D700
@@ -274,8 +274,8 @@ Source: hello.a65
    368 = 000D			FS_RM	= $0D
    369 = 000E			FS_RMDIR	= $0E
    370 = 000F			FS_GETCWD	= $0F
-   371 = D000			adr.VICKE	= $D000
-   372 09E1			.var VICKE	= adr.VICKE .word
+   371 = D000			adr.VICKY	= $D000
+   372 09E1			.var VICKY	= adr.VICKY .word
    373 = D100			KBD	= $D100
    374 = D101			KBDST	= $D101
    375 = D102			KBDPEEK	= $D102
@@ -323,7 +323,7 @@ Source: hello.a65
    417 = DA0C			TERM_BG	= $DA0C
    418 = DA0E			TERM_FLAGS	= $DA0E
    419
-   420 = 09E1 00 D0		VICKE
+   420 = 09E1 00 D0		VICKY
    420 = 09E3 00 D4		SIDREG
    420 = 09E5 00 D5		SYS
    420 = 09E7 0D D5		SYS_FRAMES24

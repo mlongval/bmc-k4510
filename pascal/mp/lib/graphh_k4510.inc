@@ -1,4 +1,4 @@
-(* [BMC-K4510] GRAPH on VICKe: layer 1, a 640x480 8-bit bitmap at $200000
+(* [BMC-K4510] GRAPH on VICKY: layer 1, a 640x480 8-bit bitmap at $200000
    (the same one BBC BASIC's ULA draws on), pixels through the 45GS02's
    flat store, lines/rectangles/triangles through the blitter. Pixel
    value 0 is transparent -- the console's text shows through -- so

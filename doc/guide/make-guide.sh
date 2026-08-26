@@ -15,6 +15,24 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 "$HERE/make-shots.sh"
 cd "$HERE"
+
+# The cover carries a version and a build date. GUIDE_VERSION=... overrides
+# the git description; the date is always today, written DD.MM.YYYY.
+# Short enough to sit on the cover's first line: tag+commits, e.g. alpha-0.2+88.
+if [ -z "$GUIDE_VERSION" ]; then
+    TAG=$(git -C "$HERE" describe --tags --abbrev=0 2>/dev/null) || TAG=""
+    if [ -n "$TAG" ]; then
+        N=$(git -C "$HERE" rev-list "$TAG"..HEAD --count 2>/dev/null || echo 0)
+        [ "$N" = 0 ] && GUIDE_VERSION="$TAG" || GUIDE_VERSION="$TAG+$N"
+    else
+        GUIDE_VERSION=unversioned
+    fi
+fi
+VER=$GUIDE_VERSION
+printf '%s\n%s\n' \
+  "\\renewcommand{\\guideversion}{$VER}" \
+  "\\renewcommand{\\guidedate}{$(date +%d.%m.%Y)}" > version.tex
+
 xelatex -interaction=nonstopmode k4510-guide.tex >/dev/null
 xelatex -interaction=nonstopmode k4510-guide.tex | tail -2
 

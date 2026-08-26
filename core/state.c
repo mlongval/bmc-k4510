@@ -53,7 +53,7 @@ int state_save(const char *path)
     state_put(f, "CPU ", &cpu65, sizeof cpu65);
     ram_save(f);
     mem_state_save(f);
-    vicke_state_save(f);
+    vicky_state_save(f);
     io_state_save(f);
     term_state_save(f);
     state_put(f, "END ", 0, 0);
@@ -66,7 +66,7 @@ int state_load(const char *path)
     if (!f) return -1;
     if (fread(m, 1, 8, f) == 8 && !memcmp(m, magic, 8)
         && !state_get(f, "CPU ", &cpu65, sizeof cpu65)
-        && !ram_load(f) && !mem_state_load(f) && !vicke_state_load(f) && !io_state_load(f) && !term_state_load(f)
+        && !ram_load(f) && !mem_state_load(f) && !vicky_state_load(f) && !io_state_load(f) && !term_state_load(f)
         && !state_get(f, "END ", 0, 0)) rc = 0;
     fclose(f);
     return rc;

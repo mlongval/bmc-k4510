@@ -1,6 +1,6 @@
 /* JIM, the terminal ($DA00) -- the Beeb's third page, given a job: a VT100 with the ANSI colour and VT220 editing
  * additions, in hardware -- the way a real 8-bit machine got a serious
- * terminal: a card, not a program. It draws on the VICKe text32 screen the
+ * terminal: a card, not a program. It draws on the VICKY text32 screen the
  * ROM console uses, inside the geometry the ROM gives it, so the console
  * and the terminal share one screen and one cursor. Anything that needs a
  * terminal writes its byte stream here: the ROM for the Tube (CP/M

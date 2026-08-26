@@ -36,7 +36,7 @@ make cpm/runcpm 2>/dev/null && echo "setup: CP/M co-processor built" || true
 
 echo
 PASS=0; FAIL=""
-for t in mathtest fstest romtest cputest woztest maptest banktest dmatest vicketest sidtest; do
+for t in mathtest fstest romtest cputest woztest maptest banktest dmatest vickytest sidtest; do
     if ./test/$t >/dev/null 2>&1; then PASS=$((PASS+1)); else FAIL="$FAIL $t"; fi
 done
 echo "setup: tests: $PASS/10 pass${FAIL:+ (failed:$FAIL)}"

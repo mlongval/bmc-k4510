@@ -101,7 +101,7 @@ Source: psieve.a65
    181
    182 				; ------------------------------------------------------------
    183
-   184 = D000			VICKE_BASE	= $D000
+   184 = D000			VICKY_BASE	= $D000
    185 = D400			SID_BASE	= $D400
    186 = D500			SYS_BASE	= $D500
    187 = D700			MATH_BASE	= $D700
@@ -121,8 +121,8 @@ Source: psieve.a65
    201 = 000D			FS_RM	= $0D
    202 = 000E			FS_RMDIR	= $0E
    203 = 000F			FS_GETCWD	= $0F
-   204 = D000			adr.VICKE	= $D000
-   205 09C7			.var VICKE	= adr.VICKE .word
+   204 = D000			adr.VICKY	= $D000
+   205 09C7			.var VICKY	= adr.VICKY .word
    206 = D100			KBD	= $D100
    207 = D101			KBDST	= $D101
    208 = D102			KBDPEEK	= $D102
@@ -170,7 +170,7 @@ Source: psieve.a65
    250 = DA0C			TERM_BG	= $DA0C
    251 = DA0E			TERM_FLAGS	= $DA0E
    252
-   253 = 09C7 00 D0		VICKE
+   253 = 09C7 00 D0		VICKY
    253 = 09C9 00 D4		SIDREG
    253 = 09CB 00 D5		SYS
    253 = 09CD 0D D5		SYS_FRAMES24

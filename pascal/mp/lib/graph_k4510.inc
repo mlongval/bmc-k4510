@@ -1,4 +1,4 @@
-(* [BMC-K4510] GRAPH on VICKe. See graphh_k4510.inc. *)
+(* [BMC-K4510] GRAPH on VICKY. See graphh_k4510.inc. *)
 
 var	gfx_bk, gfx_ctrl: byte;
 	MULA: cardinal absolute $D770;		(* the MEGA65-style multiplier: A * B -> MULOUT *)
@@ -41,7 +41,7 @@ end;
 procedure InitGraph(mode: byte); overload;
 (*
 @description:
-Init graphics mode: VICKe layer 1 as a 640x480 8-bit bitmap over the console
+Init graphics mode: VICKY layer 1 as a 640x480 8-bit bitmap over the console
 *)
 begin
 	ScreenWidth := GFX_W;
@@ -73,7 +73,7 @@ end;
 procedure SetBkColor(color: byte); assembler;
 (*
 @description:
-Sets the background colour: VICKe's ground, seen where neither text nor picture is
+Sets the background colour: VICKY's ground, seen where neither text nor picture is
 *)
 asm
 	lda color

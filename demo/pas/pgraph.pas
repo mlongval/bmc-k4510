@@ -1,4 +1,4 @@
-// BMC-K4510: the GRAPH unit on VICKe -- lines, bars and triangles by the
+// BMC-K4510: the GRAPH unit on VICKY -- lines, bars and triangles by the
 // blitter, circles pixel by pixel, text from the ROM's font, over the
 // console. Any key ends it.
 program pgraph;
@@ -16,7 +16,7 @@ begin
   SetColor(LIGHT_GREEN); FillTriangle(40, 40, 160, 60, 90, 180);
   SetColor(LIGHT_RED); FillTriangle(480, 40, 600, 100, 520, 180);
   SetColor(WHITE); Rectangle(4, 4, 635, 475);
-  SetColor(WHITE); OutTextXY(200, 300, 'GRAPH on VICKe: Mad Pascal draws');
+  SetColor(WHITE); OutTextXY(200, 300, 'GRAPH on VICKY: Mad Pascal draws');
   SetColor(LIGHT_BLUE); OutTextXY(200, 312, 'blitter lines, bars, triangles; circles by pixel');
   GotoXY(1, 1); TextColor(YELLOW); write('PGRAPH: the console is still here, under the picture. Any key.');
   ReadKey;

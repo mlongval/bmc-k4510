@@ -1,6 +1,6 @@
 ; BMC-K4510: the I/O page and the ROM's system calls (core/io.h, rom/crt0.s)
 
-k4_vicke	= $D000		; VICKe video
+k4_vicky	= $D000		; VICKY video
 k4_kbd		= $D100		; keyboard: next key (pops)
 k4_kbdst	= $D101		; bit7 key waiting; bit0 shift, bit1 ctrl, bit2 alt
 k4_dma		= $D200		; block DMA: SRC DST LEN CMD

@@ -4624,3 +4624,45 @@ lists `0 PRINT "ZAPZAP"`. `*EDIT` brings up the nano-like one. `*ECHO ...`
 and `*SWAP VI NOTES.TXT` still pass through untouched. basictest green
 (34 EhBASIC checks + 28 BBC) -- after rebuilding test/tubetest, which was
 a day-old binary and failed on nothing at all.
+
+## 2026-08-26 (f) — the video chip is VICKY
+
+Doc: *"I think we have to change VICKY to VICKY (everywhere) because the
+Kawari 'e'xtension is moot now."* The lower-case `e` was a nod to the
+VIC-II Kawari's extended modes, from back when this machine was going to
+be a VICE fork with Kawari support. That route was dropped on 2026-08-21
+and the chip has been entirely its own thing since, so the `e` was
+carrying a dead reference.
+
+583 occurrences in 70 tracked files, done in one sweep — `VICKY`,
+`VICKY`, `vicky` and `Vicky` all folded to the one spelling — plus four
+file renames: `core/vicky.c/.h` to `core/vicky.c/.h`,
+`test/vickytest.c` to `test/vickytest.c`, and `docs/VICKY-SPEC.md` to
+`docs/VICKY-SPEC.md`. The Makefile target, the `.gitignore` entry, the
+Pascal unit's `VICKY[]` array, the BBC BASIC demos and the ROM's own
+comments all moved with it. Nothing named `vicky` remains anywhere in
+the tree.
+
+Note for anyone reading upward: entries above this one were written when
+the chip was called VICKY and were renamed with everything else, so the
+log now reads as if it always had this name. The rename happened today,
+not then.
+
+Verified on this host as far as it can be: `core/vicky.o`, `sdl/k4510`,
+`test/vickytest` and `test/statetest` all build, and both tests print
+ALL OK. The 6502 side (ACME, cc65) is not installed here, so the ROM
+and the .prg builds are checked on the laptop.
+
+## 2026-08-26 (g) — the cover says which draft, and when
+
+Doc's copy, exactly: `Draft version: xxxx · CPU 45GS10 · VICKY · 4
+reSIDs · 256 MB RAM` on one line, `Date: DD.MM.YYYY` on the next,
+interpuncts as the real character (`\textperiodcentered`).
+
+Both fields are stamped at build time by `make-guide.sh`, so neither can
+go stale: the date is today in DD.MM.YYYY, and the version is the tag
+plus commits since it, `alpha-0.2+88` — short enough to keep the whole
+first line on one line, which the full `git describe` was not.
+`GUIDE_VERSION=0.3 ./make-guide.sh` overrides it. The values land in
+`doc/guide/version.tex` (generated, ignored); `k4510-guide.tex` defines
+fallbacks so a bare `xelatex` still builds.

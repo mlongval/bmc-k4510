@@ -7,7 +7,7 @@ static uint32_t sys_frames;
 static int dbg_num;
 static int dbg_auto; static uint32_t dbg_auto_next;
 static uint8_t sid_clock_sel;
-#include "vicke.h"
+#include "vicky.h"
 #include "sid.h"
 #include "net.h"
 #include "term.h"
@@ -577,13 +577,13 @@ static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
  * co-processor. Ours does a little more: it watches the byte stream coming
  * up from BBC BASIC and executes the machine-specific escapes itself --
  * ESC]K4G;...BEL (the graphics VDU codes bbccos.c forwards: CLG, GCOL,
- * palette, PLOT, origin, mode) go straight to the VICKe blitter, and
+ * palette, PLOT, origin, mode) go straight to the VICKY blitter, and
  * ESC]K4S;...BEL (SOUND) to the sound sequencer. Those sequences never
  * reach the console ROM (except MODE, which is executed here AND passed
  * on, because the console must change its text geometry too); everything
  * else flows through untouched. BBC coordinates (1280x1024, origin bottom
  * left) land on a 640x480 8bpp bitmap at $200000 (EhBASIC's GRAPHICS
- * surface), VICKe layer 1; colour 0 stays transparent so the text screen
+ * surface), VICKY layer 1; colour 0 stays transparent so the text screen
  * shows through, and BBC logical colours live in palette entries 16-31. */
 #include <math.h>
 #define TULA_GFXB 0x200000u
@@ -593,13 +593,13 @@ static int tula_x[3], tula_y[3], tula_ox, tula_oy;
 static uint8_t tula_fg = 17, tula_bg = 16, tula_on;
 static uint8_t ula_buf[256]; static unsigned ula_n; static int ula_st;
 
-static void tula_vw16(uint8_t r, int v) { vicke_write(r, v & 0xFF); vicke_write(r + 1, (v >> 8) & 0xFF); }
-static void tula_vw32(uint8_t r, uint32_t v) { for (int i = 0; i < 4; i++) vicke_write(r + i, (v >> (8 * i)) & 0xFF); }
+static void tula_vw16(uint8_t r, int v) { vicky_write(r, v & 0xFF); vicky_write(r + 1, (v >> 8) & 0xFF); }
+static void tula_vw32(uint8_t r, uint32_t v) { for (int i = 0; i < 4; i++) vicky_write(r + i, (v >> (8 * i)) & 0xFF); }
 static int tula_sx(int x) { return x >> 1; }
 static int tula_sy(int y) { return (TULA_H - 1) - ((y * 15) >> 5); }
 static uint8_t tula_pix(uint8_t c) { return c == 16 ? 0 : c; }   /* logical black -> transparent */
 static void tula_pal(int l, int r, int g, int b)
-{ vicke_write(6, 16 + (l & 15)); vicke_write(7, r); vicke_write(8, g); vicke_write(9, b); }
+{ vicky_write(6, 16 + (l & 15)); vicky_write(7, r); vicky_write(8, g); vicky_write(9, b); }
 static void tula_pphys(int l, int p)             /* a BBC physical colour: primaries from the bits */
 { p &= 7; tula_pal(l, (p & 1) ? 255 : 0, (p & 2) ? 255 : 0, (p & 4) ? 255 : 0); }
 static void tula_defpal(int mode)                /* the mode's default logical->physical map */
@@ -613,7 +613,7 @@ static void tula_blt(uint8_t op, uint8_t c)
 {
     tula_vw32(0x70, tula_pix(c));
     tula_vw32(0x74, TULA_GFXB); tula_vw16(0x78, TULA_W); tula_vw16(0x7A, TULA_H); tula_vw16(0x7E, TULA_W);
-    vicke_write(0x80, op); vicke_write(0x82, 1);
+    vicky_write(0x80, op); vicky_write(0x82, 1);
 }
 static void tula_rect(int x0, int y0, int x1, int y1, uint8_t c)   /* pixel coords, any order */
 {
@@ -626,7 +626,7 @@ static void tula_rect(int x0, int y0, int x1, int y1, uint8_t c)   /* pixel coor
     tula_vw32(0x70, tula_pix(c));
     tula_vw32(0x74, TULA_GFXB + (uint32_t)y0 * TULA_W + x0);
     tula_vw16(0x78, x1 - x0 + 1); tula_vw16(0x7A, y1 - y0 + 1); tula_vw16(0x7E, TULA_W);
-    vicke_write(0x80, 2); vicke_write(0x82, 1);
+    vicky_write(0x80, 2); vicky_write(0x82, 1);
 }
 static void tula_clg(void) { memset(k4510_ram + TULA_GFXB, tula_pix(tula_bg), TULA_W * TULA_H); }
 static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
@@ -646,7 +646,7 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
     }
 }
 /* Sprites, the Acorn way. RISC OS reached its sprites through VDU 23,27
- * (select) and PLOT &E8-&EF (plot the selected one); ours land on VICKe's
+ * (select) and PLOT &E8-&EF (plot the selected one); ours land on VICKY's
  * 128 hardware sprites, so a plotted sprite is a register write and moving
  * it costs nothing. There is no sprite file format: a sprite is CAPTURED
  * from the bitmap, which BBC BASIC has just drawn with the words it knows.
@@ -663,12 +663,12 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
 #define TULA_SPRDAT 0x261000u
 static int tula_spr_cur, tula_spr_on;
 static uint8_t tula_spr_w[128], tula_spr_h[128];
-static void tula_spr_off(void) { if (tula_spr_on) { vicke_write(0x0E, 0); tula_spr_on = 0; } }
+static void tula_spr_off(void) { if (tula_spr_on) { vicky_write(0x0E, 0); tula_spr_on = 0; } }
 static void tula_spr_init(void)
 {
     memset(k4510_ram + TULA_SPRTAB, 0, 128 * 16);
     memset(tula_spr_w, 8, sizeof tula_spr_w); memset(tula_spr_h, 8, sizeof tula_spr_h);
-    tula_vw32(0x0A, TULA_SPRTAB); vicke_write(0x0E, 1); tula_spr_on = 1; tula_spr_cur = 0;
+    tula_vw32(0x0A, TULA_SPRTAB); vicky_write(0x0E, 1); tula_spr_on = 1; tula_spr_cur = 0;
 }
 static uint8_t tula_spr_size(int v) { return v >= 64 ? 3 : v >= 32 ? 2 : v >= 16 ? 1 : 0; }
 static void tula_spr(int op, int n, int p1, int p2, int p3, int p4)
@@ -707,15 +707,15 @@ static void tula_spr_plot(int x, int y)          /* PLOT 232-239: bottom-left of
     uint8_t *e = k4510_ram + TULA_SPRTAB + n * 16;
     e[0] = sx & 255; e[1] = (sx >> 8) & 255; e[2] = sy & 255; e[3] = (sy >> 8) & 255;
     e[8] |= 0x01;
-    vicke_write(0x0E, 1);                        /* the console's MODE re-init may have switched sprites off */
+    vicky_write(0x0E, 1);                        /* the console's MODE re-init may have switched sprites off */
 }
 static void tula_mode(int n)
 {
-    if (n == 3 || n == 6 || n == 7) { tula_spr_off(); if (tula_on) { vicke_write(0x20, 0); tula_on = 0; } return; }
+    if (n == 3 || n == 6 || n == 7) { tula_spr_off(); if (tula_on) { vicky_write(0x20, 0); tula_on = 0; } return; }
     tula_on = 1;
-    vicke_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll */
+    vicky_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll */
     tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
-    vicke_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */
+    vicky_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */
     tula_defpal(n);
     tula_fg = 16 + (n == 2 ? 7 : (n == 1 || n == 5) ? 3 : 1);
     tula_bg = 16;
@@ -792,7 +792,7 @@ static void tula_close(void)
 {
     seq_write(0, 0x80);                          /* flush and silence the sequencer */
     tula_spr_off();
-    if (tula_on) { vicke_write(0x20, 0); tula_on = 0; }
+    if (tula_on) { vicky_write(0x20, 0); tula_on = 0; }
     ula_st = 0; ula_n = 0;
 }
 static void ring_put(uint8_t b) { tube_ring[tube_w++ & 4095] = b; }
@@ -912,7 +912,7 @@ void dbg_pc(uint16_t pc) { dbg_pcs[dbg_pci++ & (DBG_PCS - 1)] = pc; }
 extern int dbg_rec;
 static void dbg_key(uint8_t k) { dbg_keys[dbg_keyi++ & (DBG_KEYS - 1)] = k; }
 static void dbg_logc(uint8_t c) { dbg_log[dbg_logi++ & (DBG_LOG - 1)] = (char)c; }
-extern uint8_t vicke_read(uint8_t r);
+extern uint8_t vicky_read(uint8_t r);
 int dbg_dump(const char *why)
 {
     char name[64]; FILE *f; time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -930,9 +930,9 @@ int dbg_dump(const char *why)
       fprintf(f, "MAP  mask=%02X off_lo=%05X off_hi=%05X mb_lo=%X mb_hi=%X   BANKS mask=%02X", mp->mask, mp->offset_low, mp->offset_high, mp->mb_low >> 20, mp->mb_high >> 20, mem_bank_mask());
       for (int b = 0; b < 8; b++) if (mem_bank_get(b) != BANK_OFF) fprintf(f, " %d=%07X", b, mem_bank_get(b));
       fprintf(f, "   FAR table=%07X depth=%d err=%d\n", far_table, far_depth, far_err); }
-    fprintf(f, "VICKe ctrl=%02X bg=%02X irqst=%02X irqmask=%02X\n", vicke_read(0), vicke_read(1), vicke_read(4), vicke_read(5));
-    for (int n = 0; n < 4; n++) { fprintf(f, "  layer %d:", n); for (int i = 0; i < 16; i++) fprintf(f, " %02X", vicke_read(0x10 + n * 16 + i)); fprintf(f, "\n"); }
-    fprintf(f, "  sprites=%02X sheila=%02X list=", vicke_read(0x0E), vicke_read(0x64)); for (int i = 3; i >= 0; i--) fprintf(f, "%02X", vicke_read(0x60 + i)); fprintf(f, "\n");
+    fprintf(f, "VICKY ctrl=%02X bg=%02X irqst=%02X irqmask=%02X\n", vicky_read(0), vicky_read(1), vicky_read(4), vicky_read(5));
+    for (int n = 0; n < 4; n++) { fprintf(f, "  layer %d:", n); for (int i = 0; i < 16; i++) fprintf(f, " %02X", vicky_read(0x10 + n * 16 + i)); fprintf(f, "\n"); }
+    fprintf(f, "  sprites=%02X sheila=%02X list=", vicky_read(0x0E), vicky_read(0x64)); for (int i = 3; i >= 0; i--) fprintf(f, "%02X", vicky_read(0x60 + i)); fprintf(f, "\n");
     for (int c = 0; c < 4; c++) { fprintf(f, "SID%d:", c); for (int i = 0; i < 25; i++) fprintf(f, " %02X", sid_shadow[c][i]); fprintf(f, "\n"); }
     fprintf(f, "FS   reg:"); for (int i = 0; i < 0x14; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
@@ -976,7 +976,7 @@ void io_reset(void)
     memset(seq_reg, 0, sizeof seq_reg); memset(seq_left, 0, sizeof seq_left);
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
-    vicke_reset();
+    vicky_reset();
     sid_clock_sel = 0; sid_set_clock(0);
     sid_reset();
 }
@@ -984,8 +984,8 @@ void io_reset(void)
 uint8_t io_read(uint16_t addr)
 {
     switch (addr & 0xFF00) {
-    case IO_VICKE:
-        return vicke_read(addr & 0xFF);
+    case IO_VICKY:
+        return vicky_read(addr & 0xFF);
     case IO_SID:
         if (addr < IO_FM) return ((addr & 0x1F) < 0x19) ? sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F]
                                                         : sid_read((addr - IO_SID) >> 5, addr & 0x1F);
@@ -1042,8 +1042,8 @@ uint8_t io_read(uint16_t addr)
 void io_write(uint16_t addr, uint8_t v)
 {
     switch (addr & 0xFF00) {
-    case IO_VICKE:
-        vicke_write(addr & 0xFF, v); return;
+    case IO_VICKY:
+        vicky_write(addr & 0xFF, v); return;
     case IO_SID:
         if (addr < IO_FM) { sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F] = v; sid_write((addr - IO_SID) >> 5, addr & 0x1F, v); }
         return;

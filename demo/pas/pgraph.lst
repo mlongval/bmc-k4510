@@ -1725,7 +1725,7 @@ Source: pgraph.a65
   1802
   1803 				; ------------------------------------------------------------
   1804
-  1805 = D000			VICKE_BASE	= $D000
+  1805 = D000			VICKY_BASE	= $D000
   1806 = D400			SID_BASE	= $D400
   1807 = D500			SYS_BASE	= $D500
   1808 = D700			MATH_BASE	= $D700
@@ -1745,8 +1745,8 @@ Source: pgraph.a65
   1822 = 000D			FS_RM	= $0D
   1823 = 000E			FS_RMDIR	= $0E
   1824 = 000F			FS_GETCWD	= $0F
-  1825 = D000			adr.VICKE	= $D000
-  1826 130A			.var VICKE	= adr.VICKE .word
+  1825 = D000			adr.VICKY	= $D000
+  1826 130A			.var VICKY	= adr.VICKY .word
   1827 = D100			KBD	= $D100
   1828 = D101			KBDST	= $D101
   1829 = D102			KBDPEEK	= $D102
@@ -1794,7 +1794,7 @@ Source: pgraph.a65
   1871 = DA0C			TERM_BG	= $DA0C
   1872 = DA0E			TERM_FLAGS	= $DA0E
   1873
-  1874 = 130A 00 D0		VICKE
+  1874 = 130A 00 D0		VICKY
   1874 = 130C 00 D4		SIDREG
   1874 = 130E 00 D5		SYS
   1874 = 1310 0D D5		SYS_FRAMES24

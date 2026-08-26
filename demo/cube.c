@@ -1,5 +1,5 @@
 /* BMC-K4510 demo: rotating cube, wireframe then solid with hidden faces
- * removed. 320x240 (VICKe lowres), 8 bpp bitmap, two frame buffers in far
+ * removed. 320x240 (VICKY lowres), 8 bpp bitmap, two frame buffers in far
  * RAM ($110000 / $130000). Pixels go out with the 45GS10 flat store,
  * spans with DMA fill, the clear with DMA fill, and the flip is one write
  * to the layer's DATA pointer. Any key exits. */
@@ -33,7 +33,7 @@ static int16_t sx[8], sy[8];
 static uint8_t a, b, c, back;
 static uint32_t buf;
 
-/* the blitter's LINE op: VICKe draws it, clipped to the W x H surface */
+/* the blitter's LINE op: VICKY draws it, clipped to the W x H surface */
 static void line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t col)
 {
     REG(0xD070u) = col;                                      /* BLTSRC byte 0 = colour */

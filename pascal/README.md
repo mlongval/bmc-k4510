@@ -14,7 +14,7 @@ compiler -- that role is Turbo Pascal under CP/M on the Tube.
   CRT units' machine halves: Pause on the frame counter, Random,
   ParamStr from the ROM's ARGS call; CRT on JIM (GotoXY and TextColor
   are register stores; the palette constants are the machine's).
-- `lib/k4510.pas` -- the machine as typed absolute variables (VICKe,
+- `lib/k4510.pas` -- the machine as typed absolute variables (VICKY,
   SID, DMA, FS, SYS, MATH, TERM...), FarPeek/FarPoke through the
   45GS02's flat 32-bit addressing, DmaCopy/DmaFill, Shell, LoadFile,
   SaveFile.

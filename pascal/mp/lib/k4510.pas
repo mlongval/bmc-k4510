@@ -15,7 +15,7 @@ unit k4510;
 interface
 
 const
-	VICKE_BASE = $D000;
+	VICKY_BASE = $D000;
 	SID_BASE   = $D400;
 	SYS_BASE   = $D500;
 	MATH_BASE  = $D700;
@@ -26,7 +26,7 @@ const
 	FS_CHDIR = 11;     FS_MKDIR = 12;     FS_RM = 13;  FS_RMDIR = 14; FS_GETCWD = 15;
 
 var
-	VICKE: array[0..255] of byte absolute $D000;	(* @var VICKe registers *)
+	VICKY: array[0..255] of byte absolute $D000;	(* @var VICKY registers *)
 	KBD: byte absolute $D100;			(* @var the next key (pops), 0 if none *)
 	KBDST: byte absolute $D101;			(* @var bit7 key waiting; bit0 shift, bit1 ctrl, bit2 alt *)
 	KBDPEEK: byte absolute $D102;
