@@ -4666,3 +4666,53 @@ first line on one line, which the full `git describe` was not.
 `GUIDE_VERSION=0.3 ./make-guide.sh` overrides it. The values land in
 `doc/guide/version.tex` (generated, ignored); `k4510-guide.tex` defines
 fallbacks so a bare `xelatex` still builds.
+
+## 2026-08-26 (h) — a pass over the book itself: what it got wrong, and what it never said
+
+Doc settled the division of labour: the coding session writes code, this
+session owns the handbook. So: an audit, not a patch. Checked the book
+against the machine rather than against itself.
+
+**The machine's own BASIC has hardware sprites and the book never said
+so.** `SPRITE n,x,y`, `SPRDEF n,page,w,h,bpp` and `SPROFF n` have been in
+`basic/k4510gfx.asm` for days, `fs/EHBASIC/INVADER2.BAS` uses
+thirty-one of them, and chapter 3 listed only GRAPHICS/PLOT/LINE/TRI/
+PALETTE/GCLS. New section 3.3 documents all three statements --- what
+*page* means (page*256, so a 16-bit BASIC number reaches 256 MB), the
+{8,16,32,64} sizes, 4 or 8 bpp, colour 0 transparent, no per-line limit,
+and why a `GRAPHICS 0` in between does not lose your sprites. The claim
+was verified the way this book is supposed to verify things: ran
+INVADER2 under `test/capture`, and the shot is now in the chapter and in
+`make-shots.sh`.
+
+**Six commands were undocumented**, found by diffing `is_cmd()` in
+`rom/kernal.c` against the guide: `RESET`, and the synonyms `CHDIR`,
+`DEL`, `ERASE`, `MV`, `CAPS`. Chapter 2 now lists the synonym set --- and
+says plainly that `CP` and `COPY` are *not* synonyms (one copies a file,
+the other copies memory), which is the kind of thing a reader discovers
+the hard way.
+
+**`*SWAP EDIT DEMO.BAS`** appeared twice as an example. There is no
+DEMO.BAS; there is a DEMOS.BAS, which is the demo menu and not something
+you want to open in an editor by following the book. Now `MYPROG.BAS`.
+
+Also checked and found correct: the I/O map against `core/io.h` (every
+base address, including the bank mask at $D620); every file the book
+names by name exists (only the two illustrative ones did not); the MODE
+table; the F7 menu's items against `core/ui/menu.c`; save states.
+
+**Typesetting.** The book was set `\flushbottom` --- LaTeX stretching
+short pages to the bottom margin --- and `\screen` was a fixed block, so
+a screenshot that did not fit left half a page of white and the text
+around it was pulled apart to hide it. Now `\raggedbottom`, `\screen` is
+a float, and the float fractions are loosened (topfraction 0.92,
+textfraction 0.07) so a picture sits at the top of a text page instead of
+claiming a page of its own. The book lost five pages without losing a
+word: 59 to 54.
+
+Still missing, and the honest gap: Part II is five pages. There is no
+register-level documentation of VICKY, the SIDs, the DMA engine, the
+MATH unit, the storage device or the N: device --- chapter 10 says
+outright that it "will be generated from `core/io.h`", the way the
+Neo6502 handbook generates its keyword reference from firmware source.
+That generator is the next real piece of work on the book.

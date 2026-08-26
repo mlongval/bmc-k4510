@@ -58,7 +58,7 @@ memory, and the screen --- runs the command on a clean machine, and gives
 the caller back untouched:
 
 \begin{type}
-*SWAP EDIT DEMO.BAS
+*SWAP EDIT MYPROG.BAS
 \end{type}
 
 from EhBASIC edits a file and returns to your program, variables and screen
@@ -170,6 +170,17 @@ BASIC through the \texttt{*} escape, which is how you tidy up after a demo
 that left its picture behind; \verb|FILL| and
 \verb|COPY| work on memory; \verb|HUSH| silences all four SIDs at once;
 \verb|LS| is \verb|DIR| for fingers that have used Unix too long.
+\verb|RESET| restarts the machine from the shell, the same cold start the
+reset chord performs.
+
+Several commands answer to more than one name, so that habits from
+another machine mostly work: \verb|CD| is also \verb|CHDIR|, \verb|RM|
+is \verb|DEL| and \verb|ERASE|, \verb|REN| is \verb|RENAME| and
+\verb|MV|, \verb|DIR| is \verb|LS|, \verb|COLOR| is \verb|COLOUR|,
+\verb|XD| is \verb|HEX|, \verb|BBCBASIC| is \verb|BBC|, and
+\verb|CAPSLOCK| is \verb|CAPS|. \verb|CP| and \verb|COPY| are
+\emph{not} the same command: \verb|CP| copies a file, \verb|COPY|
+copies memory.
 
 \verb|MODE| on its own says where you are; \verb|MODE n| moves. The second
 number is the margin: 1 (the default) keeps a one-cell gap at the top and

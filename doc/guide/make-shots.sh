@@ -24,6 +24,10 @@ shot demos 900 "run ehbasic
 
 RUN \"DEMOS.BAS\"
 "
+shot invaders 1400 "run ehbasic
+
+RUN \"INVADER2.BAS\"
+"
 shot forth 240 "forth
 2 3 + .
 : cube dup dup * * ;

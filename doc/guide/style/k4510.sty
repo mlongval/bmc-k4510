@@ -39,6 +39,9 @@
   ItalicFont     = Clear Sans Italic,
   BoldItalicFont = Clear Sans Bold Italic ]
 \setmonofont{Iosevka NFM}[Scale=0.92]
+% Pages end where the text ends: with this many screenshots, stretching a
+% short page to the bottom margin opens gaps you can drive a bus through.
+\raggedbottom
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[LE,RO]{\small\thepage}
@@ -52,11 +55,21 @@
   {}{0pt}{\huge}
 \titlespacing*{\chapter}{0pt}{0pt}{18pt}
 % a screenshot of the machine, full measure, thin rule around it
+% Let a screenshot take most of a page and still share it with text:
+% LaTeX's defaults are tuned for journals and would rather make a page of
+% pictures than put one at the top of a text page.
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.80}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{2}
+% A float, not a fixed block: a screenshot that will not fit leaves half a
+% page empty if it cannot move, and this book is mostly screenshots.
 \newcommand{\screen}[2]{%
-  \begin{center}
+  \begin{figure}[htbp]\centering
   \fbox{\includegraphics[width=0.95\linewidth]{#1}}\\[2pt]
   {\small #2}
-  \end{center}}
+  \end{figure}}
 % what you type, machine-style
 \newenvironment{type}
   {\VerbatimEnvironment\begin{tcolorbox}[colback=kblue,colframe=kblue,boxrule=0pt,

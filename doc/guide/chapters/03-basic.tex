@@ -37,6 +37,40 @@ PALETTE I,R,G,B     GCLS            GRAPHICS 0
 Colours 0--15 belong to the text screen; demos use 16 and up. \verb|GRAPHICS 0|
 puts the text mode and its palette back, whatever the program changed.
 
+\section{Hardware sprites}
+The 128 sprites VICKY carries are reachable from BASIC, which is unusual
+enough to be worth saying plainly: this is not a bitmap being redrawn, it
+is the video chip carrying the picture for you.
+
+\begin{type}
+SPRDEF n,page,w,h,bpp   give sprite n a shape
+SPRITE n,x,y            put it there and show it
+SPROFF n                hide it
+\end{type}
+
+\verb|SPRDEF| says where the pixels are and what shape they make:
+\emph{page} is the 256-byte page the data starts at, which is how a
+16-bit BASIC number reaches into 256\,MB (\verb|page*256| is the
+address); \emph{w} and \emph{h} are 8, 16, 32 or 64; \emph{bpp} is 4 or
+8. \verb|SPRITE| positions the sprite and turns it on, \verb|SPROFF|
+hides it. Colour~0 is transparent, and there is no per-line limit --- all
+128 may be on the same raster line.
+
+Each statement re-points the chip at the attribute table and re-enables
+sprites, so a \verb|GRAPHICS 0| or a shell \verb|MODE| in between costs
+you nothing: the next sprite statement puts them back.
+
+\verb|INVADER2.BAS| in \pth{/EHBASIC} is the demonstration --- Space
+Invaders with the arcade shapes, poked 4~bits-per-pixel into \$040000
+through a bank register, four bases that erode as they are hit, and
+thirty-one sprites moving. \verb|INVADERS.BAS| beside it is the same
+game on the text screen, which is a fair way to see what the sprites buy
+you.
+
+\screen{shots/invaders.png}{\texttt{INVADER2.BAS}: twenty-four invaders,
+four bases and a cannon, every one of them a hardware sprite. The bases
+erode because their shape pages are poked, not redrawn.}
+
 \section{The * escape}
 Any shell command works from BASIC with \verb|*| in front --- \verb|*DIR|,
 \verb|*CD EHBASIC|, \verb|*MON|, \verb|*DUMP a note| --- and \verb|*BYE|
