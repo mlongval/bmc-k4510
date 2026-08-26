@@ -25,6 +25,10 @@ int main(void)
 {
     fixture(1);
     uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
+    /* /STARTUP.BAT is the user's file and is gitignored, so it differs from
+     * machine to machine -- one that ends in CLS wipes the banner this test
+     * looks for.  Tell the ROM not to run it: the test owns its boot. */
+    io_set_opts(SYSOPT_NOBOOT);
     mem_init(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048);
     CHECK(mem_load_rom("rom/kernal.bin") >= 24576, "rom");   /* base 24 KB + any sideways banks */
     cpu65_reset(); frames(40);      /* boot + the !BOOT grace window */

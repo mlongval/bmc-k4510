@@ -18,6 +18,10 @@ static void fixture(int make)
 int main(void)
 {
     fixture(1);
+    /* /STARTUP.BAT is the user's file and is gitignored, so it differs from
+     * machine to machine -- one that ends in CLS wipes the banner this test
+     * looks for.  Tell the ROM not to run it: the test owns its boot. */
+    io_set_opts(SYSOPT_NOBOOT);
     mem_init(); fs_set_root("fs");
     mem_load(0x0300, (const uint8_t *)"hello.txt", 10);
     W32(IO_FS_NAMEPTR, 0x300); W32(IO_FS_ADDR, 0x100000); io_write(IO_FS_CMD, FS_LOAD);
