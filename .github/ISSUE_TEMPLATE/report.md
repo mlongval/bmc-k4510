@@ -22,8 +22,9 @@ lines of the block.
 
 ```
 Machine:  BMC-K4510, desktop  |  Raspberry Pi 3B+
-Version:  from this book's cover, or the release you downloaded
-          (INFO -v names the K/OS and emulator generation, coarser)
+Version:  what INFO -v gives, e.g. build 0.3-044bac5+  (a trailing
+          + means that build was made from an edited tree).  Or,
+          if it will not boot, the version on this book's cover
 Where:    shell | EhBASIC | BBC BASIC | CP/M | Forth | Pascal |
           VI or EDIT | the F7 menu | this handbook
 

@@ -47,6 +47,13 @@ every call already passes through the always-ROM stub page at
 \texttt{\$FF00}, which banks the ROM view in and out. Up to sixteen
 banks --- 128\,KB of operating system --- fit in the scheme.
 
+The calls go one way, and this is the rule to hold on to if you write
+code of your own for a bank: code in a bank may call resident code as
+freely as it likes, but resident code must never call into a bank. At
+that address a different bank holds something else entirely, and the
+dispatch is the only thing that knows which bank is in. A routine that
+everything uses belongs in the base image, whatever it costs there.
+
 \section{RAM under the I/O page}
 A \texttt{MAP} of block 6 hides \texttt{\$D000-\$DFFF} and exposes RAM:
 with the ROM also banked away a program owns a contiguous field from
