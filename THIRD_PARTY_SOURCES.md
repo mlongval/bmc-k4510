@@ -24,8 +24,8 @@ that the code is unknown; those are listed again at the end.
 |---|---|
 | Role | The CPU the machine runs on. The one component that is the real thing rather than a fantasy. |
 | Local path | `core/xemu/` -- `cpu65.c`, `cpu65.h`, `cpu65_mega65_timings.h`, `cpu65ce02_disasm_tables.c`, `emutools_basicdefs.h` |
-| Upstream | https://github.com/lgblgblgb/xemu (Gábor Lénárt, "LGB") |
-| Version | Commit **not determined**; the sources carry "Copyright (C)2016-2024 LGB", vendored 2026-08-21. `core/xemu/VENDORED-FROM.txt` says how to settle it. |
+| Upstream | https://github.com/lgblgblgb/xemu (Gábor Lénárt, "LGB"). The cycle table `cpu65_mega65_timings.h` comes from a **second** repository of his, https://github.com/lgblgblgb/megacyc, which generated it. Xemu is LGB's own project, *not* a MEGA65-project repository — though it is the emulator that community uses, and what the core emulates is the 4510/45GS02 as extended in the MEGA65. |
+| Version | Commit **not determined**; `cpu65.c` carries "Copyright (C)2016-2025 LGB" (`cpu65.h` says 2024), vendored 2026-08-21. `core/xemu/VENDORED-FROM.txt` says how to settle it. |
 | Licence | GPL-2.0-or-later (`core/xemu/LICENSE.xemu`) |
 | Altered | No. Used unchanged. |
 | Verify | `dir: bb95bd505651fe6d` |
