@@ -101,10 +101,15 @@ static void scroll(void)
     blank_row(OY + ROWS - 1);
 }
 
+static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
+                                              * the reader having said q -- the caller checks it,
+                                              * since newline cannot abort anyone itself */
+static uint8_t page_break(void);
 static void newline(void)
 {
     cx = 0;
     if (++cy >= ROWS) { cy = ROWS - 1; scroll(); }
+    if (paging && page_break()) paged_out = 1;
 }
 
 void __fastcall__ k_chrout(uint8_t ch)
@@ -475,16 +480,26 @@ static uint8_t typed;                        /* lines since the last "-- more --
 /* One screenful at a time.  Never while a script is running the command: there
  * is nobody to press the key, and the wait would hang STARTUP.BAT at power-on.
  * Returns 1 if the reader asked to stop. */
+/* RESIDENT on purpose: newline() calls this on every line, and newline() is
+ * resident.  Left in the sideways window it was a cross-bank call -- with bank
+ * 1 engaged (INFO runs there) the window holds bank 1, not this, so newline
+ * jumped into whatever was at that address.  sw_call's rules, learned again. */
+#pragma code-name (push, "CODE")
 static uint8_t page_break(void)
 {
+    static uint8_t inside;                   /* its own printing goes through newline() too */
     uint8_t k, ofg;
+    if (inside) return 0;
     if (exec_busy || ++typed < (uint8_t)(ROWS - 1)) return 0;
+    inside = 1;
     typed = 0;
     ofg = fg; fg = C_DIM; puts_("-- more --"); fg = ofg;
     do { k = k_getin(); } while (!k);
     cx = 0; blank_row((uint8_t)(cy + OY));       /* take the prompt back off */
+    inside = 0;
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
 }
+#pragma code-name (pop)
 static void cmd_type(const char *p)
 {
     char name[NAMEMAX]; uint32_t n; uint16_t i;
@@ -658,8 +673,12 @@ static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
 static void info_version(void)
 {
     uint8_t i;
-    label("SYSTEM"); puts_("K/OS " ROM_VERSION " (the BMC-K4510 operating system), emulator ");
+    label("SYSTEM"); puts_("K/OS " ROM_VERSION " (the BMC-K4510 operating system)");
+    newline(); pad(8);
+    puts_("build ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
+    /* "emulator" is wrong on the Pi, where this is bare metal on real hardware */
+    puts_(REG(SYS + 0x22) ? ", bare metal on a Raspberry Pi 3B+" : ", desktop emulator");
     newline();
 }
 
@@ -768,13 +787,25 @@ static void cmd_info(const char *p)
         p++;
     }
     if (!flags) flags = 127;
+    /* INFO is 28 lines: it fits a 30-row screen and does not fit MODE 3's 25.
+     * Page it, unless a script is reading it, in which case page_break stands
+     * down by itself. */
+    paging = 1; paged_out = 0; typed = 0;
+    if (paged_out) { paging = 0; return; }
     if (flags & 1)  info_version();
+    if (paged_out) { paging = 0; return; }
     if (flags & 2)  info_cpu();
+    if (paged_out) { paging = 0; return; }
     if (flags & 4)  info_mem();
+    if (paged_out) { paging = 0; return; }
     if (flags & 8)  info_video();
+    if (paged_out) { paging = 0; return; }
     if (flags & 16) info_sound();
+    if (paged_out) { paging = 0; return; }
     if (flags & 32) info_files();
+    if (paged_out) { paging = 0; return; }
     if (flags & 64) info_time();
+    paging = 0;
 }
 
 static void cmd_time(const char *p) { (void)p; info_time(); }
@@ -1407,22 +1438,13 @@ int main(void)
     video_init();
     fg = C_FG;
     banner();
-    /* /STARTUP.BAT: half a second of grace, then run it -- unless a key arrives
-     * first (held or typed; it stays in the queue), the silent skip.  The F7
-     * menu can switch it off outright ($D521 bit 2), which is the way out of a
-     * STARTUP.BAT that wedges the machine every boot: the menu is the host's,
-     * so a wedged guest cannot take it away from you.  Off skips the grace
-     * window too, so the machine boots that much quicker. */
+    /* /STARTUP.BAT.  No grace window and no "hold a key to skip" any more:
+     * F7 -> Shell -> Run STARTUP.BAT turns it off and stays off, and
+     * --no-startup.bat skips one run, so a half-second wait at every power-on
+     * was buying a third way in that nobody needed. */
     if (!(REG(SYS + 0x21) & 4)) {
-        strcpy(line, "STARTUP.BAT"); fs_name(line);      /* (the fs device reads names from RAM, so copy the literal out of ROM) */
-        if (!fs_cmd(8)) {                                /* say so only when there is one to skip */
-            puts_("STARTUP.BAT -- hold a key to skip"); newline();
-            { uint8_t n = 30, f0 = REG(SYS + 0x0D);
-              while (n && !(REG(KBDST) & 0x80))
-                  if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
-            if (REG(KBDST) & 0x80) { puts_("STARTUP.BAT skipped"); newline(); }
-            else cmd_exec(line);
-        }
+        strcpy(line, "STARTUP.BAT"); fs_name(line);   /* (the fs device reads names from RAM) */
+        if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {
         put_cwd(); puts_("] ");

@@ -17,6 +17,26 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
 
+**The "hold a key to skip STARTUP.BAT" message is gone**, and so is the
+half-second grace window it announced (Doc: "F7 will suffice"). Boot goes
+straight in. The two ways to skip it are now F7 -> Shell -> Run
+STARTUP.BAT, which persists, and `--no-startup.bat`, which does not. If
+the book mentions holding a key at the banner, that is now wrong.
+
+**INFO reports the architecture, and pages.** It now reads:
+
+    SYSTEM  K/OS stage 4 (the BMC-K4510 operating system)
+            build 0.3-044bac5+, desktop emulator
+
+or `bare metal on a Raspberry Pi 3B+`. It used to say "emulator"
+unconditionally, which was simply wrong on the Pi. It is 28 lines and did
+not fit MODE 3's 25 rows, so it pages like TYPE now.
+
+**INFO stays in the ROM** (sideways bank 1) rather than becoming a .prg,
+if the book ever has cause to say where things live: a .prg has to load
+from the filesystem, and INFO is the thing you want when the filesystem
+is what is broken. Same reason DUMP is in ROM.
+
 **`BUG` is `fs/PRG/bug.prg`, not a shell command** (Doc's design: an
 interview, not a printed template). `BUG` or `*BUG` from anywhere — the
 REXX rule finds it. It asks seven questions, fills in five lines itself,
