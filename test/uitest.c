@@ -85,6 +85,16 @@ int main(void)
     settings_load(cfg);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "and a hand-edited file is clamped on the way in");
     printf("4. the mode request, and 320x240 as the floor for what is saved\n");
+
+    /* 5. the STARTUP.BAT switch: the way out of one that wedges the machine */
+    settings_defaults();
+    CHECK(settings_get(SET_SHELL_STARTUP) == 1, "STARTUP.BAT runs unless told not to");
+    io_set_opts(settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT);
+    CHECK((io_read(IO_SYS_OPTS) & SYSOPT_NOBOOT) == 0, "and the guest is not told to skip it");
+    settings_set(SET_SHELL_STARTUP, 0);
+    io_set_opts(settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT);
+    CHECK((io_read(IO_SYS_OPTS) & SYSOPT_NOBOOT) != 0, "switched off, the guest skips it at power-on");
+    printf("5. the STARTUP.BAT switch reaches the guest at $D521\n");
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

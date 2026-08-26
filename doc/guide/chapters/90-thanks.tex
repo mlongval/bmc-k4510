@@ -1,0 +1,131 @@
+\chapter{Thank You}\label{cha:thanks}\markboth{Thank You}{Thank You}
+
+The BMC-K4510 is a machine that never existed. Almost everything in it
+that \emph{does} exist was written by somebody else first, and given
+away. This chapter is the thanks; the Licences chapter (page~\pageref{cha:licences})
+is the paperwork.
+
+\section{The heart of the machine}
+\textbf{Gábor Lénárt} (LGB) wrote the 45GS02 CPU core in
+\href{https://github.com/lgblgblgb/xemu}{Xemu}, the MEGA65 emulator.
+It runs here unchanged --- not a line altered, not a bug fixed --- and
+every instruction this book describes is his code executing. There
+would be no K4510 without it.
+
+\textbf{Dag Lem} wrote reSID, the SID emulation that has been the
+reference for thirty years. The K4510's four sound chips are four
+copies of it (the 6581 model, as shipped in VICE~3.3).
+
+\textbf{The VICE team}, whose decades of emulation scholarship ---
+documentation, test programs, arguments settled in code --- this
+project consulted at nearly every turn.
+
+\section{The tongues}
+\textbf{Lee Davison} (1966--2013) wrote EhBASIC, the machine's first
+BASIC and still the one that comes up in ROM. He is not here to be
+asked about the graphics and sound words bolted onto it; the machine
+carries his name in its \verb|README| and its startup banner instead.
+
+\textbf{Richard T. Russell} wrote BBC BASIC, and has kept writing it
+for forty years. The console edition (BBCTTY) is what runs on the
+Tube co-processor in Chapter~\ref{cha:tube}. The name ``BBC BASIC'' is
+used here \emph{by his permission}, which is a courtesy this project
+does not take lightly.
+
+\textbf{Marcelo Dantas} (``Mockba the Borg'') wrote
+\href{https://github.com/MockbaTheBorg/RunCPM}{RunCPM}, which is the
+whole of Chapter~\ref{cha:cpm}: a complete CP/M~2.2 with its own CCP,
+vendored here unmodified and simply handed a Z80's worth of address
+space.
+
+\textbf{Scot W. Stevenson}, \textbf{Sam Colwell} and \textbf{Patrick
+Surry} wrote \href{https://github.com/SamCoVT/TaliForth2}{Tali
+Forth~2} and put it in the public domain --- a Forth written to be
+read, which is why Chapter~\ref{cha:forth} can be honest about how it
+works.
+
+\textbf{Tomasz Biela} (``tebe'') wrote
+\href{https://github.com/tebe6502/Mad-Pascal}{Mad Pascal} and
+\href{https://github.com/tebe6502/Mad-Assembler}{MADS}; the K4510
+target in \verb|pascal/| is a guest in his compiler.
+\textbf{Wojciech Bociański} (``bocianu''), whose Neo6502 target showed
+how such a guest should behave.
+
+\textbf{Steve Wozniak} wrote Wozmon in 1976 in 256 bytes, and the
+monitor in this machine is still recognisably it.
+
+\textbf{Michael Steil} maintains
+\href{https://github.com/mist64/msbasic}{msbasic}, and
+\textbf{Microsoft} released 6502 BASIC~1.1 under the MIT licence in
+2025 --- between them, the machine's next native BASIC.
+
+\section{Letters on the screen}
+Fonts are the part of a computer you look at longest, and clean ones
+with a clear pedigree are hard to come by.
+
+\textbf{The Linux kernel} contributors --- the 8x8 console font
+(\verb|lib/fonts/font_8x8.c|) that got the text mode on its feet and
+is still the default.
+\textbf{Paul Gardner-Stephen} and \textbf{Roman Standzikowski}
+(FeralChild64) --- the clean-room C64/C65 chargen from
+\href{https://github.com/MEGA65/open-roms}{MEGA65 open-roms}, and
+\textbf{Retrofan}, whose PXLfont travels with it by permission.
+\textbf{Ville-Matias Heikkilä} (``Viznut'') --- unscii, placed in the
+public domain.
+\textbf{Damian Vila} --- \href{https://codeberg.org/Dmian/font-bescii}{BESCII},
+the PETSCII spirit with a clean pedigree, CC0.
+
+\section{The bare metal}
+\textbf{Rene Stange} wrote \href{https://github.com/rsta2/circle}{Circle},
+the bare-metal C++ environment that is the entire reason a Raspberry
+Pi~3B+ can boot straight into this machine with no operating system
+under it. \textbf{Xalior} wrote
+\href{https://github.com/Xalior/circle-libsdl2}{circle-libsdl2}, which
+let the desktop emulator move to the Pi essentially as written.
+
+\section{The workshop}
+The machine is built with \textbf{cc65} (compiler, assembler, linker
+and runtime for the whole system ROM), \textbf{64tass}, \textbf{NASM},
+\textbf{GCC} and \textbf{GNU Make}; it shows itself to you through
+\textbf{SDL2}. This book is set in \textbf{XeLaTeX} with
+\textbf{Clear Sans} and \textbf{Iosevka}, and every screenshot in it
+was captured from the machine actually running --- a picture that
+cannot be produced fails the build.
+
+\section{Heritage}
+Some debts are not code.
+
+\textbf{Acorn Computers} --- the Tube, the sideways-ROM model, the
+\verb|*| command prefix, and the idea that a second processor should
+be a normal thing to own. The Beeb's ghost is all over this machine.
+
+\textbf{Commodore} --- the other half of its soul: PETSCII, the SID,
+and the line from the PET to the C65 that stopped one machine short of
+this one.
+
+\textbf{The MEGA65 project} --- for keeping the 45GS02 and the C65
+dream alive in real silicon, and for open-roms.
+
+\textbf{The Neo6502 handbook} and the \textbf{MEGA65 User's Guide} ---
+the two books this one is modelled on, down to the page size.
+
+\textbf{The High Voltage SID Collection} and the composers in it, whose
+tunes are what \verb|SIDPLAY| plays on a good evening. None of that
+music is distributed with this machine (see
+the Licences chapter); it is theirs.
+
+\begin{aside}
+\textbf{And the machine's other author.} Most of the K4510's own code
+--- VICKe, SHEILA, the DMA engine, the ROM, K/OS, the Tube ULA, the
+editors, the Pi port --- was written in conversation with Claude
+(Anthropic's Claude Code), over several months of long sessions with a
+build log to prove it. The design decisions are the author's; a great
+deal of the typing was not.
+\end{aside}
+
+\section{And whoever is missing}
+This list was assembled by hand and is certainly incomplete. If your
+work is in this machine and your name is not on this page, that is an
+error and not a judgement --- open an issue at
+\url{https://github.com/mlongval/bmc-k4510} and it will be fixed in the
+next printing.

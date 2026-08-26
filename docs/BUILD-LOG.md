@@ -3527,3 +3527,31 @@ hard to steer out of after a power cycle. uitest check 4 covers both.
 ROM1C 16 bytes free, ROM2 15. The first cut of this cost 43 bytes in
 ROM1C -- the cc65 spill of one local -- and putting the margin in its own
 $D521 bit instead of sharing the mode's field bought most of it back.
+
+## 2026-08-25: a way out of a bad STARTUP.BAT
+
+Doc asked what stops a STARTUP.BAT that crashes the machine from crashing
+it at every boot. Half the answer already existed and said nothing about
+itself: hold any key through the half-second grace window at the banner
+and the file is skipped. Silent in both directions -- no prompt telling
+you the window is there, and no confirmation when it fires, so a stray
+keystroke in the queue skips your startup file and you wonder where your
+aliases went.
+
+Added the other half, which turns out to be the cheaper one: F7 -> Shell
+-> Run STARTUP.BAT, $D521 bit 2, seven bytes of ROM. Cheap precisely
+because all the text lives in the host -- a printed countdown would cost
+~40 bytes of RODATA in ROM1C, which has 16. And it is the stronger guard:
+the menu belongs to the host, so a guest that has wedged itself cannot
+take it away from you, and the setting persists, so you boot clean, fix
+the file and switch it back on. Off skips the grace window too, so the
+machine boots quicker.
+
+One sequencing fix went with it: io_set_opts() now runs *before* the
+machine steps, not after. The ROM reads $D521 while it boots, and a byte
+written at the end of the frame arrived a frame late -- for the boot read,
+a whole power-on too late.
+
+Still to do, in Doc's order: free space in ROM1C by moving a cold command
+into a sideways bank, then spend it on the visible countdown, so a
+keyboard-only Pi with no menu gets told the window exists.

@@ -1337,13 +1337,19 @@ int main(void)
     fg = C_FG;
     banner();
     /* /STARTUP.BAT: half a second of grace, then run it -- unless a key arrives
-     * first (held or typed; it stays in the queue), the silent skip */
-    { uint8_t n = 30, f0 = REG(SYS + 0x0D);
-      while (n && !(REG(KBDST) & 0x80))
-          if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
-    if (!(REG(KBDST) & 0x80)) {                          /* (the fs device reads names from RAM, so copy the literal out of ROM) */
-        strcpy(line, "STARTUP.BAT"); fs_name(line);
-        if (!fs_cmd(8)) cmd_exec(line);
+     * first (held or typed; it stays in the queue), the silent skip.  The F7
+     * menu can switch it off outright ($D521 bit 2), which is the way out of a
+     * STARTUP.BAT that wedges the machine every boot: the menu is the host's,
+     * so a wedged guest cannot take it away from you.  Off skips the grace
+     * window too, so the machine boots that much quicker. */
+    if (!(REG(SYS + 0x21) & 4)) {
+        { uint8_t n = 30, f0 = REG(SYS + 0x0D);
+          while (n && !(REG(KBDST) & 0x80))
+              if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
+        if (!(REG(KBDST) & 0x80)) {                      /* (the fs device reads names from RAM, so copy the literal out of ROM) */
+            strcpy(line, "STARTUP.BAT"); fs_name(line);
+            if (!fs_cmd(8)) cmd_exec(line);
+        }
     }
     for (;;) {
         put_cwd(); puts_("] ");

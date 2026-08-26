@@ -246,6 +246,15 @@ int k4510_frontend_main(int argc, char **argv)
           }
           mode_pending = mode_req; }
 
+        /* Before the machine steps, never after: the ROM reads $D521 while it
+         * boots (STARTUP.BAT) and on its next key poll (the mode request), so
+         * a byte written at the end of the frame would arrive one frame late
+         * -- and for the boot read, a whole power-on too late. */
+        io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
+                    | (settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT)
+                    | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
+                    | (uint8_t)(mode_pending << SYSOPT_MODE_SHIFT));
+
         int open = menu_is_open();
         if (!open || mode_pending) {                         /* the machine runs; while the menu is open it is frozen and silent */
             int vol = settings_get(SET_AUDIO_VOLUME);
@@ -274,9 +283,6 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
-        io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)   /* the ROM reads this at $D521 */
-                    | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
-                    | (uint8_t)(mode_pending << SYSOPT_MODE_SHIFT));
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
             if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */

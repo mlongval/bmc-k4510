@@ -46,6 +46,7 @@ static const item_t machine_items[] = {
 };
 static const item_t shell_items[] = {
     { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },
+    { "Run STARTUP.BAT",   MI_SETTING, SET_SHELL_STARTUP },
 };
 static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
@@ -54,7 +55,7 @@ static const menu_t video_menu   = { "Video",   video_items,   8 };
 static const menu_t audio_menu   = { "Audio",   audio_items,   1 };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, 8 };
-static const menu_t shell_menu   = { "Shell",   shell_items,   1 };
+static const menu_t shell_menu   = { "Shell",   shell_items,   2 };
 static const menu_t info_menu    = { "Info",    info_items,    4 };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },

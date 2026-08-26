@@ -199,6 +199,16 @@ pixels doubled or quadrupled sideways. Raster lines and SHEILA's display
 list count the glass, 0--479, not the mode --- so in MODE~3 the first line
 of your picture is raster line~40.
 
+\section{When STARTUP.BAT is the problem}
+\texttt{/STARTUP.BAT} runs at power-on, and a bad one runs at every
+power-on. Two ways out. Hold any key through the first half second --- the
+machine gives a moment's grace at the banner before it starts --- or, if
+that moment is hard to catch, switch it off in the F7 menu under Shell:
+\emph{Run STARTUP.BAT}. That setting is the host's, kept in
+\texttt{k4510.cfg}, so it survives a power cycle and no wedged program in
+the machine can take it away from you. Boot clean, fix the file, switch it
+back on.
+
 \section{When something goes wrong}
 \verb|DUMP a note| writes the whole machine state --- registers, screen, the
 last 4096 instructions, your last keystrokes --- to a numbered file on the
