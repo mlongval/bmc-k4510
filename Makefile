@@ -118,7 +118,23 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 test/sidtest: test/sidtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test: test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
+# Are the tracked binaries what their sources actually produce?  They are
+# tracked because p15 has no cc65 and the Pi card needs them, which means a
+# source change with no rebuild ships a binary that disagrees with its own
+# source -- and every machine that rebuilds it then reports a dirty tree.
+# That happened: romcalls.s grew three bytes and only bug.prg was rebuilt.
+.PHONY: check-artifacts
+# Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
+# not on every build host, and this must run wherever the tests do.
+check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg
+	@git diff --quiet -- fs/PRG fs/EHBASIC || { \
+	  echo "STALE: these tracked binaries are not what their sources build:"; \
+	  git diff --name-only -- fs/PRG fs/EHBASIC | sed 's/^/  /'; \
+	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
+	  exit 1; }
+	@echo "check-artifacts: tracked binaries match their sources"
+
+test: check-artifacts test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
