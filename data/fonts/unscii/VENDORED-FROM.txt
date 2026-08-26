@@ -1,0 +1,18 @@
+release not determined -- vendored 2026-08-24 (repo commit f89e34c)
+unscii-8 by Viznut, https://viznut.fi/unscii/ -- public domain.
+
+unscii-8.hex     the upstream hex font, unchanged
+font8-unscii.bin generated from it by data/fonts/tools/hex2chargen.py;
+                 a drop-in alternative to data/font8.bin, and the font
+                 the F7 menu draws itself with
+
+What is known.  The .hex carries no header or version line -- it is
+bare "codepoint:bitmap" rows -- so the release cannot be read out of the
+file.  Upstream was at 2.1 when this was written.
+
+To settle it:
+  curl -sO https://viznut.fi/unscii/unscii-8.hex
+  cmp unscii-8.hex data/fonts/unscii/unscii-8.hex
+
+sha256  03094f7fbab7085cf6a6b624cee61e47e71ce5d0c2f308c2f4436afdc17f776c  unscii-8.hex
+sha256  5130fc27c18e32309d3a35f2b9e5f2d96650dc33e4f77a8b731ab74e5e41201e  font8-unscii.bin

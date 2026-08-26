@@ -1,0 +1,21 @@
+commit not determined -- vendored 2026-08-21 (repo commit e3778ae)
+https://github.com/lgblgblgb/xemu (Gábor Lénárt, "LGB"), used unchanged.
+
+The 45GS02/65CE02 CPU core: cpu65.c, cpu65.h, cpu65_mega65_timings.h,
+cpu65ce02_disasm_tables.c, emutools_basicdefs.h.  GPL-2.0-or-later, see
+LICENSE.xemu here.
+
+What is known.  The files carry "Copyright (C)2016-2024 LGB", so the
+snapshot is from 2024 or later, and it entered this repository on
+2026-08-21.  Upstream records no version in the sources, and this
+machine has no network access to compare against them, so the commit is
+not pinned.
+
+To settle it:
+  git clone https://github.com/lgblgblgb/xemu /tmp/xemu
+  cd /tmp/xemu && git log --oneline -- targets/mega65/cpu_custom.c xemu/cpu65.c
+  # then, for a candidate commit:
+  git show <commit>:xemu/cpu65.c | sha256sum
+  sha256sum <this repo>/core/xemu/cpu65.c
+
+Content digest of the .c/.h here (sorted, concatenated): bb95bd505651fe6d

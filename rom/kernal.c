@@ -1343,7 +1343,6 @@ static void banner(void)
 {
     static const uint8_t width[5]  = { 16, 12, 8, 12, 16 };   /* 4,3,2,3,4 -- Doc's proportions */
     static const uint8_t colour[5] = { 2, 8, 7, 5, 14 };      /* red, orange, yellow, green, light blue */
-    static const char    taper[5]  = { '/', '/', '<', '\\', '\\' };
     uint8_t r, i, obg = bg, ofg = fg;
     cls();
     newline();
@@ -1351,8 +1350,7 @@ static void banner(void)
         k_chrout(' '); k_chrout(' ');
         bg = colour[r]; fg = colour[r];
         for (i = 0; i < width[r]; i++) k_chrout(' ');
-        bg = obg;                                             /* the point: the bar's colour on the background */
-        k_chrout((uint8_t)taper[r]);
+        bg = obg;
         pad(20);
         switch (r) {
         case 0: fg = C_HI;  puts_("BMC-K4510 -- A FANTASY 8/16-bit COMPUTER"); break;

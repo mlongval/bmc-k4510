@@ -29,9 +29,9 @@ well, which threw away the point of it.
 banner. It lives in the sideways window (SWCODE0), not the resident ROM,
 so it cost 24 bytes of ROM2 for its dispatch and nothing else.
 
-**The banner itself changed.** Five colour bars, now tapering to a point
-on the right -- widths 4:3:2:3:4 with `/ / < \ \` end caps drawn in each
-bar's own colour -- and new text beside them:
+**The banner itself changed.** Five colour bars stepped 4:3:2:3:4, and
+new text beside them. (Tapered ends were tried and removed: at this cell
+size a one-pixel diagonal beside a solid bar reads as dirt.)
 
     BMC-K4510 -- A FANTASY 8/16-bit COMPUTER
     CPU: 45GS10 at 40.5 MHz + runCPM Tube
