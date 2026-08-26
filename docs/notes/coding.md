@@ -6,8 +6,7 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## Now
 
-- The startup logo: a `LOGO` command (not ROM-resident) that clears the
-  screen and reprints the banner, with tapered colour bars and new text.
+- Nothing in flight.
 
 ## Waiting on
 
@@ -17,6 +16,21 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   it is something about the live session, not the launcher.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
+
+**`LOGO` (new command)** clears the screen and reprints the startup
+banner. It lives in the sideways window (SWCODE0), not the resident ROM,
+so it cost 24 bytes of ROM2 for its dispatch and nothing else.
+
+**The banner itself changed.** Five colour bars, now tapering to a point
+on the right -- widths 4:3:2:3:4 with `/ / < \ \` end caps drawn in each
+bar's own colour -- and new text beside them:
+
+    BMC-K4510 -- A FANTASY 8/16-bit COMPUTER
+    CPU: 45GS10 at 40.5 MHz + runCPM Tube
+    RAM: 256 000 000 bytes
+    CHIPS: 4 reSID, VICKY, SHEILA, FRED, JIM
+
+If the book has a picture of the old banner it is now wrong.
 
 Everything here is in the machine and is not in the book yet.
 

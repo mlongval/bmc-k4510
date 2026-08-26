@@ -760,6 +760,7 @@ static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
 
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
+static void banner(void);                 /* the logo: sideways window, not resident */
 static void cmd_mon(const char *p);
 static void cmd_bbcbasic(uint8_t prog);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
@@ -1117,6 +1118,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "LOGO"))  { banner(); return; }
     if (is_cmd(&p, "SWAP"))    { cmd_swap(p); return; }
     if (is_cmd(&p, "ALIAS"))   { sw_call(ALIAS_BANK, cmd_alias, p); return; }
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
@@ -1332,10 +1334,16 @@ static void field(const char *name, const char *text) { uint8_t o = fg; fg = C_H
 
 /* the logo: an hourglass of colour blocks, left-aligned, five rows; the
  * machine's name, speed and memory on its right. Everything else is INFO. */
+/* The machine's face.  Five colour bars tapering to a point on the right --
+ * the taper is a glyph in the bar's own colour rather than a block, which is
+ * what makes the edge look cut rather than stepped -- and the machine's
+ * description beside them.  LOGO reprints it; the shell calls it at boot.
+ * Lives in the sideways window (SWCODE0), not the resident ROM. */
 static void banner(void)
 {
-    static const uint8_t width[5] = { 12, 8, 4, 8, 12 };
+    static const uint8_t width[5]  = { 16, 12, 8, 12, 16 };   /* 4,3,2,3,4 -- Doc's proportions */
     static const uint8_t colour[5] = { 2, 8, 7, 5, 14 };      /* red, orange, yellow, green, light blue */
+    static const char    taper[5]  = { '/', '/', '<', '\\', '\\' };
     uint8_t r, i, obg = bg, ofg = fg;
     cls();
     newline();
@@ -1343,13 +1351,14 @@ static void banner(void)
         k_chrout(' '); k_chrout(' ');
         bg = colour[r]; fg = colour[r];
         for (i = 0; i < width[r]; i++) k_chrout(' ');
-        bg = obg;
-        pad(18);
+        bg = obg;                                             /* the point: the bar's colour on the background */
+        k_chrout((uint8_t)taper[r]);
+        pad(20);
         switch (r) {
-        case 0: fg = C_HI;  puts_("BMC-K4510"); break;
-        case 1: fg = C_DIM; puts_("a fantasy 8/16-bit computer"); break;
-        case 3: fg = C_FG;  puts_("45GS10 at 40.5 MHz"); break;
-        case 4: fg = C_FG;  puts_("256 MB"); break;
+        case 0: fg = C_HI;  puts_("BMC-K4510 -- A FANTASY 8/16-bit COMPUTER"); break;
+        case 2: fg = C_FG;  puts_("CPU: 45GS10 at 40.5 MHz + runCPM Tube"); break;
+        case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
+        case 4: fg = C_FG;  puts_("CHIPS: 4 reSID, VICKY, SHEILA, FRED, JIM"); break;
         }
         fg = ofg;
         newline();
