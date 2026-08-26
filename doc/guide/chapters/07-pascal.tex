@@ -45,8 +45,8 @@ consequences for the programmer:
   on the keyboard device, \verb|Delay| and \verb|Pause| on the frame
   counter, \verb|Sound| on SID~0. \verb|TextMode(0)| puts the ROM's
   screen back.
-\item \verb|ParamCount| and \verb|ParamStr| come from the shell line
-  (\verb|RUN HELLO one two|, or just \verb|HELLO one two|);
+\item \verb|ParamCount| and \verb|ParamStr| come from the shell
+  line (\texttt{RUN HELLO one two}, or just \texttt{HELLO one two});
   \verb|ParamStr(0)| is the whole tail.
 \item \verb|uses k4510| gives every chip as a typed variable at its
   address --- \verb|VICKE[reg]|, \verb|SIDREG[]|, \verb|DMA_SRC|,
@@ -64,11 +64,13 @@ consequences for the programmer:
 
 \section{Building}
 On the desktop, with FPC and a Mad-Pascal checkout (the installer
-patches its target table and rebuilds \texttt{mp}):
+patches its target table and rebuilds \texttt{mp}). It looks for the
+checkout in \pth{~/Projects/neo6502_dev/Mad-Pascal} unless
+\texttt{MP\_DIR} says otherwise:
 
 \begin{verbatim}
-make pascal-install      # once: MP_DIR=... (default ~/Projects/neo6502_dev/Mad-Pascal)
-make pascal              # demo/pas/*.pas -> fs/PRG/*.prg
+make pascal-install    # once; MP_DIR=... to point elsewhere
+make pascal            # demo/pas/*.pas -> fs/PRG/*.prg
 \end{verbatim}
 
 A new program is a file in \texttt{demo/pas/}; \texttt{make} finds it.

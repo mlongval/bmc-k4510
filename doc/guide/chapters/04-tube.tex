@@ -58,7 +58,8 @@ CLG
 PLOT &ED,600,500
 \end{type}
 
-\begin{tabular}{ll}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.54\linewidth}@{}}
 \verb|VDU 23,27,0,n|| & select sprite $n$ (0--127) for PLOT \\
 \verb|VDU 23,27,1,n,w,h|| & capture $n$, $w\times h$ pixels (8/16/32/64), bottom-left at the graphics cursor \\
 \verb|VDU 23,27,2,n|| & hide $n$ \\
@@ -67,6 +68,7 @@ PLOT &ED,600,500
 \verb|VDU 23,27,5,n,m|| & sprite $n$ shows sprite $m$'s picture \\
 \verb|PLOT &ED,x,y| & show the selected sprite, bottom-left at $x,y$ \\
 \end{tabular}
+\normalsize
 
 A placed sprite is a register write: moving sixty-four of them every frame
 costs the interpreter nothing but the PLOTs. \texttt{SPRITES.BBC},

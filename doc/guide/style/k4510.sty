@@ -9,6 +9,7 @@
 \RequirePackage{graphicx}
 \RequirePackage{tcolorbox}
 \RequirePackage{enumitem}
+\RequirePackage{array}
 \RequirePackage{titlesec}
 \RequirePackage{fancyhdr}
 \RequirePackage{microtype}
@@ -17,6 +18,9 @@
 \RequirePackage{fancyvrb}
 \RequirePackage[hidelinks]{hyperref}
 \tcbuselibrary{skins,breakable}
+% A monospace path that may break at / and . -- long paths in a narrow
+% A5 measure otherwise run straight off the right margin.
+\DeclareUrlCommand\pth{\urlstyle{tt}}
 \captionsetup{font=small, labelfont=bf, justification=raggedright,
               singlelinecheck=false, skip=4pt}
 % The machine's palette (rom/kernal.c)

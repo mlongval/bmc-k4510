@@ -4532,3 +4532,33 @@ paragraph, is split into one entry each like every other section --
 same complaint, one step earlier. And `lib/fonts/font_8x8.c` was
 overflowing the measure (monospace does not hyphenate); shortened to
 `font_8x8.c`.
+
+## 2026-08-26 (d) — nothing runs off the right margin any more
+
+Five more screenshots from hdieu, and this time the fault was not in the
+new chapters alone: text was running past the right margin in four
+places, three of them older than anything written today. XeLaTeX had
+been saying so all along in `k4510-guide.log` — nine overfull boxes,
+which nobody had read. Parsed the log, mapped each to its page, fixed
+all nine, and the build now reports **zero**.
+
+What was wrong, worst first:
+
+- **The I/O map** (ch. 10, 191pt over): a three-column `tabular` whose
+  description cells for `N:` and `JIM` were sentences. The third column
+  is now a wrapping `p{0.60\linewidth}`, set `\small`.
+- **The VDU sprite table** (ch. 4, 142pt over): same disease, same cure.
+- **`make pascal-install`** (ch. 7, 91pt over): a verbatim line carrying
+  the Mad-Pascal default path in a comment. The path moved into the
+  prose above, where it can break.
+- **Four bullets in Licences** (73, 33, 21, 11pt over): long monospace
+  paths in `\verb`, which never breaks. The style file now defines
+  `\pth` (a `\DeclareUrlCommand` in tt) that breaks at `/` and `.`, and
+  the licence chapter uses it for every path. This is the general fix —
+  reach for `\pth` for any path in prose.
+- **`ParamCount`** (ch. 7, 2pt over): `\verb|RUN HELLO one two|` cannot
+  break at its spaces; `\texttt` can.
+
+The lesson worth keeping: `grep -c "^Overfull" doc/guide/k4510-guide.log`
+after every build. A5 is a narrow measure and monospace does not
+hyphenate, so this will happen again.

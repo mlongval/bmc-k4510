@@ -2,7 +2,7 @@
 
 The Thank You chapter (page~\pageref{cha:thanks}) is the thanks; this
 is the record. The
-authoritative copy is \verb|LICENSES.md| in the repository --- if the
+authoritative copy is \pth{LICENSES.md} in the repository --- if the
 two ever disagree, that file wins.
 
 \section{The project itself}
@@ -19,26 +19,26 @@ containing them must be too.
 \section{Code inside the machine}
 \begin{itemize}[leftmargin=1.4em]
 \item \textbf{Xemu 65xx/45GS02 CPU core} --- Gábor Lénárt.
-  \verb|core/xemu/|: \verb|cpu65.c|, \verb|cpu65.h|,
-  \verb|cpu65_mega65_timings.h|, \verb|cpu65ce02_disasm_tables.c|,
+  \pth{core/xemu/}: \verb|cpu65.c|, \verb|cpu65.h|,
+  \pth{cpu65_mega65_timings.h}, \pth{cpu65ce02_disasm_tables.c},
   used unchanged. \emph{GPL-2.0-or-later.}
 \item \textbf{reSID} --- Dag Lem, as shipped in VICE~3.3.
   \verb|core/resid/|. \emph{GPL-2.0-or-later.}
 \item \textbf{BBC BASIC, console edition (BBCTTY)} --- Richard T.
   Russell. \verb|tube/|, vendored and altered (see
-  \verb|tube/ALTERED.md|). \emph{zlib licence.} The name ``BBC BASIC''
+  \pth{tube/ALTERED.md}). \emph{zlib licence.} The name ``BBC BASIC''
   is used by permission; that permission is personal to this project
   and is \emph{not} transferable to forks or derivatives.
 \item \textbf{EhBASIC 2.22} --- Lee Davison, in the ca65 form from
   jefftranter/6502. \verb|basic/basic.asm|. \emph{Free for
   non-commercial use only}; derivatives must carry the words
-  ``Derived from EhBASIC'' --- see \verb|basic/README-EhBASIC.txt|.
-  It ships as a separate program (\verb|fs/ehbasic.prg|) and is not
+  ``Derived from EhBASIC'' --- see \pth{basic/README-EhBASIC.txt}.
+  It ships as a separate program (\pth{fs/ehbasic.prg}) and is not
   linked with the GPL code.
 \item \textbf{RunCPM} --- Marcelo Dantas. \verb|cpm/src/|, vendored
-  unmodified (\verb|cpm/VENDORED-FROM.txt|). \emph{MIT.}
+  unmodified (\pth{cpm/VENDORED-FROM.txt}). \emph{MIT.}
 \item \textbf{Tali Forth 2} --- Scot W. Stevenson, Sam Colwell,
-  Patrick Surry. \verb|forth/tali/|, vendored unmodified.
+  Patrick Surry. \pth{forth/tali/}, vendored unmodified.
   \emph{Public domain.}
 \item \textbf{Wozmon} --- Steve Wozniak's 1976 monitor, reimplemented
   here for the 45GS10. Apple published the original listing; this
@@ -53,19 +53,19 @@ containing them must be too.
 
 \section{Fonts}
 \begin{itemize}[leftmargin=1.4em]
-\item \textbf{Linux kernel 8x8 console font} --- \verb|data/font8.bin|,
-  built by \verb|data/mkfont.py| from \verb|lib/fonts/font_8x8.c|.
+\item \textbf{Linux kernel 8x8 console font} --- \pth{data/font8.bin},
+  built by \pth{data/mkfont.py} from \pth{lib/fonts/font_8x8.c}.
   \emph{GPL-2.0.} This is the default text font.
 \item \textbf{MEGA65 open-roms chargen + PXLfont 2.3} ---
-  \verb|data/fonts/openroms/|. Clean-room C64/C65 character shapes;
+  \pth{data/fonts/openroms/}. Clean-room C64/C65 character shapes;
   PXLfont is Retrofan's, included with open-roms' recorded permission.
-  \emph{LGPL-3.0-or-later} --- \verb|8x8font.png| is shipped as the
+  \emph{LGPL-3.0-or-later} --- \pth{8x8font.png} is shipped as the
   editable source, for LGPL compliance.
 \item \textbf{unscii-8} --- Ville-Matias Heikkilä.
-  \verb|data/fonts/unscii/|; \verb|font8-unscii.bin| is a generated
-  drop-in alternative to \verb|data/font8.bin|. \emph{Public domain.}
+  \pth{data/fonts/unscii/}; \pth{font8-unscii.bin} is a generated
+  drop-in alternative to \pth{data/font8.bin}. \emph{Public domain.}
 \item \textbf{BESCII v3} (Mono + source) --- Damian Vila.
-  \verb|data/fonts/bescii/|. \emph{CC0-1.0.}
+  \pth{data/fonts/bescii/}. \emph{CC0-1.0.}
 \item \textbf{Clear Sans} (Intel, \emph{Apache-2.0}) and
   \textbf{Iosevka} (Belleve Invis, \emph{SIL OFL 1.1}) --- the two
   faces this book is set in. They are not part of the machine.
@@ -82,12 +82,12 @@ repository. That copy is yours, not ours to publish.
 \end{aside}
 
 \section{The Raspberry Pi build}
-Neither of these lives in the repository; \verb|pi/Makefile| expects
+Neither of these lives in the repository; \pth{pi/Makefile} expects
 them beside the checkout.
 \begin{itemize}[leftmargin=1.4em]
 \item \textbf{Circle} --- Rene Stange. \emph{GPL-3.0.}
 \item \textbf{circle-libsdl2} --- Xalior. \emph{zlib}; its
-  \verb|sdl-app.ld| is \emph{GPL-3.0}.
+  \pth{sdl-app.ld} is \emph{GPL-3.0}.
 \end{itemize}
 A \verb|kernel8.img| built from these is therefore GPL-3.0 as a whole,
 which GPL-2.0-\emph{or-later} code permits. The Raspberry~Pi boot
@@ -109,7 +109,7 @@ your own Mad Pascal checkout.
 \item \textbf{The CP/M system disk.} RunCPM's \verb|DISK/A0.zip| ---
   Digital Research's \verb|ASM|, \verb|MAC|, \verb|DDT|, \verb|STAT|,
   \verb|SUBMIT| and third-party tools --- installs into
-  \verb|fs/CPM/A/0/| for your use but is not committed: its files have
+  \pth{fs/CPM/A/0/} for your use but is not committed: its files have
   mixed provenance and this repository is public. The same goes for
   WordStar, Turbo Pascal~3 and MBASIC, which the \verb|K-*.SUB|
   launchers know how to start but which you must supply yourself.
@@ -119,12 +119,12 @@ your own Mad Pascal checkout.
   part of this repository or of any release.
 \item \textbf{A Commodore character ROM} --- see the note above.
 \item \textbf{Your \texttt{STARTUP.BAT}} --- yours, not the repository's
-  (copy \verb|/SYSTEM/STARTUP.SAMPLE| to start one).
+  (copy \pth{/SYSTEM/STARTUP.SAMPLE} to start one).
 \end{itemize}
 
 \section{If you redistribute the machine}
-Ship the sources you built from, keep \verb|LICENSES.md| and this
-chapter with them, keep \verb|8x8font.png| beside the open-roms font,
+Ship the sources you built from, keep \pth{LICENSES.md} and this
+chapter with them, keep \pth{8x8font.png} beside the open-roms font,
 and remember two things that are easy to forget: EhBASIC is
 non-commercial-only, and the ``BBC BASIC'' name is licensed to this
 project and not to yours. Call your fork's BASIC something else.
