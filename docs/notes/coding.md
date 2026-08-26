@@ -17,6 +17,14 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
 
+**Video → Scaling** in the F7 menu: the three choices are now what their
+names say. `sharp` is nearest with free scaling (sharp, but at a window
+size that is not a whole multiple it drops pixel rows unevenly);
+`soft` is linear; `sharp-fit` is nearest **and** integer scaling, so every
+pixel of the machine is a whole number of pixels on the glass — exact,
+with letterboxing instead of artefacts. sharp-fit was picking linear as
+well, which threw away the point of it.
+
 **`LOGO` (new command)** clears the screen and reprints the startup
 banner. It lives in the sideways window (SWCODE0), not the resident ROM,
 so it cost 24 bytes of ROM2 for its dispatch and nothing else.

@@ -299,7 +299,12 @@ int k4510_frontend_main(int argc, char **argv)
 
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
             smooth_applied = settings_get(SET_VIDEO_SMOOTH);
-            SDL_SetTextureScaleMode(tex, smooth_applied == SMOOTH_SHARP ? SDL_ScaleModeNearest : SDL_ScaleModeLinear);
+            /* Only "soft" is meant to be soft.  sharp-fit was picking linear
+             * as well, which threw away the point of it: with integer scaling
+             * every pixel of the machine is a whole number of pixels on the
+             * glass, so nearest is exact -- no dropped rows, and no blur to
+             * hide them with. */
+            SDL_SetTextureScaleMode(tex, smooth_applied == SMOOTH_SOFT ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
             SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_SHARPFIT ? SDL_TRUE : SDL_FALSE);
         }
         /* Scanlines are never a figure's -- but they ARE the menu's: the point
