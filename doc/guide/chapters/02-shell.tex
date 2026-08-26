@@ -164,12 +164,31 @@ runs one line without entering the prompt.}
 
 \section{Housekeeping}
 \verb|INFO| is the machine's self-description; \verb|TIME| the clock;
-\verb|MODE| and \verb|COLOR| set the text screen; \verb|CLS| clears it and
+\verb|MODE| and \verb|COLOR| set the text screen --- \verb|CLS| clears it and
 \verb|CLG| clears the bitmap over it, whoever drew it --- both reach a
 BASIC through the \texttt{*} escape, which is how you tidy up after a demo
 that left its picture behind; \verb|FILL| and
 \verb|COPY| work on memory; \verb|HUSH| silences all four SIDs at once;
 \verb|LS| is \verb|DIR| for fingers that have used Unix too long.
+
+\verb|MODE| on its own says where you are; \verb|MODE n| moves. The second
+number is the margin: 1 (the default) keeps a one-cell gap at the top and
+the left, 0 uses every cell.
+
+\begin{tabular}{llll}
+\textbf{MODE} & \textbf{pixels} & \textbf{text} & \\
+0 & 640$\times$480 & 80$\times$60 & the whole glass \\
+1 & 640$\times$240 & 80$\times$30 & the machine starts here \\
+2 & 320$\times$240 & 40$\times$30 & \\
+3 & 320$\times$200 & 40$\times$25 & the C64's geometry \\
+4 & 160$\times$200 & 20$\times$25 & four screen pixels each \\
+\end{tabular}
+
+The picture is always painted into 640$\times$480: a 200-line mode gets
+40 blank lines above and below it, and a 320- or 160-wide one has its
+pixels doubled or quadrupled sideways. Raster lines and SHEILA's display
+list count the glass, 0--479, not the mode --- so in MODE~3 the first line
+of your picture is raster line~40.
 
 \section{When something goes wrong}
 \verb|DUMP a note| writes the whole machine state --- registers, screen, the

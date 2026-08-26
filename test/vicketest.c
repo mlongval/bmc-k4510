@@ -214,6 +214,35 @@ int main(void)
     }
     CHECK(mem_peek(bd+1) == (4 ^ 1) && mem_peek(bd+2) == (9 ^ 2), "XOR");
 
+    /* ---- the smaller modes: a 200-line field, and 160 columns ---- */
+    mem_reset();
+    { uint32_t bm = 0x700000;
+      for (int i = 0; i < 320 * 200; i++) mem_poke(bm + i, 7);        /* 320x200, 8 bpp, every pixel 7 */
+      W(VR_BGCOL, 3);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_BITMAP << 1) | (3 << 3)); /* enable, bitmap, 8 bpp */
+      W(VR_LAYER(0) + VL_PALOFS, 0);
+      W16(VR_LAYER(0) + VL_SCROLLX, 0); W16(VR_LAYER(0) + VL_SCROLLY, 0);
+      W16(VR_LAYER(0) + VL_STRIDE, 320); W32(VR_LAYER(0) + VL_DATA, bm);
+      for (int n = 1; n < VICKE_LAYERS; n++) W(VR_LAYER(n) + VL_CTRL, 0);
+      W(VR_SPRCTL, 0); W(VR_SHEILACTL, 0);
+
+      W(VR_CTRL, 1 | 2 | 8);                                          /* 320x200 */
+      vicke_render(fb, VICKE_WIDTH);
+      printf("8. 320x200: line 39=%d line 40=%d line 439=%d line 440=%d  px(638,240)=%d\n",
+             fb[39*640], fb[40*640], fb[439*640], fb[440*640], fb[240*640+638]);
+      CHECK(fb[39*640] == 3 && fb[440*640] == 3, "the 40 lines above and below the field are BGCOL");
+      CHECK(fb[40*640] == 7 && fb[439*640] == 7, "the 200-line field fills lines 40..439");
+      CHECK(fb[240*640+638] == 7 && fb[240*640+639] == 7, "320 columns doubled reach the right edge");
+
+      W(VR_CTRL, 1 | 2 | 8 | 16);                                     /* 160x200: four screen pixels each */
+      for (int i = 0; i < 320 * 200; i++) mem_poke(bm + i, (i % 320) < 1 ? 5 : 7);   /* column 0 of the source = 5 */
+      vicke_render(fb, VICKE_WIDTH);
+      printf("9. 160x200: px(0,100)=%d px(3,100)=%d px(4,100)=%d line 39=%d\n",
+             fb[100*640], fb[100*640+3], fb[100*640+4], fb[39*640]);
+      CHECK(fb[100*640] == 5 && fb[100*640+3] == 5 && fb[100*640+4] == 7, "one pixel of the machine is four on the glass");
+      CHECK(fb[39*640] == 3 && fb[440*640] == 3, "the field is still 200 lines");
+    }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

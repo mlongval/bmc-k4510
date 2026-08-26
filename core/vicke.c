@@ -282,27 +282,35 @@ void vicke_line(int y)
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
     uint8_t *line = frame_fb + y * frame_pitch;
-    if (reg[VR_CTRL] & 6) {                      /* bit1: 320x240 (both axes doubled); bit2: 640x240 (lines doubled) */
-        int half = reg[VR_CTRL] & 2;
-        if (y & 1) { memcpy(line, line - frame_pitch, VICKE_WIDTH); return; }
+    uint8_t ctrl = reg[VR_CTRL];
+    /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
+     * field, 40 blank lines above and below it; bit4: columns quartered (160). */
+    int top = (ctrl & 8) ? (VICKE_HEIGHT - 400) / 2 : 0;
+    if (y < top || y >= VICKE_HEIGHT - top) { memset(line, reg[VR_BGCOL], VICKE_WIDTH); return; }
+    int yy = y - top;
+    if (ctrl & 6) {
+        int half = ctrl & 2;
+        if (yy & 1) { memcpy(line, line - frame_pitch, VICKE_WIDTH); return; }
         uint8_t *dst = half ? lowres_tmp : line;
         memset(dst, reg[VR_BGCOL], VICKE_WIDTH);
-        if (reg[VR_CTRL] & 1) {
+        if (ctrl & 1) {
             memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
             for (int n = 0; n < VICKE_LAYERS; n++) {
-                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y >> 1, dst, 0);
-                sprites_line(n, y >> 1, dst);
+                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy >> 1, dst, 0);
+                sprites_line(n, yy >> 1, dst);
             }
         }
-        if (half) for (int x = 0; x < VICKE_WIDTH / 2; x++) line[2 * x] = line[2 * x + 1] = lowres_tmp[x];
+        if (half) { int q = (ctrl & 16) ? 4 : 2;             /* screen pixels per pixel of the machine */
+                    for (int x = 0; x < VICKE_WIDTH / q; x++)
+                        for (int i = 0; i < q; i++) line[x * q + i] = lowres_tmp[x]; }
         return;
     }
     memset(line, reg[VR_BGCOL], VICKE_WIDTH);
-    if (!(reg[VR_CTRL] & 1)) return;
+    if (!(ctrl & 1)) return;
     memset(owner, 0, VICKE_WIDTH); memset(layer_hit, 0, VICKE_WIDTH);
     for (int n = 0; n < VICKE_LAYERS; n++) {
-        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y, line, 0);
-        sprites_line(n, y, line);
+        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, 0);
+        sprites_line(n, yy, line);
     }
 }
 

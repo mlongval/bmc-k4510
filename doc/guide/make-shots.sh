@@ -58,7 +58,9 @@ shot pgraph 700 "PGRAPH
 # octal, not \xNN: this script is /bin/sh, and dash's printf prints "\x96" literally
 # (that is how the menu shot became a picture of the shell rejecting \x96 as a command)
 K="$(printf "~~~\226\n\201\201\n~")"   # F7, Down, Down, Enter
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy K4510_KEYS="$K" K4510_SHOT="$HERE/shots/menu.ppm:200" sdl/k4510 >/dev/null 2>&1 || true
+# -k: SDL turns SIGTERM into an SDL_QUIT *event*, so a wedged main loop never
+# acts on it; plain `timeout` then waits for a process that will never die
+timeout -k 5 120 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy K4510_KEYS="$K" K4510_SHOT="$HERE/shots/menu.ppm:200" sdl/k4510 >/dev/null 2>&1 || true
 [ -s "$HERE/shots/menu.ppm" ] && python3 -c "from PIL import Image; Image.open('$HERE/shots/menu.ppm').save('$HERE/shots/menu.png')" && rm -f "$HERE/shots/menu.ppm"
 [ -s "$HERE/shots/menu.png" ] || { echo "shot menu FAILED"; exit 1; }
 echo "shots: done"

@@ -16,7 +16,10 @@ the SID sound chip --- it borrows openly and then outgrows.
   everything else is one instruction away.
 \item \textbf{Video: VICKe} --- 640$\times$480, 256 colours from a 24-bit
   palette, four layers, 128 sprites, a blitter that draws lines and filled
-  triangles, and a display-list coprocessor named SHEILA.
+  triangles, and a display-list coprocessor named SHEILA. Smaller modes
+  (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
+  drawn into the same glass, doubled and centred, so the raster is always
+  480 lines however few of them the picture uses.
 \item \textbf{Sound: four SID chips} (reSID 6581) and a floating-point MATH
   unit the BASIC leans on.
 \item \textbf{A system ROM}: a shell with directories, a Wozmon-style

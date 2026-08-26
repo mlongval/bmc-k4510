@@ -25,6 +25,7 @@ int  menu_closed_pending(void);               /* 1 once, after a close: the host
 void menu_info(int row, const char *text);    /* the Info page's rows, from the host */
 void menu_slot(int n, const char *text);      /* what a save-state slot holds ("empty", a date), from the host */
 int  menu_draw(uint8_t *overlay);             /* 1 if it drew (the overlay changed) */
+void menu_dirty(void);                        /* redraw next time: the cell grid changed under it */
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
 #ifdef __cplusplus
 }

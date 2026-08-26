@@ -61,7 +61,7 @@ static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1
 static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)(y + OY) * PCOLS + x + OX) * 4; }
 #define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
 static uint8_t tpl_fg, tpl_bg, tpl_cols, cellbuf[4];
-static void blank_row(uint8_t y)
+static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included */
 {
     if (tpl_fg != fg || tpl_bg != bg || tpl_cols != PCOLS) {     /* (re)build the template: one cell, copied across */
         uint8_t i;
@@ -71,7 +71,7 @@ static void blank_row(uint8_t y)
         tpl_fg = fg; tpl_bg = bg; tpl_cols = PCOLS;
     }
     /* a whole physical row (the margin column stays blank because every row is blanked whole) */
-    w32(DMA + 0, ROWTPL); w32(DMA + 4, SCREEN + (uint32_t)(y + OY) * PCOLS * 4); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
+    w32(DMA + 0, ROWTPL); w32(DMA + 4, SCREEN + (uint32_t)y * PCOLS * 4); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
 }
 
 static void draw_cursor(uint8_t on)
@@ -86,7 +86,7 @@ static void draw_cursor(uint8_t on)
 static void cls(void)
 {
     uint8_t i;
-    for (i = 0; i < PROWS; i++) blank_row(i - OY);       /* every physical row, margins included */
+    for (i = 0; i < PROWS; i++) blank_row(i);          /* every physical row, the margins with them */
     cx = cy = 0;
 }
 
@@ -95,7 +95,7 @@ static void scroll(void)
     w32(DMA + 0, SCREEN + (uint32_t)(OY + 1) * PCOLS * 4); w32(DMA + 4, SCREEN + (uint32_t)OY * PCOLS * 4);
     w32(DMA + 8, (uint32_t)(ROWS - 1) * PCOLS * 4);
     REG(DMA + 12) = 1;
-    blank_row(ROWS - 1);
+    blank_row(OY + ROWS - 1);
 }
 
 static void newline(void)
@@ -543,12 +543,16 @@ static void cmd_copy(const char *p)
 }
 
 static void video_init(void);
+static const char *modename(uint8_t m)
+{
+    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : "160x200";
+}
 static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
     if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : "320x240"); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0|1|2 [0|1])"); newline(); return; }
-    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)  [0|1: margin]"); return; }
+               puts_(modename(vmode)); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0-4 [0|1])"); newline(); return; }
+    m = parsehex(&p, &d); if (!d || m > 4) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240), 3 = 40x25 (320x200), 4 = 20x25 (160x200)  [0|1: margin]"); return; }
     vmode = (uint8_t)m; skipsp(&p);
     if (*p) { m = parsehex(&p, &d); if (!d || m > 1) { error("mode: second value 0 = full screen, 1 = one-cell margin"); return; } margin = (uint8_t)m; }
     video_init(); cls();
@@ -1137,10 +1141,13 @@ static const uint8_t c64pal[16][3] = {
     {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
     {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
 
+/* VICKe CTRL for each MODE: halve columns (2), halve lines (4), 200-line
+ * field (8), quarter columns (16).  See core/vicke.h. */
+static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
 static void video_init(void)
 {
     uint8_t i;
-    PCOLS = vmode == 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : 30;
+    PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : vmode >= 3 ? 25 : 30;
     COLS = PCOLS - margin; ROWS = PROWS - margin;
     REG(VICKE + 0) = 0;
     REG(VICKE + 1) = C_BG;
@@ -1155,7 +1162,7 @@ static void video_init(void)
     for (i = 1; i < 4; i++) REG(VICKE + 0x10 + i * 0x10) = 0;
     REG(VICKE + 0x0E) = 0; REG(VICKE + 0x64) = 0;
     REG(VICKE + 5) = 1;                        /* IRQ on vblank */
-    REG(VICKE + 0) = (uint8_t)(1 | (vmode == 2 ? 2 : vmode == 1 ? 4 : 0));
+    REG(VICKE + 0) = (uint8_t)(1 | ctrlmode[vmode]);
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
     REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;

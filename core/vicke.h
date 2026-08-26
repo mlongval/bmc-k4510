@@ -5,8 +5,15 @@
  * memory. Rendering is per scanline into an 8-bit indexed framebuffer the
  * frontend supplies; the frontend applies vicke_palette_rgb().
  *
- *   $00  CTRL      bit0 display enable, bit1 320x240, bit2 640x240 (doubled;
- *                  raster lines still 0..479)
+ *   $00  CTRL      bit0 display enable; the rest pick the mode.  The glass is
+ *                  always 640x480 and the raster lines are always 0..479 --
+ *                  a smaller mode is drawn into it, doubled, and centred.
+ *                  bit1 columns halved (320), bit2 lines halved (240),
+ *                  bit3 a 200-line field (40 blank lines top and bottom),
+ *                  bit4 columns quartered (160; with bit1).
+ *                     1     640x480      1|4    640x240
+ *                     1|2   320x240      1|2|8  320x200
+ *                     1|2|8|16  160x200  1|4|8  640x200
  *   $01  BGCOL     background palette index (where nothing is drawn)
  *   $02  RASTER    read: current line (low 8); write: raster-compare low
  *   $03            read: line high bits;         write: compare high

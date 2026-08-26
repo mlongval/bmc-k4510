@@ -38,7 +38,11 @@ arbitrary, it is one of these applied.
   320×240, 640×200, 640×400, 640×480. Stretch, benchmark-gated:
   800×600, 1024×768. *(Built 2026-08-22: CTRL bit1 = lowres, 320×240
   with every pixel doubled; layers and sprites see the small screen,
-  raster lines still count 0–479.)*
+  raster lines still count 0–479. Extended 2026-08-25: bit2 halves the
+  lines only (640×240), bit3 shortens the field to 200 lines with 40
+  blank lines above and below, bit4 quarters the columns (160). The
+  shell's MODE 0–4 picks 640×480, 640×240, 320×240, 320×200,
+  160×200.)*
 - **8 bits per pixel output** into BMC64's indexed framebuffer — 256
   colours on screen. The RGB framebuffer path (`crt_pi_rgb.c`) is a
   documented upgrade, not a v1 requirement.

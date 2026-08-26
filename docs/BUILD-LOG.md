@@ -3454,3 +3454,40 @@ the harness: it still enters BBC at the root and LOADs
 nasm and cc65 now both build on ubuntu-s1 from source (in the session
 scratch) -- the ROM and the Tube binary can be rebuilt here, not only
 on the laptop.
+
+## 2026-08-25 (later): the black bar, the menu's grid, two more modes
+
+Three things Doc found on the t480i5, from screenshots.
+
+**The black bar at the top of the screen.** One character row, always
+there, whatever was running. `cls()` blanked `PROWS` rows starting at
+`i - OY` with `i` a `uint8_t` and `OY` the one-cell margin: the first
+iteration computed 0 - 1 = 255 and wrote its blank row 226 rows off the
+bottom of the screen, so physical row 0 was never touched and kept
+whatever the RAM held -- fg 0 on bg 0, black. The comment above the loop
+("every physical row, margins included") said what it meant to do; the
+arithmetic did something else. `blank_row()` now takes a *physical* row
+and `cls()` counts 0..PROWS-1; `scroll()` adds OY itself. Confirmed by
+capturing a frame before and after: lines 0-15 go from (0,0,0) to the
+C64 blue. Four bytes of ROM2 came back with it.
+
+**The F7 menu now takes the machine's row grid.** It was 60 rows of 8x8
+cells over a machine showing 30 rows of doubled ones, so its text was
+half the size of everything under it. `ui_cell_h()` sets the overlay's
+cell height (8 or 16, the glyph rows drawn twice for 16) and `UI_ROWS`
+follows; the frontend reads VICKe's CTRL each frame and passes 16 for any
+mode with doubled lines, marking the menu dirty when it changes. Columns
+stay 8 wide -- 40 would have squeezed the two panes.
+
+**Two more resolutions.** VICKe's CTRL grew two bits: bit3 shortens the
+field to 200 lines (40 blank lines above and below, BGCOL) and bit4
+quarters the columns. With the existing bit1/bit2 that gives MODE 3 =
+320x200 (40x25 text -- the C64's geometry) and MODE 4 = 160x200 (20x25,
+four screen pixels per pixel of the machine). The glass and the raster
+are unchanged at 640x480 and 0-479, so in MODE 3 the picture's first line
+is raster line 40 -- said out loud in vicke.h and in the guide, because
+SHEILA lists and raster IRQs count the glass. vicketest gained checks 8
+and 9. ROM2: 25 bytes free.
+
+`tools/romfree.py` is the free-space parser, now in the tree instead of
+being rewritten into /tmp every time.

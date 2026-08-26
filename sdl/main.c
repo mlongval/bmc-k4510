@@ -242,6 +242,9 @@ int k4510_frontend_main(int argc, char **argv)
             if (open) vicke_repaint(fb, VICKE_WIDTH);    /* frozen: nothing else would draw the new chargen */
         }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
+        /* the menu takes the machine's own row grid: 30 rows over a 240-line
+         * mode, 60 over 640x480, so its lines sit on the picture's lines */
+        if (ui_cell_h((vicke_read(VR_CTRL) & 6) ? 16 : 8)) menu_dirty();
         menu_draw(ov);
 
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {

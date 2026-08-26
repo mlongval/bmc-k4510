@@ -91,6 +91,7 @@ static void set_cat(int c)
 void menu_open(void) { open_ = 1; pane = 0; popup = 0; set_cat(0); dirty = 1; }
 void menu_close(void) { if (open_) { open_ = 0; closed = 1; dirty = 1; } }
 int  menu_is_open(void) { return open_; }
+void menu_dirty(void) { dirty = 1; }
 int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
