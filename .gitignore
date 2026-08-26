@@ -57,3 +57,4 @@ fs/STARTUP.BAT
 fs/EDITTMP.BAS
 doc/guide/version.tex
 doc/guide/generated/
+core/build.h

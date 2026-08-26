@@ -7,7 +7,13 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 # can name the commit it came from.  Only core/io.o pays for it, so a new commit
 # does not rebuild the world.  Must fit 15 characters.
 K4510_BUILD := 0.3-$(shell git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(shell git diff --quiet HEAD 2>/dev/null || echo +)
-core/io.o: CFLAGS += -DK4510_BUILD='"$(K4510_BUILD)"' 
+core/build.h: FORCE
+	@printf '/* generated: the commit this build came from */\n#define K4510_BUILD "%s"\n' '$(K4510_BUILD)' > $@.tmp; \
+	 cmp -s $@.tmp $@ 2>/dev/null || mv $@.tmp $@; rm -f $@.tmp
+core/io.o: core/build.h
+.PHONY: FORCE
+FORCE:
+
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
