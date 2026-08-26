@@ -44,6 +44,16 @@ Thank you:
 
 ## The Raspberry Pi port
 
+- **Randy Rossi** — [BMC64](https://github.com/randyrossi/bmc64), VICE
+  on a bare-metal Raspberry Pi with 50 Hz smooth scrolling and
+  single-frame input latency. The reason this machine has a Pi port at
+  all: the route there was always meant to be BMC64's `emux_api` seam.
+  Also the **VIC-II Kawari** — a modern drop-in VIC-II with modes the
+  original never had, and the proof that extending an 8-bit machine's
+  video chip is working inside the tradition, not outside it. VICKe is
+  a more reckless cousin of that idea.
+- **minch** (aminch) — BMC64's maintainer since Randy handed it over,
+  carrying it onto the newer Pis.
 - **Rene Stange** — [Circle](https://github.com/rsta2/circle), the
   bare-metal Pi environment.
 - **Xalior** —
@@ -71,6 +81,11 @@ build.
   (planned: the machine's next native BASIC).
 - **The VICE team** — decades of emulation scholarship this project
   leans on constantly.
+- **Kim Lemon** and the Lemoners — [Lemon64](https://www.lemon64.com)
+  has been the C64's front door since 1998: games database, reviews and
+  scans, music, and a forum that answers. Twenty-eight years of
+  dedication to a machine's community, and a good half of the small
+  facts this project needed.
 - **The Neo6502 handbook** and the **MEGA65 User's Guide** — the two
   books the guide is modelled on, down to the page size.
 - **The High Voltage SID Collection** and the composers in it, whose

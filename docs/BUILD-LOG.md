@@ -4495,3 +4495,22 @@ Spent some of it at once: the grace window now announces itself
 it fires, which is what the silence cost us in the first place. It only
 speaks when there is a file to skip -- fs_cmd(8) is a plain existence
 check, so the test moved ahead of the message. ROM1C 782 free, ROM2 609.
+
+## 2026-08-26 (b) — three names that should have been there from the start
+
+Doc: *"We also have to thank Randy Rossi (Kawari and BMC64 which
+inspired this project) and the new maintainer of the BMC64 repo ->
+minch. Please also thanks to Kim Lemon of lemon64.com for 28+ years of
+dedication to the C64 community."*
+
+All three added to `CREDITS.md` and to the guide's Thank You chapter.
+Randy Rossi goes in the bare-metal section, where he belongs twice over:
+BMC64 is why this machine has a Pi port at all (the route was always
+meant to be its `emux_api` seam), and the VIC-II Kawari is the precedent
+for VICKe — extending an 8-bit machine's video chip is working inside
+the tradition, not outside it. minch (aminch) has BMC64 now. Kim Lemon
+goes in heritage: Lemon64 since 1998, twenty-eight years, and a good
+half of the small facts this project needed.
+
+Spelling checked against the local bmc64 clone before printing it: 758
+commits by **Randy** Rossi, not Randi. Guide now 51 pages.
