@@ -2,7 +2,7 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 16:0x**
+**Updated: 2026-08-26 17:0x**
 
 ## Now
 
@@ -10,10 +10,21 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## Appendix A is generated from your headers — please read this bit
 
+**Changed today: it parses now, it does not dump.** Doc said pages 42-50
+were ugly and did not look like the rest of the book, and he was right --
+nine pages of folded monospace is not a reference. `mkregs.py` now reads
+the shape your comments already have (`$D720  FOP  description`) and sets
+it as a reference: address column, name in bold, description in the book's
+own text face. **Nothing you write is reworded** -- the parser only decides
+which column a word belongs in, and where your own spacing was doing the
+work of a table (the VICKY mode table, the MATH op list) it keeps the table
+exactly as written, in monospace. Nothing changes for you: the same comment
+gets you a better page.
+
 `doc/guide/mkregs.py` lifts every top-level block comment that documents
 registers (two or more lines carrying a `$XX`) out of `core/io.h`,
-`vicky.h`, `net.h`, `term.h` and `mem.h`, and prints it **verbatim** as
-Appendix A. Nine blocks, twelve pages.
+`vicky.h`, `net.h`, `term.h` and `mem.h`, and sets it as Appendix A.
+Nine blocks, ten pages.
 
 What this means for you, and it is the whole point: **a device you add to
 one of those headers is in the book at the next build, with nothing to
@@ -21,12 +32,44 @@ edit on my side.** What it asks of you is only what you already do —
 keep the register list in the block comment above the code.
 
 It parses defensively: no comment format is required beyond the `$XX`
-test, and nothing is rewritten except lines longer than 76 characters,
-which are folded because A5 is narrow. If a line cannot be folded under
-that, the build fails rather than printing off the page — so a very long
-register line is the one thing that would bounce back to you.
+test. A line it cannot read as a register becomes a note rather than an
+error, and a line whose own spacing is aligning something is kept as a
+monospace fragment, set at the largest size that still fits an A5 page.
+There is no width you can now exceed, so nothing here bounces back to you.
 
-## Done from your list (all in the book, rebuilt, pushed)
+## BUG: redirected by Doc, waiting on the coding session
+
+Doc has redirected it. `BUG` is not "print the template with three lines
+filled in" -- `bug.prg` interviews the user on screen and writes a finished
+report to `/SYSTEM/BUGREPORTS/` (host: `fs/SYSTEM/BUGREPORTS/`). So the
+`mkissue.py` -> `BUG.TXT` output is **cancelled, not deferred**: there is no
+block for the program to print.
+
+`*bug` works by the REXX rule (an unknown word is looked up as a program),
+so it costs nothing anywhere. The ROM command is reverted on their side.
+
+**One source of truth: a check, not a generator.** The interview and the
+paste-in block have different jobs -- the block has to work for someone who
+never ran `BUG` (a typo in this book, a Pi with no build, a phone). So both
+stay hand-written, and `mkissue.py` will compare the program's question
+labels against the block on the page and fail the guide build if they
+disagree. Waiting on the coding session for the file and symbol holding
+those labels; I write the check against whatever they wrote.
+
+**The page waits too.** No `BUG` paragraph until the command lands and they
+send the filename format and question list. Nothing in the book promises the
+bug-report droplet Doc has floated, either, until it exists.
+
+## Fixed today, from the coding session's correction
+
+The page told people `INFO -v` identifies their build. It does not:
+`core/io.c:445` is a fixed `"k4510 0.3"` and `ROM_VERSION` is `"stage 4"` --
+generations, not builds. The form now points at this book's cover (git
+describe plus the build date, the only thing on a user's disk that pins a
+build) and names `INFO -v` as the coarser answer. Corrected in the book and
+in the generated GitHub template in the same build.
+
+## Done from your list## Done from your list (all in the book, rebuilt, pushed)
 
 - **VI** — chapter 8's key block rewritten from the header comment in
   `demo/vi.c`, including the two you flagged: charwise operators clamp

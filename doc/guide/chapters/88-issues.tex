@@ -1,0 +1,97 @@
+\chapter{Filing an Issue}\label{cha:issues}\markboth{Filing an Issue}{Filing an Issue}
+
+This machine has one author, and an issue you file here will, in all
+likelihood, be handed straight to an AI coding session to work on. That
+is worth knowing before you write one, because it changes what a good
+report looks like.
+
+So the form below is not really a form. It is a prompt. Filled in, it
+carries enough for the work to start without a single question coming
+back to you; left as prose, it usually costs one exchange to establish
+things you already knew when you typed it.
+
+\section{Three things first}
+None of these is politeness. Each one removes a day.
+
+\textbf{Type \texttt{DUMP} while it is wrong.} The machine writes its whole
+state --- registers, the screen as you are looking at it, the last 4096
+instructions, your last keystrokes, and the log of every command you have
+typed --- to \pth{dumps/dump-NNN.txt} on the host. It is written for
+exactly this purpose. If you can manage only one line of the report, make
+it the dump: it is worth more than any description either of us could
+write.
+
+\textbf{Try it again with \texttt{k4510 {-}{-}no-startup.bat}.} A
+\pth{/STARTUP.BAT} that has gone wrong looks exactly like a machine that
+has gone wrong, and it has cost this project a diagnosis more than once.
+Ten seconds of your time settles it.
+
+\textbf{Look it up in this book.} If the machine disagrees with a page
+here, that is still a fault worth filing --- it is simply this book's
+fault rather than the machine's, and it gets fixed the same way. Say
+which page, and the two halves of the project can sort out between them
+which one was lying.
+
+\section{The report}
+Copy this, fill in what you can, delete what does not apply. Nothing in
+it is required except the last two lines.
+
+\begin{form}
+Machine:  BMC-K4510, desktop  |  Raspberry Pi 3B+
+Version:  from this book's cover, or the release you downloaded
+          (INFO -v names the K/OS and emulator generation, coarser)
+Where:    shell | EhBASIC | BBC BASIC | CP/M | Forth | Pascal |
+          VI or EDIT | the F7 menu | this handbook
+
+What I typed, exactly:
+
+    LOAD "DEMO.BAS"
+    RUN
+
+What happened:
+What I expected:
+Why I expected it:  handbook p.NN | a real C64 or Beeb does it |
+                    it worked before
+
+Still wrong with  k4510 --no-startup.bat ?   yes | no | did not try
+Dump:  dumps/dump-017.txt   (type DUMP, then attach that file)
+\end{form}
+
+\subsection*{Why those lines and not others}
+
+\textbf{What I typed, exactly.} Not a summary of what you did --- the
+lines themselves, as they went in. The machine is deterministic and its
+figures in this book are captured by replaying keystrokes into it, so a
+transcript can be run again as written. A paraphrase cannot.
+
+\textbf{Why I expected it.} This is the line that most reports leave out
+and most exchanges are then spent on. The K4510 is a fantasy machine
+(page~\pageref{cha:disclaimer}): there is no silicon anywhere that it can
+be measured against, so ``wrong'' only means anything next to what you
+were expecting and where you got that from. It is also what separates a
+bug from a design decision from an error in this book --- three different
+repairs, and the answer decides which one starts.
+
+\textbf{Where.} The machine is several machines: a shell, two BASICs, a
+Z80 under CP/M, a Forth, a Pascal, two editors and a book. Naming yours
+is what routes the report.
+
+\section{Where it goes}
+\begin{center}
+\url{https://github.com/mlongval/bmc-k4510/issues}
+\end{center}
+
+\noindent The same block appears there as the repository's issue
+template, generated from this page so that the two cannot drift apart. If
+you have no account there, the same text in an email is worth exactly as
+much.
+
+Feature requests and disagreements are welcome in the same shape ---
+``what I expected'' does the work whether or not anything is broken.
+
+\begin{aside}
+\textbf{One thing to check before you attach a dump.} It carries the
+shell log, which is every command line you typed in that session, and
+file names from your own disk along with them. It is a plain text file:
+open it and have a look before it goes anywhere public.
+\end{aside}

@@ -42,6 +42,10 @@ cd "$HERE"
 # The register appendix comes out of the machine's own headers every build.
 python3 "$HERE/mkregs.py"
 
+# ...and the repository's issue template out of the Filing an Issue page, so
+# that the page and the template cannot say different things.
+python3 "$HERE/mkissue.py"
+
 # The cover carries a version and a build date. GUIDE_VERSION=... overrides
 # the git description; the date is always today, written DD.MM.YYYY.
 # Short enough to sit on the cover's first line: tag+commits, e.g. alpha-0.2+88.
