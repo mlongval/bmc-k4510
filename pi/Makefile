@@ -24,6 +24,18 @@ OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o net_pi.o \
 STANDARD = -std=c++23 -Wno-volatile
 C_STANDARD = -std=gnu11
 
+# core/io.c includes core/build.h, which carries the commit this build came
+# from.  The desktop Makefile generates it; this build has to as well, or the
+# Pi cannot compile at all -- and a Pi kernel should report its own commit,
+# not whichever machine last ran the desktop build.
+K4510_BUILD := 0.3-$(shell cd $(CORE)/.. && git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(shell cd $(CORE)/.. && git diff --quiet HEAD 2>/dev/null || echo +)
+.PHONY: FORCE
+FORCE:
+$(CORE)/build.h: FORCE
+	@printf '/* generated: the commit this build came from */\n#define K4510_BUILD "%s"\n' '$(K4510_BUILD)' > $@.tmp; \
+	 cmp -s $@.tmp $@ 2>/dev/null || mv $@.tmp $@; rm -f $@.tmp
+$(CORE)/io.o: $(CORE)/build.h
+
 include $(SHIM)/circle-syscallwrap/syscallwrap.mk
 include $(CIRCLEHOME)/Rules.mk
 
