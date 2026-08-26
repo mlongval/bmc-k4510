@@ -565,7 +565,9 @@ static uint8_t sys_read(uint8_t r)
 static int tube_was_alive;
 #elif !defined(K4510_PI)
 #include <pty.h>
-#include <sys/prctl.h>
+#ifdef __linux__
+#include <sys/prctl.h>          /* PR_SET_PDEATHSIG: the child dies with the emulator */
+#endif
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
