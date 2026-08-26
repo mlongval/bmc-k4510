@@ -17,6 +17,19 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
 
+**`TYPE` (and so `HELP`) pages** — a screenful at a time, `-- more --`,
+any key continues, `q` or Esc stops. **Not** when a script is running it,
+or STARTUP.BAT would hang waiting for a key nobody is there to press.
+
+**`fs/PRG/logo.prg`** — the banner as a program (`RUN PRG/LOGO`), beside
+the ROM's `LOGO` command. It writes text32 cells directly, so it can set
+backgrounds, and it reads the geometry from JIM so it follows the MODE
+and the margin. The bars, colours and text are four tables at the top of
+`demo/logo.c`, meant to be edited.
+
+**MODE 4 no longer hangs the machine.** `pad()` could be asked for a
+column past the right margin, which `cx` can never reach.
+
 **`k4510 --no-startup.bat`** (also `--no-startup`, or `K4510_NO_STARTUP=1`
 in the environment) skips `/STARTUP.BAT` for that run only. The F7 switch
 does the same but persists, and holding a key at the banner needs you to

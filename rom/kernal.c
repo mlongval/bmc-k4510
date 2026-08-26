@@ -467,9 +467,12 @@ static void cmd_save(const char *p)
     puts_("saved "); putdec(to - from + 1); puts_(" bytes"); newline();
 }
 
+static uint8_t typed;                        /* lines since the last "-- more --" */
+static uint8_t exec_busy;                    /* a script is running: nobody to press a key */
 static void cmd_type(const char *p)
 {
     char name[NAMEMAX]; uint32_t n; uint16_t i;
+    typed = 0;
     if (!getname(&p, name)) { error("type: name?"); return; }
     fs_name(name);
     if (fs_cmd(1)) { error("type: not found"); return; }
@@ -477,9 +480,23 @@ static void cmd_type(const char *p)
         w32(FS + 8, (uint16_t)line); w32(FS + 12, sizeof line);
         if (fs_cmd(3)) break;
         n = r32(FS + 12); if (!n) break;
-        for (i = 0; i < n; i++) k_chrout(line[i]);
+        for (i = 0; i < n; i++) {
+            k_chrout(line[i]);
+            /* A screen at a time, so HELP does not scroll past.  Never when a
+             * script is running it: there is nobody to press the key, and the
+             * wait would hang STARTUP.BAT. */
+            if (line[i] == '\n' && !exec_busy && ++typed >= (uint8_t)(ROWS - 1)) {
+                typed = 0;
+                { uint8_t k, ofg = fg;
+                  fg = C_DIM; puts_("-- more --"); fg = ofg;
+                  do { k = k_getin(); } while (!k);
+                  cx = 0; blank_row((uint8_t)(cy + OY));      /* take the prompt back off */
+                  if (k == 27 || k == 'q' || k == 'Q') { fs_cmd(5); return; } }
+            }
+        }
     }
     fs_cmd(5);
+    typed = 0;
     if (cx) newline();
 }
 
@@ -547,7 +564,6 @@ static void run_at(uint16_t a)
  * is loaded whole into far memory first, so its own commands may use the
  * filesystem; one level only, lines up to 95 chars. */
 #define EXECBUF 0x0FE00000UL
-static uint8_t exec_busy;
 
 #pragma code-name (pop)
 #pragma code-name (push, "SWCODE0")
