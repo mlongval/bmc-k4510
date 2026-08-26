@@ -4562,3 +4562,25 @@ What was wrong, worst first:
 The lesson worth keeping: `grep -c "^Overfull" doc/guide/k4510-guide.log`
 after every build. A5 is a narrow measure and monospace does not
 hyphenate, so this will happen again.
+
+## 2026-08-26 (e) — the build now refuses a book with text off the page
+
+The margin bugs were in the log all along; the build printed the PDF path
+regardless and nobody read the log. So `make-guide.sh` now checks, in the
+same spirit as the screenshot rule: an awk pass over `k4510-guide.log`
+counts every `Overfull \hbox`, works out which page it lands on (TeX
+prints `[N` as it ships each page, so the last one seen before the
+complaint is the page), prints amount and the offending text, and exits
+non-zero. `OVERFULL_OK=1 ./make-guide.sh` builds anyway, for work in
+progress.
+
+Two things now fail this build, both for the same reason -- a book you
+cannot trust is worse than no book: a screenshot that cannot be produced,
+and a line that runs off the right margin. The header comment says what
+to reach for: `\pth{}` for paths, a `p{}` column at `\small` for wide
+tables, short `\verb`.
+
+Verified both ways: the detector against a synthetic log with two
+overfull boxes (reported both, exit 1), and a full end-to-end
+`./make-guide.sh` on this host -- shots recaptured from the running
+machine, XeLaTeX twice, margin check clean, 57 pages, exit 0.
