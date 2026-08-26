@@ -106,6 +106,28 @@ static void apply_font(int which)
     mem_load(K4510_FONT8_PHYS, font, 2048);
 }
 
+/* Unicode -> code page 437, for the half of the machine's font above ASCII.
+ * Only the letters and marks a keyboard can actually produce are here; the box
+ * drawing has no key.  0 means "this machine cannot show it". */
+static uint8_t cp437_of(unsigned long cp)
+{
+    static const unsigned short u[] = {
+        0x00C7,0x00FC,0x00E9,0x00E2,0x00E4,0x00E0,0x00E5,0x00E7,0x00EA,0x00EB,
+        0x00E8,0x00EF,0x00EE,0x00EC,0x00C4,0x00C5,0x00C9,0x00E6,0x00C6,0x00F4,
+        0x00F6,0x00F2,0x00FB,0x00F9,0x00FF,0x00D6,0x00DC,0x00A2,0x00A3,0x00A5,
+        0x20A7,0x0192,0x00E1,0x00ED,0x00F3,0x00FA,0x00F1,0x00D1,0x00AA,0x00BA,
+        0x00BF };
+    unsigned i;
+    for (i = 0; i < sizeof u / sizeof u[0]; i++) if (u[i] == cp) return (uint8_t)(0x80 + i);
+    switch (cp) {                                   /* the stragglers, out of order in CP437 */
+    case 0x00AC: return 0xAA;  case 0x00BD: return 0xAB;  case 0x00BC: return 0xAC;
+    case 0x00A1: return 0xAD;  case 0x00AB: return 0xAE;  case 0x00BB: return 0xAF;
+    case 0x00DF: return 0xE1;  case 0x00B5: return 0xE6;  case 0x00B1: return 0xF1;
+    case 0x00F7: return 0xF6;  case 0x00B0: return 0xF8;  case 0x00B7: return 0xFA;
+    case 0x00B2: return 0xFD;  case 0x00A0: return 0x20;  default: return 0;
+    }
+}
+
 int k4510_frontend_main(int argc, char **argv)
 {
     /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
@@ -185,10 +207,21 @@ int k4510_frontend_main(int argc, char **argv)
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
             case SDL_TEXTINPUT: {
-                /* The host layout (incl. dead keys) has already produced the character. */
-                for (const char *c = e.text.text; *c; c++) {
-                    unsigned char ch = (unsigned char)*c;
-                    if (ch >= 0x20 && ch < 0x7F) kbd_push(ch);
+                /* The host layout has already composed the character -- a dead key
+                 * plus a vowel arrives here as one UTF-8 sequence.  ASCII goes
+                 * straight through; anything above it is decoded and looked up in
+                 * the machine's upper half, which is code page 437 (data/mkfont.py).
+                 * Dropping the non-ASCII bytes, as this used to, meant no accented
+                 * character could ever be typed. */
+                for (const char *c = e.text.text; *c; ) {
+                    unsigned long cp; unsigned char ch = (unsigned char)*c;
+                    if (ch < 0x80) { cp = ch; c++; }
+                    else if ((ch & 0xE0) == 0xC0 && (c[1] & 0xC0) == 0x80) { cp = ((unsigned long)(ch & 0x1F) << 6) | (c[1] & 0x3F); c += 2; }
+                    else if ((ch & 0xF0) == 0xE0 && (c[1] & 0xC0) == 0x80 && (c[2] & 0xC0) == 0x80)
+                         { cp = ((unsigned long)(ch & 0x0F) << 12) | ((unsigned long)(c[1] & 0x3F) << 6) | (c[2] & 0x3F); c += 3; }
+                    else { c++; continue; }                      /* 4-byte or malformed: nothing to type */
+                    if (cp >= 0x20 && cp < 0x7F) { kbd_push((uint8_t)cp); continue; }
+                    { uint8_t b = cp437_of(cp); if (b) kbd_push(b); }
                 }
                 break;
             }
@@ -249,7 +282,9 @@ int k4510_frontend_main(int argc, char **argv)
                                                          * but only if it differs from what it booted into */
                   mode_shown   = settings_get(SET_VIDEO_MODE);
                   margin_shown = settings_get(SET_VIDEO_MARGIN);
-                  if (machine != mode_shown || !margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+                  /* the ROM now boots with the margin off, so a request is only
+                   * needed when the mode differs or the margin is wanted ON */
+                  if (machine != mode_shown || margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
@@ -329,21 +364,33 @@ int k4510_frontend_main(int argc, char **argv)
          * then reads two tables and stores twice.  Four of them -- the
          * machine's colours and the menu's, each at full and at scanline
          * brightness -- so the menu dims and darkens without a branch. */
+        /* Scanlines without the picture going dark.  Dimming every other line
+         * costs (1 + n/4)/2 of the mean -- measured 68 -> 60 -> 52 -> 44 across
+         * the four settings, which is the arithmetic exactly -- so the lit line
+         * is given back what the dark line loses, and the average stays put.
+         * Saturated colours clip, which is what a real tube does too. */
         { static const int num[SCAN_COUNT] = { 4, 3, 2, 1 };            /* quarters of full brightness */
           int n = num[scan_applied];
+          int gain = 8 * 256 / (4 + n);                                 /* 8/(4+n) in 8.8 fixed point */
+#define LIT(v)  (uint32_t)(((v) * gain >> 8) > 255 ? 255 : ((v) * gain >> 8))
+#define DIM(v)  (uint32_t)((((v) * n / 4) * gain >> 8) > 255 ? 255 : (((v) * n / 4) * gain >> 8))
 #define SCANDIM(c) (0xFF000000u | ((((c) >> 16 & 255) * n / 4) << 16) \
                                 | ((((c) >>  8 & 255) * n / 4) <<  8) \
                                 |  (((c)       & 255) * n / 4))
+#define BUILD(dst, ddst, c) do { \
+              int r_ = ((c) >> 16) & 255, g_ = ((c) >> 8) & 255, b_ = (c) & 255; \
+              (dst)  = 0xFF000000u | (LIT(r_) << 16) | (LIT(g_) << 8) | LIT(b_); \
+              (ddst) = 0xFF000000u | (DIM(r_) << 16) | (DIM(g_) << 8) | DIM(b_); \
+          } while (0)
           for (int i = 0; i < 256; i++) {
               uint32_t c = vicky_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
-              pal[i]  = 0xFF000000u | c;   dpal[i]  = SCANDIM(c);
-              mpal[i] = 0xFF000000u | h;   mdpal[i] = SCANDIM(h);
+              BUILD(pal[i], dpal[i], c);
+              BUILD(mpal[i], mdpal[i], h);
           }
-          for (int i = 0; i < UIC_COUNT; i++) {
-              uint32_t c = ui_palette_rgb(i);
-              upal[i] = 0xFF000000u | c;   udpal[i] = SCANDIM(c);
-          }
-#undef SCANDIM
+          for (int i = 0; i < UIC_COUNT; i++) BUILD(upal[i], udpal[i], ui_palette_rgb(i));
+#undef BUILD
+#undef LIT
+#undef DIM
         }
 
         void *pixels; int pitch;

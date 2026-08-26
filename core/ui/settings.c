@@ -16,7 +16,7 @@ static const set_desc desc[SET_COUNT] = {
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
     { "video.font",          "Screen font",    ST_ENUM,  FONT_KERNEL8, 0, 0, 0, font_names, FONT_COUNT, SF_LIVE },
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x240, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
-    { "video.margin",        "Left/top margin",ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* the ROM boots with it on: 79x29 */
+    { "video.margin",        "Left/top margin",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: the full 80x30; use the border instead */
     { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_SHARP, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },

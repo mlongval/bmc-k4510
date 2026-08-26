@@ -207,7 +207,10 @@ static uint8_t readline(char *buf, uint8_t max)
         if (k == 13) { draw_cursor(0); buf[n] = 0; newline(); return n; }
         if (k == 8) { if (n) { n--; k_chrout(8); } continue; }
         if (k == 27) { while (n) { n--; k_chrout(8); } continue; }
-        if (k >= 0x20 && k < 0x7F && n < max - 1) { buf[n++] = k; k_chrout(k); }
+        /* $80-$FF are the font's code page 437 half: accented letters a host
+         * dead key composes and the frontend hands over as one byte.  $7F is
+         * the only printable code excluded. */
+        if (k >= 0x20 && k != 0x7F && n < max - 1) { buf[n++] = k; k_chrout(k); }
     }
 }
 
@@ -1392,7 +1395,9 @@ static void banner(void)
 #pragma rodata-name (pop)
 int main(void)
 {
-    vmode = 1; margin = 1;                   /* MODE 1 1: 640x240, 79x29 with a one-cell margin */
+    vmode = 1; margin = 0;                   /* MODE 1 0: 640x240, the full 80x30.  The gap that
+                                              * makes the picture breathe is the frontend's border,
+                                              * which costs no character cells (F7 -> Video). */
     video_init();
     fg = C_FG;
     banner();
