@@ -126,7 +126,15 @@ static void puthex16(uint16_t v) { puthex(v >> 8); puthex(v); }
 static void puthex28(uint32_t v) { puthex(v >> 24); puthex(v >> 16); puthex(v >> 8); puthex(v); }
 static void putdec(uint32_t v) { char b[11]; uint8_t i = 10; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); puts_(&b[i]); }
 static void putdec2(uint8_t v) { k_chrout('0' + v / 10); k_chrout('0' + v % 10); }
-static void pad(uint8_t col) { while (cx < col) k_chrout(' '); }
+/* Pad to a column -- but never past the right margin.  k_chrout wraps cx back
+ * to 0 there, so a target at or beyond COLS is a target cx can never reach,
+ * and the loop never ends.  That is what hung MODE 4 (19 columns) on the
+ * first DIR, alias listing or banner: pad(col+20), pad(col+12), pad(20). */
+static void pad(uint8_t col)
+{
+    if (col >= COLS) { if (!COLS) return; col = (uint8_t)(COLS - 1); }
+    while (cx < col) k_chrout(' ');
+}
 static void label(const char *s) { uint8_t o = fg; fg = C_HI; puts_(s); fg = o; pad(8); }
 static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
 
