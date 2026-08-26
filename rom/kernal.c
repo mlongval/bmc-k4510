@@ -1355,12 +1355,14 @@ int main(void)
      * so a wedged guest cannot take it away from you.  Off skips the grace
      * window too, so the machine boots that much quicker. */
     if (!(REG(SYS + 0x21) & 4)) {
-        { uint8_t n = 30, f0 = REG(SYS + 0x0D);
-          while (n && !(REG(KBDST) & 0x80))
-              if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
-        if (!(REG(KBDST) & 0x80)) {                      /* (the fs device reads names from RAM, so copy the literal out of ROM) */
-            strcpy(line, "STARTUP.BAT"); fs_name(line);
-            if (!fs_cmd(8)) cmd_exec(line);
+        strcpy(line, "STARTUP.BAT"); fs_name(line);      /* (the fs device reads names from RAM, so copy the literal out of ROM) */
+        if (!fs_cmd(8)) {                                /* say so only when there is one to skip */
+            puts_("STARTUP.BAT -- hold a key to skip"); newline();
+            { uint8_t n = 30, f0 = REG(SYS + 0x0D);
+              while (n && !(REG(KBDST) & 0x80))
+                  if (REG(SYS + 0x0D) != f0) { f0 = REG(SYS + 0x0D); n--; } }
+            if (REG(KBDST) & 0x80) { puts_("STARTUP.BAT skipped"); newline(); }
+            else cmd_exec(line);
         }
     }
     for (;;) {

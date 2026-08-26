@@ -4489,3 +4489,9 @@ command goes through: STARTUP.BAT's aliases still arrive at boot; defining,
 listing, expanding and removing all work; arguments still append (D /PRG ->
 DIR /PRG); chained aliases resolve; and a self-referential one still stops
 at depth 4 and leaves the machine alive.
+
+Spent some of it at once: the grace window now announces itself
+("STARTUP.BAT -- hold a key to skip") and says "STARTUP.BAT skipped" when
+it fires, which is what the silence cost us in the first place. It only
+speaks when there is a file to skip -- fs_cmd(8) is a plain existence
+check, so the test moved ahead of the message. ROM1C 782 free, ROM2 609.

@@ -206,9 +206,15 @@ of your picture is raster line~40.
 
 \section{When STARTUP.BAT is the problem}
 \texttt{/STARTUP.BAT} runs at power-on, and a bad one runs at every
-power-on. Two ways out. Hold any key through the first half second --- the
-machine gives a moment's grace at the banner before it starts --- or, if
-that moment is hard to catch, switch it off in the F7 menu under Shell:
+power-on. The machine says so at the banner:
+
+\begin{type}
+STARTUP.BAT -- hold a key to skip
+\end{type}
+
+\noindent and gives you half a second. Hold any key and it says
+\texttt{STARTUP.BAT skipped} instead of running it. If that moment is hard
+to catch, switch it off in the F7 menu under Shell:
 \emph{Run STARTUP.BAT}. That setting is the host's, kept in
 \texttt{k4510.cfg}, so it survives a power cycle and no wedged program in
 the machine can take it away from you. Boot clean, fix the file, switch it
