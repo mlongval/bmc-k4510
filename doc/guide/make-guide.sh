@@ -11,10 +11,36 @@
 # give a wide table a p{} column at \small, and keep \verb short.
 #
 # OVERFULL_OK=1 ./make-guide.sh   builds anyway, for work in progress.
+#
+# Figures are captured from the running machine, which is most of the build
+# time. By default an existing shot is kept and only a missing one is taken,
+# so a rebuild after an edit is quick and a fresh clone still gets pictures.
+#   ./make-guide.sh --shots     recapture every figure (do this before a
+#                               release, and after the machine's screens change)
+#   ./make-guide.sh --no-shots  never capture; fail if a figure is missing
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
-"$HERE/make-shots.sh"
+SHOTS=missing
+for a in "$@"; do
+    case "$a" in
+        --shots)    SHOTS=all ;;
+        --no-shots) SHOTS=none ;;
+        *) echo "make-guide.sh: unknown option $a"; exit 2 ;;
+    esac
+done
+if [ "$SHOTS" = none ]; then
+    # the list comes from the book itself, so a new figure cannot be forgotten
+    for f in $(grep -ohE "shots/[a-z0-9_]+\.png" "$HERE"/chapters/*.tex | sort -u); do
+        [ -s "$HERE/$f" ] || { echo "no $f and --no-shots given"; exit 1; }
+    done
+    echo "shots: kept (--no-shots)"
+else
+    SHOTS=$SHOTS "$HERE/make-shots.sh"
+fi
 cd "$HERE"
+
+# The register appendix comes out of the machine's own headers every build.
+python3 "$HERE/mkregs.py"
 
 # The cover carries a version and a build date. GUIDE_VERSION=... overrides
 # the git description; the date is always today, written DD.MM.YYYY.
@@ -35,6 +61,16 @@ printf '%s\n%s\n' \
 
 xelatex -interaction=nonstopmode k4510-guide.tex >/dev/null
 xelatex -interaction=nonstopmode k4510-guide.tex | tail -2
+
+# Any LaTeX error at all. nonstopmode keeps going and still writes a PDF, so
+# without this check a dropped figure or a bad macro ships silently -- which
+# is how a screenshot inside an aside went missing for a day.
+if grep -q "^! " k4510-guide.log; then
+    echo
+    echo "LATEX ERRORS:"
+    grep -A3 "^! " k4510-guide.log | head -40
+    exit 1
+fi
 
 # Overfull boxes, with the page each one lands on. TeX prints page numbers
 # as [N as it ships them, so counting those up to the complaint locates it.

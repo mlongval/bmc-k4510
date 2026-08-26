@@ -10,7 +10,15 @@ mkdir -p "$HERE/shots"
 # shots quietly show the wrong machine (it happened)
 make -s cpm/runcpm
 [ -x tube/bbcbasic ] || { echo "tube/bbcbasic missing: make -C tube (needs nasm) or copy the binary"; exit 1; }
+# SHOTS=all recaptures everything; anything else (the default) keeps a shot
+# that is already there and takes only the missing ones. The pictures are the
+# slow part of the book's build, and they only change when the machine's
+# screens do -- so make-guide.sh --shots is the deliberate way to refresh them.
+kept=0
 shot() { # name frames keys
+    if [ "${SHOTS:-missing}" != all ] && [ -s "$HERE/shots/$1.png" ]; then
+        kept=$((kept + 1)); return
+    fi
     test/capture rom/kernal.bin "$2" "$HERE/shots/$1.png" "$3" >/dev/null
     [ -s "$HERE/shots/$1.png" ] || { echo "shot $1 FAILED"; exit 1; }
 }
@@ -67,4 +75,17 @@ K="$(printf "~~~\226\n\201\201\n~")"   # F7, Down, Down, Enter
 timeout -k 5 120 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy K4510_KEYS="$K" K4510_SHOT="$HERE/shots/menu.ppm:200" sdl/k4510 >/dev/null 2>&1 || true
 [ -s "$HERE/shots/menu.ppm" ] && python3 -c "from PIL import Image; Image.open('$HERE/shots/menu.ppm').save('$HERE/shots/menu.png')" && rm -f "$HERE/shots/menu.ppm"
 [ -s "$HERE/shots/menu.png" ] || { echo "shot menu FAILED"; exit 1; }
-echo "shots: done"
+if [ "$kept" -gt 0 ]; then
+    echo "shots: $kept kept, the rest captured -- make-guide.sh --shots to recapture all"
+    # A picture older than the machine it shows is the one failure mode of
+    # keeping shots, so say when that is true rather than let it pass.
+    for f in "$HERE"/shots/*.png; do
+        if [ "$REPO/rom/kernal.bin" -nt "$f" ]; then
+            echo "shots: NOTE -- rom/kernal.bin is newer than $(basename "$f"): the machine has been rebuilt since that picture"
+            break
+        fi
+    done
+    true
+else
+    echo "shots: done"
+fi

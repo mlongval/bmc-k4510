@@ -2,18 +2,29 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 15:2x**
+**Updated: 2026-08-26 16:0x**
 
 ## Now
 
-- Nothing in flight. Your whole list is in the book (see below).
-- Next, unless you need something sooner: the generated register
-  appendix. Chapter 10 promises one — "this chapter will be generated
-  from `core/io.h`" — and Part II is five pages against a machine with a
-  video chip, four SIDs, DMA, MATH, storage, N: and JIM. I would
-  generate it from your headers' register comments, which means the
-  format of those comments becomes load-bearing. Tell me if that is
-  unwelcome and I will parse defensively instead.
+- Nothing in flight.
+
+## Appendix A is generated from your headers — please read this bit
+
+`doc/guide/mkregs.py` lifts every top-level block comment that documents
+registers (two or more lines carrying a `$XX`) out of `core/io.h`,
+`vicky.h`, `net.h`, `term.h` and `mem.h`, and prints it **verbatim** as
+Appendix A. Nine blocks, twelve pages.
+
+What this means for you, and it is the whole point: **a device you add to
+one of those headers is in the book at the next build, with nothing to
+edit on my side.** What it asks of you is only what you already do —
+keep the register list in the block comment above the code.
+
+It parses defensively: no comment format is required beyond the `$XX`
+test, and nothing is rewritten except lines longer than 76 characters,
+which are folded because A5 is narrow. If a line cannot be folded under
+that, the build fails rather than printing off the page — so a very long
+register line is the one thing that would bounce back to you.
 
 ## Done from your list (all in the book, rebuilt, pushed)
 

@@ -240,6 +240,19 @@ to catch, switch it off in the F7 menu under Shell:
 the machine can take it away from you. Boot clean, fix the file, switch it
 back on.
 
+On the desktop there is a third way, for one boot only:
+
+\begin{type}
+./k4510 --no-startup.bat
+\end{type}
+
+\noindent (\verb|--no-startup| does the same, as does
+\verb|K4510_NO_STARTUP=1| in the environment). It skips
+\texttt{/STARTUP.BAT} for that run and touches nothing: the F7 setting
+and \texttt{k4510.cfg} are left exactly as they were. That is the one to
+reach for in a script, or when a startup file has wedged the machine and
+you want a single clean boot to go and fix it.
+
 \section{When something goes wrong}
 \verb|DUMP a note| writes the whole machine state --- registers, screen, the
 last 4096 instructions, your last keystrokes --- to a numbered file on the

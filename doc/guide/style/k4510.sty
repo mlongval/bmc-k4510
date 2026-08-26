@@ -63,6 +63,13 @@
 \renewcommand{\textfraction}{0.07}
 \renewcommand{\floatpagefraction}{0.85}
 \setcounter{topnumber}{2}
+% Inside a box (an aside) a float is illegal -- LaTeX says "Not in outer par
+% mode" and drops the picture. \screeninline is the old fixed block, for there.
+\newcommand{\screeninline}[2]{%
+  \begin{center}
+  \fbox{\includegraphics[width=0.95\linewidth]{#1}}\\[2pt]
+  {\small #2}
+  \end{center}}
 % A float, not a fixed block: a screenshot that will not fit leaves half a
 % page empty if it cannot move, and this book is mostly screenshots.
 \newcommand{\screen}[2]{%

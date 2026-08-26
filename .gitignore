@@ -56,3 +56,4 @@ fs/STARTUP.BAT
 # the temp file *VI / *EDIT save the BASIC program through
 fs/EDITTMP.BAS
 doc/guide/version.tex
+doc/guide/generated/

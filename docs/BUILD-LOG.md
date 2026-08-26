@@ -4751,3 +4751,52 @@ Checked and already correct, no edit needed: MODE 0–4 and the
 raster-counts-480 rule, Video → Resolution and Left/top margin,
 Shell → Run STARTUP.BAT, and the `*VI`/`*EDIT` section the coding
 session wrote into chapter 3, which is kept as written.
+
+## 2026-08-26 (j) — the register appendix generates itself, and the build stops lying
+
+Two things Doc asked for, and one bug they uncovered.
+
+**Appendix A, generated.** Chapter 10 has promised since it was written
+that the register reference "will be generated from `core/io.h`, the way
+the Neo6502 handbook generates its keyword reference from the firmware
+source". `doc/guide/mkregs.py` does it: every top-level block comment in
+`core/io.h`, `vicky.h`, `net.h`, `term.h` and `mem.h` that documents
+registers — the test is two or more lines carrying a `$XX` — comes out
+verbatim, titled, into `generated/registers.tex`, which the appendix
+inputs. Nine blocks, twelve pages: the page map, banks and the far gate,
+MATH, SYS and the SIDs, the keyboard, storage, DMA, the Tube, VICKY with
+SHEILA and the sprite table, the N: device, JIM, and the ROM window.
+
+Verbatim on purpose. Those comments are what the machine is written
+against; anything the script rewrote could drift from them, and a
+register reference that drifts is worse than none. The only liberty it
+takes is folding lines past 76 characters, because A5 is narrow — and it
+fails the build if a fold cannot bring a line under, rather than letting
+it run off the page. **A device added to a header appears in the book at
+the next build with nothing to edit here.**
+
+**Figures are now kept, not recaptured.** They were most of the build
+time, and they only change when the machine's screens do. Default: keep
+what is there, capture what is missing. `--shots` recaptures everything
+(before a release, or after the screens change); `--no-shots` refuses to
+capture and fails if a figure is missing, and it works out which figures
+those are by grepping the chapters, so a new one cannot be forgotten.
+When shots are kept and `rom/kernal.bin` is newer than one of them, the
+build says so — a picture older than the machine it shows is the one
+real risk of not recapturing. **The edit-and-look loop went from about
+four minutes to 5.4 seconds.**
+
+**The bug.** Adding the LaTeX-error check to the build turned up a
+figure that had been silently missing since the float change this
+morning: `\screen` inside an `aside` is illegal — a float cannot go in a
+box — so LaTeX said "Not in outer par mode. You've lost some text" and
+dropped the WordStar screenshot from chapter 6. `nonstopmode` wrote the
+PDF anyway and returned 0, so nothing complained. There is now
+`\screeninline` for use inside a box (chapter 6 uses it, the picture is
+back), and `make-guide.sh` greps the log for `^! ` and fails. Three
+things can now fail this build: a missing screenshot, a line off the
+right margin, and any LaTeX error at all.
+
+Also documented, from the coding session's note: `k4510 --no-startup.bat`
+(and `--no-startup`, and `K4510_NO_STARTUP=1`) — skip STARTUP.BAT for one
+run without touching the F7 setting or `k4510.cfg`.
