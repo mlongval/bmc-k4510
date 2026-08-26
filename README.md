@@ -132,6 +132,7 @@ Insert, power on, and the K4510 boots in about three seconds.
     make            # needs gcc, SDL2, cc65, and ACME for the two asm ROMs
     make test       # ten test suites
     ./k4510         # the machine (from the repo root); then DIR, RUN balls.prg, RUN ehbasic.prg ...
+    ./k4510 --no-startup.bat    # this run only: skip /STARTUP.BAT (a bad one, or a script)
 
 ## Raspberry Pi 3B+
 

@@ -108,6 +108,19 @@ static void apply_font(int which)
 
 int k4510_frontend_main(int argc, char **argv)
 {
+    /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
+     * does the same thing but persists, and holding a key at the banner needs
+     * you to be there -- neither suits a script, or the case where a startup
+     * file wedges the machine and you want one clean boot to go and fix it. */
+    int no_startup = 0;
+    { int i, j;
+      for (i = 1; i < argc; i++)
+          if (!strcmp(argv[i], "--no-startup.bat") || !strcmp(argv[i], "--no-startup")) {
+              no_startup = 1;
+              for (j = i; j < argc - 1; j++) argv[j] = argv[j + 1];   /* out of the way of the positional arguments */
+              argc--; i--;
+          } }
+    if (getenv("K4510_NO_STARTUP")) no_startup = 1;          /* the same thing, for a script that sets it once */
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
@@ -254,7 +267,7 @@ int k4510_frontend_main(int argc, char **argv)
          * a byte written at the end of the frame would arrive one frame late
          * -- and for the boot read, a whole power-on too late. */
         io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
-                    | (settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT)
+                    | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
                     | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
                     | (mode_pending ? (uint8_t)(SYSOPT_MODEREQ
                                        | ((mode_pending - 1) << SYSOPT_MODE_SHIFT)) : 0));

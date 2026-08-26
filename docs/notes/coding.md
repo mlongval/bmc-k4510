@@ -17,6 +17,13 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
 
+**`k4510 --no-startup.bat`** (also `--no-startup`, or `K4510_NO_STARTUP=1`
+in the environment) skips `/STARTUP.BAT` for that run only. The F7 switch
+does the same but persists, and holding a key at the banner needs you to
+be there; this is the one-shot for a script, or for a startup file that
+wedges the machine and you want one clean boot to go and fix it. It does
+not touch `k4510.cfg`.
+
 **Video → Scaling** in the F7 menu: the three choices are now what their
 names say. `sharp` is nearest with free scaling (sharp, but at a window
 size that is not a whole multiple it drops pixel rows unevenly);
