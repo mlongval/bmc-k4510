@@ -4514,3 +4514,21 @@ half of the small facts this project needed.
 
 Spelling checked against the local bmc64 clone before printing it: 758
 commits by **Randy** Rossi, not Randi. Guide now 51 pages.
+
+## 2026-08-26 (c) — one left edge in the thanks
+
+Doc, from a screenshot of page 44 on hdieu: the names are not
+consistently positioned, some flush left, some indented. He was right,
+and the cause is plain LaTeX: the first paragraph after a heading is not
+indented, every later one is. So Gábor Lénárt and Lee Davison sat at the
+margin while Dag Lem, the VICE team, Richard T. Russell and Marcelo
+Dantas were pushed in by a `\parindent`. In running prose nobody
+notices; in a list of names the eye is looking for exactly that edge.
+
+The chapter is now wrapped in a group with `\parindent` at 0 and
+`\parskip` doing the separating, so every entry starts at the margin.
+The fonts section, which had run four contributors together in one
+paragraph, is split into one entry each like every other section --
+same complaint, one step earlier. And `lib/fonts/font_8x8.c` was
+overflowing the measure (monospace does not hyphenate); shortened to
+`font_8x8.c`.
