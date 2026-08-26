@@ -1,0 +1,83 @@
+\chapter{The Editors}\label{cha:editors}
+
+Two of them, because they answer different questions. \verb|EDIT| is the
+one to reach for when a file wants a line changed and you want to be out
+again in ten seconds. \verb|VI| is the one for a file too big to think
+about, and it is modal, so it expects you to have met \texttt{vi} before.
+
+Both draw through JIM, the VT100 in hardware (Chapter~\ref{cha:tube}), and
+both take their keys raw from the ROM --- an arrow arrives as one byte
+rather than an escape sequence to unpick. Neither needs the Tube, so both
+run on the Pi as well as the desktop.
+
+\section{EDIT}
+\verb|EDIT name| opens a file, or starts an empty one if there is no such
+file yet. The whole text sits in memory below the program, so it holds
+about 22\,KB --- ample for a \texttt{STARTUP.BAT}, a \texttt{.SUB}, a
+BASIC listing or a letter.
+
+\begin{type}
+arrows Home End PgUp PgDn   move
+Backspace Delete            rub out
+Enter                       split the line
+Ctrl-O  or  Ctrl-S          save
+Ctrl-X                      leave
+\end{type}
+
+The bar along the bottom carries the name, a \verb|*| while there are
+unsaved changes, where the cursor is, and those last two keys, so there is
+nothing to remember. Backspace at the start of a line joins it to the one
+above. Long lines slide sideways rather than wrap. \verb|Ctrl-X| on a
+changed file says so and waits: press it again to throw the changes away,
+or \verb|Ctrl-O| to keep them.
+
+\section{VI}
+\verb|VI name| is modal in the old way: the keys are commands until
+\verb|i| (or \verb|a|, \verb|I|, \verb|A|, \verb|o|, \verb|O|) puts you
+into insert, and Escape brings you back out.
+
+\begin{type}
+h j k l  arrows      move          0  $        line ends
+gg  G                top, bottom   PgUp PgDn   pages
+i a I A              insert        o  O        open a line
+x   dd               delete        Esc         leave insert
+:w  :q  :q!  :wq  :x
+\end{type}
+
+\verb|:q| on a changed file refuses and says so; \verb|:q!| throws the
+changes away and \verb|:wq| keeps them. \verb|:w name| writes somewhere
+else. Lines past the end of the file are marked \verb|~| down the left, as
+they should be.
+
+\begin{aside}
+\textbf{Where the file lives.} Nothing of it is in the 64\,KB. Every line
+is a 256-byte slot in far memory --- a length and up to 255 characters ---
+and only the line under the cursor is brought down, fetched when the
+cursor arrives and written back when it leaves. So the ceiling is far
+memory rather than the address space: 32000 lines, and \verb|LOAD| and
+\verb|SAVE| go straight to and from a flat copy out there without the file
+ever passing through the CPU's view.
+
+That is the whole design, and it is deliberately the \emph{only} design:
+there is no small-file case kept separately to disagree with the large one
+at exactly the wrong moment. It costs nothing because the DMA engine
+copies with \texttt{memmove} semantics, so opening or closing a line is a
+single transfer of everything below it however long the file is.
+
+A 1.28\,MB file of 20000 lines --- twenty times the whole address space
+--- opens, edits at the far end and saves back byte for byte.
+\end{aside}
+
+\section{Editing without losing what you were doing}
+A program loaded from the shell lands on top of whatever was in memory, so
+running an editor from inside a BASIC would ordinarily destroy the
+program you were writing. \verb|SWAP| (Chapter~\ref{cha:shell}) is the way
+round it:
+
+\begin{type}
+*SWAP EDIT DEMO.BAS
+\end{type}
+
+from EhBASIC puts the machine away, runs the editor on a clean one, and
+gives yours back --- program, variables, screen and all --- when the
+editor exits.

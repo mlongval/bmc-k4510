@@ -25,6 +25,55 @@ Drop any \texttt{.COM} file into \texttt{fs/CPM/A/0} and run it by name.
 \verb|USER| are built into the CCP; \verb|EXIT| hands the console back to
 the K/OS shell.
 
+Three of the drives are shortcuts rather than folders of their own:
+\verb|K:| is the machine's own filesystem, so CP/M and K/OS can hand files
+to each other in both directions; \verb|P:| is Turbo Pascal and \verb|D:|
+is WordStar, each pointing straight at the user area the program lives in.
+
+\section{Starting a program from the shell}
+\verb|CPM| on its own gives you the \verb|A0>| prompt. \verb|CPM command|
+runs a command at boot instead, through the CCP's \texttt{AUTOEXEC.TXT}.
+One line is all the CCP reads --- but a name with no \texttt{.COM} to
+match runs the \texttt{.SUB} of that name, and that may be as long as you
+like. \texttt{/CPM/A/0/K-TURBO.SUB} is the pattern:
+
+\begin{type}
+P:
+TURBO
+EXIT
+\end{type}
+
+Ending in \verb|EXIT| is what makes the round trip whole: quitting a CP/M
+program only drops you to the CCP, and the \verb|EXIT| carries you the
+rest of the way back to the K/OS prompt. With that in place
+\verb|ALIAS TURBO CPM K-TURBO| makes \verb|TURBO| a word you can type at
+the shell; \texttt{/SYSTEM/STARTUP.SAMPLE} defines that one, \verb|WS| and
+\verb|MBASIC|.
+
+\begin{aside}
+\textbf{Why not \texttt{USER} in a submit.} The obvious script is
+\verb|H:|, \verb|USER 3|, \verb|TURBO| --- and it dies on the second line.
+The submit in progress is a file, \texttt{\$\$\$.SUB}, and it lives on
+A: user~0; \verb|USER 3| walks away from it and it cannot be read any
+more. That is CP/M's own behaviour and not RunCPM's doing. Pointing a
+drive at the user area, as \verb|P:| and \verb|D:| do, keeps \verb|USER|
+out of it.
+\end{aside}
+
+\section{Typing a CP/M program's name directly}
+The shell can be told to treat an unknown word as a CP/M program: F7
+\(\rightarrow\) Shell \(\rightarrow\) \emph{CP/M .COM by name}. With it on,
+\verb|STAT| at the \verb|/]| prompt starts CP/M, runs \texttt{STAT.COM}
+from A: and comes back.
+
+It is off to begin with, and deliberately so --- \verb|D| typed for
+\verb|DIR| should not start a Z80 program. It changes only the guess: a
+command naming \verb|CPM| outright, an alias among them, works either way.
+There is nothing in a \texttt{.prg} to tell the two apart, incidentally ---
+its header is a load address and a run address, and a \texttt{.COM} begins
+with Z80 code that would read as a perfectly plausible one --- so the
+extension is what decides.
+
 \section{Software}
 The RunCPM project ships a complete system disk
 (\texttt{DISK/A0.zip} in its repository): Digital Research's own
