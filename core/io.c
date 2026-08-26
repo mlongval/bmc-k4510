@@ -536,7 +536,9 @@ static void sys_latch(void)
     sys_reg[12] = m->tm_wday;
 }
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
+static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
+int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -1053,6 +1055,10 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
         if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
+        if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
+                                   /* the guest acknowledging a video-mode request: it has performed it,
+                                    * so the request goes away at once instead of standing for frames
+                                    * while every key poll performs it again */
         return;
     case IO_BANK: {
         uint8_t r = addr & 0xFF, b = r >> 2, i = r & 3;

@@ -84,6 +84,16 @@ int main(void)
     { FILE *f = fopen(cfg, "a"); if (f) { fputs("video.mode = 160x200\n", f); fclose(f); } }
     settings_load(cfg);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "and a hand-edited file is clamped on the way in");
+    /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
+     * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
+    settings_defaults();
+    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_320x240 + 1, "the menu offers three modes, not five");
+    settings_set(SET_VIDEO_MODE, VMODE_320x240);
+    settings_step(SET_VIDEO_MODE, +1);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "stepping past the last offered one wraps, not into 320x200");
+    settings_set(SET_VIDEO_MODE, VMODE_160x200);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "but the guest may put the machine in one, and the row says so");
+    { char b[32]; CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "160x200"), "shown by name"); }
     printf("4. the mode request, and 320x240 as the floor for what is saved\n");
 
     /* 5. the STARTUP.BAT switch: the way out of one that wedges the machine */

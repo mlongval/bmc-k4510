@@ -30,6 +30,14 @@ static int value[SET_COUNT];
 static int changed;
 
 const set_desc *settings_desc(set_id id) { return &desc[id]; }
+/* An ENUM may have choices the menu does not offer: settings_set still accepts
+ * them (the machine can be in one, and the row must say so) but stepping and
+ * the popup stop short. */
+int settings_choices(set_id id)
+{
+    if (id == SET_VIDEO_MODE) return VMODE_MENU_MAX + 1;
+    return desc[id].nlabels;
+}
 int settings_get(set_id id) { return value[id]; }
 static int clampv(set_id id, int v)
 {
@@ -47,7 +55,7 @@ void settings_label(set_id id, int idx, const char *text)
 void settings_step(set_id id, int dir)
 {
     const set_desc *d = &desc[id]; int v = value[id];
-    if (d->type == ST_ENUM || d->type == ST_CHORD) { v += dir; if (v < 0) v = d->nlabels - 1; if (v >= d->nlabels) v = 0; }
+    if (d->type == ST_ENUM || d->type == ST_CHORD) { int n = settings_choices(id); v += dir; if (v < 0) v = n - 1; if (v >= n) v = 0; }
     else if (d->type == ST_BOOL) v = !v;
     else v += dir * d->step;
     settings_set(id, v);

@@ -221,27 +221,30 @@ int k4510_frontend_main(int argc, char **argv)
          * or until the wait runs out (a program that never reads a key). */
         { static int mode_shown = -1, margin_shown = -1, mode_req, mode_wait;
           static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
-          uint8_t ctrl = (uint8_t)(vicke_read(VR_CTRL) & (2 | 4 | 8 | 16));
+          uint8_t c = vicke_read(VR_CTRL);
           int machine = -1;
-          for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == ctrl) machine = i;
-          if (mode_shown < 0) { mode_shown = machine < 0 ? settings_get(SET_VIDEO_MODE) : machine;
-                                margin_shown = settings_get(SET_VIDEO_MARGIN); }
+          if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
+                                                         * video_init runs, CTRL is 0 -- which is NOT
+                                                         * 640x480, though it looks just like it. */
+              uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16));
+              for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == m) machine = i;
+          }
           if (mode_req) {
-              /* Hold it long enough for the machine to actually read the byte.  The
-               * machine only runs while the request stands (it is frozen behind the
-               * menu otherwise), so clearing it the instant CTRL already matches --
-               * which it does for a margin-only change -- would retire the request
-               * before the ROM ever saw it. */
-              int held = MODE_REQ_FRAMES - mode_wait;
-              int done = held >= 10 && machine == mode_req - 1;
-              if (done || --mode_wait <= 0) { mode_req = 0; if (machine >= 0) mode_shown = machine; }
-          } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {       /* the user picked a mode */
+              if (io_mode_acked() || --mode_wait <= 0) mode_req = 0;   /* the guest says it has done it */
+          } else if (mode_shown < 0) {
+              if (machine >= 0) {                       /* the machine has booted: put back what was saved,
+                                                         * but only if it differs from what it booted into */
+                  mode_shown   = settings_get(SET_VIDEO_MODE);
+                  margin_shown = settings_get(SET_VIDEO_MARGIN);
+                  if (machine != mode_shown || !margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+              }
+          } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
-              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;    /* two seconds to be noticed */
-          } else if (settings_get(SET_VIDEO_MARGIN) != margin_shown) {   /* or turned the margin off */
+              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
+          } else if (settings_get(SET_VIDEO_MARGIN) != margin_shown) { /* or turned the margin off */
               margin_shown = settings_get(SET_VIDEO_MARGIN);
-              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;    /* same mode, new margin */
-          } else if (machine >= 0 && machine != mode_shown) {            /* or the guest ran MODE itself */
+              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
+          } else if (machine >= 0 && machine != mode_shown) {          /* or the guest ran MODE itself */
               mode_shown = machine; settings_set(SET_VIDEO_MODE, machine); menu_dirty();
           }
           mode_pending = mode_req; }
@@ -253,7 +256,8 @@ int k4510_frontend_main(int argc, char **argv)
         io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                     | (settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT)
                     | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
-                    | (uint8_t)(mode_pending << SYSOPT_MODE_SHIFT));
+                    | (mode_pending ? (uint8_t)(SYSOPT_MODEREQ
+                                       | ((mode_pending - 1) << SYSOPT_MODE_SHIFT)) : 0));
 
         int open = menu_is_open();
         if (!open || mode_pending) {                         /* the machine runs; while the menu is open it is frozen and silent */

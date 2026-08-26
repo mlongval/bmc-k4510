@@ -115,7 +115,8 @@ static void enter(void)
     case MI_LOADSLOT: action = ACT_LOAD_SLOT + it->arg; menu_close(); break;
     case MI_SETTING: {
         const set_desc *d = settings_desc((set_id) it->arg);
-        if (d->type == ST_ENUM || d->type == ST_CHORD) { popup = 1; popup_cur = popup_was = settings_get((set_id) it->arg); }
+        if (d->type == ST_ENUM || d->type == ST_CHORD) { popup = 1; popup_cur = popup_was = settings_get((set_id) it->arg);
+            if (popup_cur >= settings_choices((set_id) it->arg)) popup_cur = 0; }   /* in a choice the menu does not offer */
         else settings_step((set_id) it->arg, +1);
         break; }
     default: break;
@@ -126,9 +127,10 @@ void menu_key(uint8_t k)
     if (!open_) return;
     dirty = 1;
     if (popup) {
-        const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
-        if (k == KEY_UP) popup_cur = (popup_cur + d->nlabels - 1) % d->nlabels;
-        else if (k == KEY_DOWN) popup_cur = (popup_cur + 1) % d->nlabels;
+        const item_t *it = &top()->items[stack[depth].cur];
+        int nch = settings_choices((set_id) it->arg);
+        if (k == KEY_UP) popup_cur = (popup_cur + nch - 1) % nch;
+        else if (k == KEY_DOWN) popup_cur = (popup_cur + 1) % nch;
         else if (k == KEY_ENTER) { settings_set((set_id) it->arg, popup_cur); popup = 0; return; }
         else if (k == KEY_ESC) { settings_set((set_id) it->arg, popup_was); popup = 0; return; }
         else return;
@@ -214,12 +216,13 @@ int menu_draw(uint8_t *ov)
     if (popup) {
         const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
         char title[64];
-        int w = 8; for (int i = 0; i < d->nlabels; i++) if ((int) strlen(d->labels[i]) + 6 > w) w = (int) strlen(d->labels[i]) + 6;
-        int h = d->nlabels + 2, px = (UI_COLS - w) / 2, py = (UI_ROWS - h) / 2;
+        int nch = settings_choices((set_id) top()->items[stack[depth].cur].arg);
+        int w = 8; for (int i = 0; i < nch; i++) if ((int) strlen(d->labels[i]) + 6 > w) w = (int) strlen(d->labels[i]) + 6;
+        int h = nch + 2, px = (UI_COLS - w) / 2, py = (UI_ROWS - h) / 2;
         ui_box(ov, px, py, w, h, UIC_FRAME, UIC_PANEL);
         snprintf(title, sizeof title, " %s ", it->label);
         ui_text(ov, px + (w - (int) strlen(title)) / 2, py, UIC_TITLE, UIC_PANEL, title);
-        for (int i = 0; i < d->nlabels; i++) {
+        for (int i = 0; i < nch; i++) {
             int sel = (i == popup_cur); uint8_t fg = sel ? UIC_BARTEXT : UIC_TEXT, bg = sel ? UIC_BAR : UIC_PANEL;
             ui_fill(ov, px + 1, py + 1 + i, w - 2, 1, bg);
             ui_text(ov, px + 2, py + 1 + i, fg, bg, i == popup_was ? "\xFB" : " ");

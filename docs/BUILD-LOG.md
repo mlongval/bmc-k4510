@@ -4418,3 +4418,39 @@ Also merged back: three "archive-side" sections of 2026-08-24 (the BASIC
 research, the font research, the reset-chord and C64u-menu design) that
 had been written into the archive folder's own copy of this log and never
 reached this one. The archive copy is retired; this file is the diary.
+
+## 2026-08-26: three faults Doc found in the menu build
+
+**640x480 did not survive a reboot, and the saved margin never applied.**
+One root cause, and an ugly one: VICKe's CTRL is 0 at reset, and 0 is also
+exactly the bit pattern for 640x480, so the frontend read a machine that
+had not booted yet as "already in 640x480".  With that mode saved it posted
+no request at all -- and then, when the ROM came up in its own MODE 1, the
+follow-the-guest branch fired and *overwrote the saved setting* with
+640x240.  The margin rode on the same request, so it was never applied
+either, which is why the left column stayed occupied in CP/M.  CP/M was
+never the problem; the margin simply never reached the ROM.  Fixed by
+reading CTRL bit 0 (display enable) first: before video_init there is no
+mode, not mode 0.
+
+**320x200 and 160x200 were unusable, and this one was mine.**  When
+mode_do() had to fit the ROM budget I dropped the "is it already that
+mode?" test and wrote that doing it twice is doing it once.  That is false.
+mode_do() runs on every key poll, the host held the request up for ten
+frames, and each cls() wiped whatever the machine had printed since the
+last one -- exactly Doc's "first command displays part of the result, then
+nothing".  The guard is back, and better than the one I removed: the ROM
+now *acknowledges* the request by writing $D521, io.c drops it on the spot
+and tells the host (io_mode_acked), so a request stands for one frame
+instead of ten and the ten-frame heuristic is gone.  A store is cheaper
+than a compare, so this cost less ROM than the version that was wrong.
+
+**And the modes leave the menu.**  Doc's call: 40x25 and 20x25 are not a
+shell, so MODE 3 and MODE 4 are for games and languages.  settings_choices()
+lets an ENUM have values the menu will not steer into but will still
+display, so the row reads "160x200" when a game has put the machine there.
+With the save floor already at 320x240 there is now no way to end up stuck
+in 20 columns.
+
+ROM1C 9 bytes free, ROM2 8.  All 13 tests green; uitest 4 covers the
+restriction.

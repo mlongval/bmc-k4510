@@ -42,8 +42,12 @@ typedef struct {
 enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN, FONT_COUNT };
 /* video modes, in the ENUM's order -- the shell's MODE 0-4 */
 enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
-#define VMODE_SAVE_MAX VMODE_320x240   /* 320x200 and below are live only: a machine that came back
-                                        * from a power cycle in 160x200 would be a bad place to be */
+#define VMODE_MENU_MAX VMODE_320x240   /* the menu offers no less than this.  320x200 and 160x200 are
+                                        * for games and for a language that wants the pixels -- 40x25
+                                        * and 20x25 are not a shell -- so MODE 3 and MODE 4 reach them
+                                        * and the menu still SHOWS them when the guest is in one, but
+                                        * you cannot steer the machine into one from the menu. */
+#define VMODE_SAVE_MAX VMODE_320x240   /* and nothing smaller is ever written to k4510.cfg */
 /* scanline strengths, in the ENUM's order */
 enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
 /* scaling, in the ENUM's order */
@@ -54,6 +58,7 @@ enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CH
 enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_COUNT };
 
 const set_desc *settings_desc(set_id id);
+int         settings_choices(set_id id);          /* how many of an ENUM's labels the menu may offer */
 int         settings_get(set_id id);
 void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
 void        settings_label(set_id id, int idx, const char *text);  /* rename one ENUM choice: the host says what it actually found */

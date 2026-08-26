@@ -147,8 +147,13 @@ static void cls(void);
 #pragma code-name (push, "CODE")
 static void mode_do(void)
 {
-    vmode  = (uint8_t)((REG(SYS + 0x21) >> 5) - 1);
-    margin = (uint8_t)((REG(SYS + 0x21) >> 1) & 1);
+    uint8_t r = REG(SYS + 0x21);
+    REG(SYS + 0x21) = 0;                   /* acknowledge: the host drops the request the moment it is
+                                            * performed.  Without this it stands for frames and every
+                                            * key poll performs it again, and each cls() wipes whatever
+                                            * the machine printed in between. */
+    vmode  = (uint8_t)(r >> 5);
+    margin = (uint8_t)((r >> 1) & 1);
     video_init(); cls();
 }
 #pragma code-name (pop)
@@ -157,7 +162,7 @@ static void mode_do(void)
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
-    if (REG(SYS + 0x21) & 0xE0) mode_do();          /* rare: the F7 menu asked for a mode */
+    if (REG(SYS + 0x21) & 0x10) mode_do();          /* rare: the F7 menu asked for a mode */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     if (!cursor_vis) draw_cursor(1);
     return 0;

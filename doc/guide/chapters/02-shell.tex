@@ -184,14 +184,19 @@ the left, 0 uses every cell.
 4 & 160$\times$200 & 20$\times$25 & four screen pixels each \\
 \end{tabular}
 
-All of this is in the F7 menu too, under Video: \emph{Resolution} shows
+The F7 menu, under Video, has the same two knobs: \emph{Resolution} shows
 what the machine is actually in --- it follows a \verb|MODE| you type ---
 and choosing another asks the ROM to perform it, because the console's
 geometry belongs to the ROM and not to the host. \emph{Left/top margin}
-is the second parameter. Two of the modes are live only: what reaches
-\texttt{k4510.cfg} is never smaller than 320$\times$240, so a machine that
-has been switched off and on again never comes back somewhere hard to
-steer out of.
+is the second parameter.
+
+The menu offers only the first three. MODE~3 and MODE~4 are for a game or
+a language that wants the pixels: 40$\times$25 and 20$\times$25 are not a
+shell, and a machine you have steered into 20 columns from a menu is a
+machine you then have to steer out of. They are a \verb|MODE| command
+away, the menu shows one when you are in it, and neither is ever written
+to \texttt{k4510.cfg} --- what is saved is never smaller than
+320$\times$240.
 
 The picture is always painted into 640$\times$480: a 200-line mode gets
 40 blank lines above and below it, and a 320- or 160-wide one has its
