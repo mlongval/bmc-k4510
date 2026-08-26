@@ -33,6 +33,13 @@ static unsigned len, cur, top;              /* bytes used; cursor; offset of the
 static uint8_t cols, rows, dirty, running = 1;
 static const char *msg = "";
 static uint8_t quitp;            /* Ctrl-X seen once on a modified file */
+/* Only what changed.  Redrawing every row on every keypress left the raster
+ * permanently somewhere inside a half-written screen, which shows as a fast
+ * flicker of wrong cells: a text32 cell is four bytes and the beam does not
+ * wait for all four.  Typing now rewrites the cursor's line and the status;
+ * a full pass is asked for when the line structure or the view moves. */
+static uint8_t full = 1, lasthoff = 0xFF, lastcrow = 0xFF;
+static unsigned lasttop = 0xFFFF;
 
 /* ---- the screen, through JIM ------------------------------------------- */
 static uint8_t clip, sx;         /* while clip is set, drop anything past the right edge:
@@ -79,6 +86,16 @@ static void draw(void)
       ccol = (uint8_t)(cur - s);
       while (t < s) { t = nextl(t); crow++; } }
     if (ccol >= cols) hoff = (uint8_t)(ccol - cols + 1);
+    if (top != lasttop || hoff != lasthoff) full = 1;
+    lasttop = top; lasthoff = hoff; lastcrow = crow;
+    if (!full) {                                       /* just the cursor's line */
+        unsigned s2 = bol(cur), e2 = eol(cur), w2 = e2 - s2;
+        at(crow, 0);
+        for (c = 0; (unsigned)(c + hoff) < w2 && c < cols; c++) put(BUF[s2 + c + hoff]);
+        eeol();
+        goto status;
+    }
+    full = 0;
     for (r = 0; r < rows - 1; r++) {
         at(r, 0);
         if (o <= len) {
@@ -89,6 +106,7 @@ static void draw(void)
         }
         eeol();
     }
+status:
     at((uint8_t)(rows - 1), 0);
     sgr("7");
     clip = 1; sx = 0;                                /* text only: the escapes are not columns */
@@ -164,14 +182,14 @@ void main(void)
         case 0x85: cur = eol(cur); break;                          /* end  */
         case 0x86: for (i = 0; i < rows - 2; i++) cur = prevl(cur); break;
         case 0x87: for (i = 0; i < rows - 2; i++) if (eol(cur) < len) cur = nextl(cur); break;
-        case 0x08: if (cur) { cur--; closeup(cur, 1); dirty = 1; } break;
-        case 0x89: if (cur < len) { closeup(cur, 1); dirty = 1; } break;   /* delete */
+        case 0x08: if (cur) { if (BUF[cur - 1] == '\n') full = 1; cur--; closeup(cur, 1); dirty = 1; } break;
+        case 0x89: if (cur < len) { if (BUF[cur] == '\n') full = 1; closeup(cur, 1); dirty = 1; } break;   /* delete */
         case 0x0F: case 0x13: save_file(); break;                  /* Ctrl-O, Ctrl-S */
         case 0x18:                                                 /* Ctrl-X */
             if (dirty && !quitp) { quitp = 1; msg = "MODIFIED -- ^X again to discard, ^O to save"; }
             else running = 0;
             break;
-        case 0x0D: if (len < BUFMAX) { openup(cur, 1); BUF[cur++] = '\n'; dirty = 1; } break;
+        case 0x0D: if (len < BUFMAX) { openup(cur, 1); BUF[cur++] = '\n'; dirty = 1; full = 1; } break;
         default:
             if (k >= 0x20 && k < 0x7F && len < BUFMAX) { openup(cur, 1); BUF[cur++] = (char)k; dirty = 1; }
             break;

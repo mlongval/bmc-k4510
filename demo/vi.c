@@ -83,15 +83,18 @@ static void line_out(unsigned n) { far_put(ln, SLOT(n), 256); }
 static uint8_t zero;             /* its own byte: tmp belongs to whoever is mid-edit */
 static void blank(unsigned n)    { zero = 0; far_put(&zero, SLOT(n), 1); }
 
+static uint8_t full = 1;                    /* a full redraw is due */
 static void open_at(unsigned n)             /* make room for a new line at n */
 {
     if (nlines >= MAXLINES) return;
+    full = 1;
     if (n < nlines) dma_copy(SLOT(n), SLOT(n + 1), (uint32_t)(nlines - n) << 8);
     nlines++;
     blank(n);
 }
 static void close_at(unsigned n)
 {
+    full = 1;
     if (nlines <= 1) { ln[0] = 0; line_out(0); return; }
     if (n + 1 < nlines) dma_copy(SLOT(n + 1), SLOT(n), (uint32_t)(nlines - n - 1) << 8);
     nlines--;
@@ -185,6 +188,7 @@ static void u_apply(uint8_t dir)
     line_in(cy);
     if (cx > ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
     dirty = 1;
+    full = 1;
     note = dir ? "redone" : "undone";
 }
 
@@ -208,6 +212,7 @@ static void load_file(void)
     if (ln[0] && n < MAXLINES) { line_out(n); n++; }
     nlines = n ? n : 1;
     if (!n) { ln[0] = 0; line_out(0); }
+    full = 1;
     cy = 0; line_in(0);
 }
 static void save_file(void)
@@ -226,20 +231,39 @@ static void save_file(void)
     line_in(cy);
 }
 
-/* ---- drawing ------------------------------------------------------------ */
+/* ---- drawing ------------------------------------------------------------
+ * Only what changed.  Redrawing all 29 rows on every keypress meant the
+ * raster was always somewhere in the middle of a half-written screen, which
+ * showed as a fast flicker of wrong cells -- the cell is four bytes and the
+ * beam does not wait for all four.  Typing now rewrites one line and the
+ * status; a full redraw is asked for by the things that actually move text
+ * about (open_at, close_at, a scroll, undo, load). */
+static uint8_t hoff;
+static unsigned lasttop = 0xFFFF, lastcy = 0xFFFF;
+static uint8_t lasthoff = 0xFF;
+
+static void draw_row(unsigned r)
+{
+    unsigned l = top + r; uint8_t c, w;
+    at((uint8_t)r, 0);
+    if (l < nlines) {
+        if (l == cy) { w = ln[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(ln[1 + c + hoff]); }
+        else { far_get(SLOT(l), tmp, 256); w = tmp[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(tmp[1 + c + hoff]); }
+    } else put('~');
+    eeol();
+}
 static void draw(void)
 {
-    unsigned r, l; uint8_t c, hoff = 0, w;
-    if (cx >= cols) hoff = (uint8_t)(cx - cols + 1);
-    for (r = 0; r < (unsigned)(rows - 1); r++) {
-        l = top + r;
-        at((uint8_t)r, 0);
-        if (l < nlines) {
-            if (l == cy) { w = ln[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(ln[1 + c + hoff]); }
-            else { far_get(SLOT(l), tmp, 256); w = tmp[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(tmp[1 + c + hoff]); }
-        } else put('~');
-        eeol();
+    unsigned r;
+    hoff = (cx >= cols) ? (uint8_t)(cx - cols + 1) : 0;
+    if (top != lasttop || hoff != lasthoff) full = 1;
+    if (full) { for (r = 0; r < (unsigned)(rows - 1); r++) draw_row(r); full = 0; }
+    else {
+        if (lastcy != cy && lastcy >= top && lastcy < top + (unsigned)(rows - 1)) draw_row(lastcy - top);
+        if (cy >= top && cy < top + (unsigned)(rows - 1)) draw_row(cy - top);
     }
+    lasttop = top; lastcy = cy; lasthoff = hoff;
+
     at((uint8_t)(rows - 1), 0);
     if (mode == 2) { put((char)cprompt); say(cmd); eeol(); at((uint8_t)(rows - 1), (uint8_t)(cmdlen + 1)); return; }
     sgr("7");
@@ -557,6 +581,7 @@ static void do_sub(const char *c)
     else sub_line(cy, all);
     u_end(); line_in(cy);
     if (cx > ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
+    full = 1;
     note = subs ? "substituted" : "not found";
     patlen = 0;
 }
@@ -570,6 +595,7 @@ static void do_put(uint8_t after)               /* p / P: the register's lines b
     at = after ? cy + 1 : cy;
     for (i = 0; i < reglines; i++) { u_ins(at + i); open_at(at + i); dma_copy(RSLOT(i), SLOT(at + i), 256); }
     u_end();
+    full = 1;
     cy = at; line_in(cy); cx = 0; dirty = 1;
 }
 static void do_join(unsigned n)                 /* J: pull the next line onto this one */
