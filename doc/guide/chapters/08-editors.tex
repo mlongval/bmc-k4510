@@ -37,12 +37,36 @@ or \verb|Ctrl-O| to keep them.
 into insert, and Escape brings you back out.
 
 \begin{type}
-h j k l  arrows      move          0  $        line ends
-gg  G                top, bottom   PgUp PgDn   pages
-i a I A              insert        o  O        open a line
-x   dd               delete        Esc         leave insert
-:w  :q  :q!  :wq  :x
+counts   3dd 5j 2dw 10G      before almost anything
+move     h j k l arrows  w b e  0 ^ $  gg G  PgUp PgDn
+operate  d c y + any motion, or doubled: dd cc yy
+insert   i a I A  o O  s S  C            Esc leaves insert
+change   x X r ~ J D  p P (the unnamed register)
+undo     u        redo Ctrl-R
+search   /pat  ?pat  n N
+ex       :w  :q  :q!  :wq  :x
+         :s/old/new/[g]    :%s/old/new/[g]
+         :map lhs rhs      :imap lhs rhs
 \end{type}
+
+A count goes in front of nearly anything: \verb|3dd| deletes three lines,
+\verb|2dw| two words, \verb|10G| goes to line ten. Operators take any
+motion --- \verb|d| \verb|c| \verb|y| with \verb|w|, \verb|b|,
+\verb|e|, \verb|0|, \verb|^|, \verb|$|, \verb|G| --- or double
+themselves to work on whole lines. What \verb|d|, \verb|x| or \verb|y|
+took goes into the unnamed register for \verb|p| and \verb|P|. Undo is
+unlimited, and so is redo: the journal lives in far memory with the file,
+so one level would have cost the same as all of them.
+
+\verb|:map| and \verb|:imap| define your own keys --- \verb|:imap jk|
+\verb|<Esc>| is the usual one --- and last for the session.
+
+Two behaviours are deliberate and worth knowing before they surprise you.
+A charwise operator \textbf{clamps to the line}: \verb|dw| at the end of
+a line stops there instead of eating into the next one. And a search is a
+\textbf{plain substring}, not a pattern --- \verb|/foo| finds
+\verb|foo|, and \verb|.| \verb|*| \verb|[| mean themselves. So does
+the left-hand side of \verb|:s|.
 
 \verb|:q| on a changed file refuses and says so; \verb|:q!| throws the
 changes away and \verb|:wq| keeps them. \verb|:w name| writes somewhere

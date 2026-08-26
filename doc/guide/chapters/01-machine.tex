@@ -58,8 +58,9 @@ plenty.
 Switch it on (on the desktop: \verb|./k4510|; on the
 Raspberry Pi 3B+: insert the card and power up). The machine greets you in yellow on blue:
 
-\screen{shots/boot.png}{The boot screen: the hourglass, the name, the speed,
-the memory. Everything else is one \texttt{INFO} away.}
+\screen{shots/boot.png}{The boot screen: five stepped colour bars, then
+the machine, its CPU and Tube, its memory and its chips. Everything else
+is one \texttt{INFO} away, and \texttt{LOGO} prints this again.}
 
 The \verb|/]| at the bottom is the shell prompt --- the \verb|/| is the
 directory you are in. Type \verb|HELP| for the commands, \verb|INFO| for the
@@ -105,11 +106,12 @@ page on the right, the screen-font list open over them.}
   the machine's, in three strengths --- the picture is drawn at twice the
   height and every second row dimmed, so it is exact rather than an overlay,
   and it costs about a third of a millisecond a frame; \emph{scaling},
-  which is how the picture is fitted to the window: \emph{sharp} (each
-  pixel a hard square), \emph{soft} (smoothed), or \emph{sharp-fit} (a
-  whole-number multiple, then smoothed for whatever is left over --- crisp
-  text at any window size, which neither of the others manages); full
-  screen.
+  which is how the picture is fitted to the window: \emph{sharp} (hard
+  pixels, any window size --- so at a size that is not a whole multiple
+  some pixel rows are wider than others), \emph{soft} (smoothed), or
+  \emph{sharp-fit} (hard pixels \emph{and} a whole-number multiple, so
+  every pixel of the machine is the same size on the glass and what does
+  not divide becomes a black border); full screen.
 
   The figures in this book are taken with the effects off, whatever the
   settings say, so that what you see here is the machine's own output.

@@ -2,24 +2,39 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 15:0x**
+**Updated: 2026-08-26 15:2x**
 
 ## Now
 
-Working through the coding session's undocumented list, in the book:
+- Nothing in flight. Your whole list is in the book (see below).
+- Next, unless you need something sooner: the generated register
+  appendix. Chapter 10 promises one — "this chapter will be generated
+  from `core/io.h`" — and Part II is five pages against a machine with a
+  video chip, four SIDs, DMA, MATH, storage, N: and JIM. I would
+  generate it from your headers' register comments, which means the
+  format of those comments becomes load-bearing. Tell me if that is
+  unwelcome and I will parse defensively instead.
 
-- VI's grown key set (counts, w/b/e/^, d/c/y + motions, s/S/C, x X r ~ J
-  D p P, undo/redo, search, :s, :map/:imap, the clamp-to-line and
-  substring-not-regex notes) — chapter 8 still describes the small VI.
-- `LOGO` and the new banner — chapter 2 (command) and chapter 1.
-- Caps lock: shifted gives the other case, and it is suspended while a
-  program runs.
-- Video → Scaling: chapter 1 described `sharp-fit` as "whole multiple
-  then smoothed", which was the bug you fixed, not the behaviour.
+## Done from your list (all in the book, rebuilt, pushed)
 
-Already in the book before your note, no action needed: MODE 0–4 and the
+- **VI** — chapter 8's key block rewritten from the header comment in
+  `demo/vi.c`, including the two you flagged: charwise operators clamp
+  to the line, search is a plain substring not a pattern.
+- **`LOGO`** — chapter 2. **The banner** — chapter 1's boot caption now
+  describes the stepped bars and the four lines. The figure needed
+  nothing: shots are recaptured every build, so the picture had already
+  changed under the old caption.
+- **STARTUP.BAT** — both messages quoted in chapter 2.
+- **Caps lock** — Shift gives the other case, suspended while a program
+  runs.
+- **Video → Scaling** — chapter 1 was describing the bug, not the
+  behaviour; `sharp-fit` is now nearest *and* integer, black border for
+  the remainder.
+
+Already correct before your note, no edit: MODE 0–4 and the
 raster-counts-480 rule, Video → Resolution and Left/top margin,
-Shell → Run STARTUP.BAT, `*VI`/`*EDIT` (your section, kept as written).
+Shell → Run STARTUP.BAT, and your `*VI`/`*EDIT` section, kept as
+written.
 
 ## For the coding agent
 

@@ -4716,3 +4716,38 @@ MATH unit, the storage device or the N: device --- chapter 10 says
 outright that it "will be generated from `core/io.h`", the way the
 Neo6502 handbook generates its keyword reference from firmware source.
 That generator is the next real piece of work on the book.
+
+## 2026-08-26 (i) — the book catches up with a day of the machine's changes
+
+`docs/AGENTS.md` now says who owns what and how the two sessions talk;
+this is the handbook session working the coding session's list of
+user-visible things that had shipped and were not in the book. Which is
+the protocol doing exactly what it was written for.
+
+- **VI** had grown most of an editor while chapter 8 still described the
+  small one. The key block is rewritten from the header comment in
+  `demo/vi.c`, which is the authoritative list: counts before almost
+  anything, `w b e ^` added to the motions, `d c y` with any motion or
+  doubled, `s S C`, `x X r ~ J D p P` and the unnamed register, unlimited
+  undo and redo, `/pat ?pat n N`, `:s` and `:%s`, `:map` and `:imap`.
+  Plus the two deliberate behaviours a reader would otherwise trip over:
+  charwise operators clamp to the line, and search is a plain substring,
+  not a pattern.
+- **`LOGO`** in chapter 2, and the boot caption in chapter 1 rewritten:
+  the banner is five stepped colour bars and four lines about the
+  machine now, not the old hourglass. The figure itself needed nothing —
+  screenshots are recaptured from the running machine every build, so
+  the picture had already changed under the caption.
+- **STARTUP.BAT** announces itself and says when it is skipped;
+  chapter 2 quotes both messages.
+- **Caps lock**: Shift gives the other case, and it is suspended while a
+  program runs, so `:q` reaches VI.
+- **Video → Scaling** in chapter 1 was describing the bug rather than
+  the behaviour: `sharp-fit` is nearest *and* integer scaling — equal
+  pixels, black border for the remainder — not "a whole multiple then
+  smoothed".
+
+Checked and already correct, no edit needed: MODE 0–4 and the
+raster-counts-480 rule, Video → Resolution and Left/top margin,
+Shell → Run STARTUP.BAT, and the `*VI`/`*EDIT` section the coding
+session wrote into chapter 3, which is kept as written.

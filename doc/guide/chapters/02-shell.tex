@@ -136,7 +136,11 @@ fitted'' and URLs are simply absent names. The Pi has no TLS, so
 \verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
 keyboard come up uppercase, so a language whose keywords are uppercase ---
 BBC BASIC, EhBASIC --- needs no Shift held. Digits and symbols are
-untouched, so it is a caps lock and not a shift lock. \verb|CAPSLOCK ON|
+untouched, so it is a caps lock and not a shift lock, and Shift gives you
+the \emph{other} case while it is on, the way a caps lock has always
+worked. It is also suspended while a program is running, so a program
+that wants lower case --- \verb|:q| in VI, say --- gets it, and the lock
+comes back when the program does. \verb|CAPSLOCK ON|
 and \verb|CAPSLOCK OFF| set it explicitly. It works from inside a BASIC
 through the \texttt{*} escape: \verb|*CAPSLOCK| in BBC BASIC or EhBASIC.
 
@@ -144,8 +148,10 @@ through the \texttt{*} escape: \verb|*CAPSLOCK| in BBC BASIC or EhBASIC.
 \verb|EXEC name| runs a text file as shell commands, one per line. A line
 whose first character is \verb|#| is a comment, and a blank line is
 ignored. At power-on the machine runs \verb|/STARTUP.BAT| as such a
-script, if it exists --- half a second's grace, and any key held or typed
-skips it without the keystroke being lost. It is the place to put your
+script, if it exists. It says so while it waits ---
+\verb|STARTUP.BAT -- hold a key to skip| --- and gives you half a
+second's grace; a key held or typed in that window skips it, says
+\verb|STARTUP.BAT skipped|, and the keystroke is not lost. It is the place to put your
 aliases; \texttt{/SYSTEM/STARTUP.SAMPLE} is one to copy from.
 
 \section{The monitor}
@@ -170,6 +176,9 @@ BASIC through the \texttt{*} escape, which is how you tidy up after a demo
 that left its picture behind; \verb|FILL| and
 \verb|COPY| work on memory; \verb|HUSH| silences all four SIDs at once;
 \verb|LS| is \verb|DIR| for fingers that have used Unix too long.
+\verb|LOGO| clears the screen and prints the startup banner again ---
+the colour bars and the machine's own description --- which is a tidy way
+to end a session or start a screenshot.
 \verb|RESET| restarts the machine from the shell, the same cold start the
 reset chord performs.
 
