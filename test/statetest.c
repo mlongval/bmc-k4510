@@ -27,6 +27,11 @@ int main(void)
 {
     const char *path = "test/statetest.k4s";
     uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); if (!f || fread(font, 1, 2048, f) != 2048) { printf("need data/font8.bin\n"); return 1; } fclose(f);
+    /* /STARTUP.BAT is the user's own file and gitignored, so it differs from
+     * machine to machine.  One that ends in CAPSLOCK makes the machine echo
+     * typed capitals as lower case -- correctly -- and every assertion here
+     * about what is on screen then fails.  The test owns its boot. */
+    io_set_opts(SYSOPT_NOBOOT);
     mem_init(); io_reset(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); mem_load_rom("rom/kernal.bin"); sid_init(40500000.0, 48000); cpu65_reset();
     frames(120); type("ECHO SAVED HERE\n"); frames(30);
     uint32_t sum1 = screen_sum(); uint16_t pc1 = cpu65.pc; uint8_t cx = io_read(0xDA09), cy = io_read(0xDA0A);
