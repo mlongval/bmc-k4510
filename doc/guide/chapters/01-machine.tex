@@ -72,22 +72,33 @@ the menu.
 
 \section{The F7 menu}
 F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and
-opens a framed window over the dimmed screen, in the manner of the
-C64~Ultimate's: the picture behind it stays exactly as it was, sound
-stops, and closing the menu resumes where it froze. The menu draws with
+takes the whole screen, in the manner of the C64~Ultimate's: the
+categories down the left, the settings of the chosen one on the right,
+and a line at the foot saying what the keys do in whichever pane holds
+the cursor. Sound stops, and closing the menu resumes exactly where it
+froze --- the machine is not disturbed, only hidden. The menu draws with
 its own font and never touches the machine's memory, so it opens even
-when a program has wrecked the screen. Cursor keys move, Enter selects,
-Left/Right step a value, Escape backs out a level, F7 or Escape at the
-top closes.
+when a program has wrecked the screen, and being opaque it reads the same
+whatever was there.
 
-\screen{shots/menu.png}{The F7 menu's Video page with the screen-font
-popup, over the frozen, dimmed boot screen.}
+Up and Down move; Enter or Right crosses from the categories to the
+settings; Left and Right step a value; Escape goes back a pane, and
+closes at the categories; F7 closes from anywhere. A setting with a list
+of choices opens that list over the panes, and \emph{applies as the
+cursor passes each one} --- the screen font swaps under the menu so you
+can see it --- with Escape putting back whatever was there when the list
+opened.
+
+\screen{shots/menu.png}{The F7 menu: categories on the left, the Video
+page on the right, the screen-font list open over them.}
 
 \begin{description}
 \item[Video] border width and colour around the picture; the screen font
   (\emph{kernel8}, \emph{unscii}, \emph{open-roms}, \emph{PXLfont} ---
   a live swap of the chargen at \texttt{\$010000}, the two PETSCII fonts
-  rearranged into ASCII order); full screen.
+  rearranged into ASCII order, and \emph{C64 chargen} if you have put a
+  Commodore character ROM in \texttt{/SYSTEM/chargen.bin} --- the entry
+  says so when you have not); full screen.
 \item[Audio] volume.
 \item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
   Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
@@ -98,6 +109,13 @@ popup, over the frozen, dimmed boot screen.}
   the Tube co-processor is not in the file and is stopped by a load);
   reset; power cycle (memory cleared, ROM reloaded); stop the Tube
   co-processor; quit.
+\item[Shell] whether an unknown word at the prompt may run a CP/M
+  \texttt{.COM} from drive~A: (Chapter~\ref{cha:cpm}). Off to begin
+  with, on purpose: \verb|D| typed for \verb|DIR| should not start a Z80
+  program. It changes only the guess --- a command that names \verb|CPM|
+  outright, an alias among them, works either way. This is the first
+  setting the machine itself reads: the host puts the menu's switches in
+  \texttt{\$D521} and the ROM looks there.
 \item[Info] version, ROM, files, host.
 \end{description}
 
