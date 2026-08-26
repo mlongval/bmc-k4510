@@ -8,7 +8,8 @@ in the guide. Everything written for this project (the machine, VICKY,
 SHEILA, the MATH unit, the ROM, the demos, the Pi port) is
 Copyright (C) 2026 Michael Longval and is released under those terms.
 
-Components with their own origins:
+Components with their own origins (`THIRD_PARTY_SOURCES.md` records
+where each one came from and how to verify it):
 
 | Path | What | Licence |
 |---|---|---|

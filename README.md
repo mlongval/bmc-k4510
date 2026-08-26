@@ -147,7 +147,9 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
   (screenshots first, from the machine itself).
 - **The diary** — `docs/BUILD-LOG.md`, every session with its reasoning.
 - **The design records** — `docs/`, mapped in `docs/README.md`.
-- **Credits and terms** — `CREDITS.md`, `LICENSES.md`, `LICENSE`.
+- **Credits and terms** — `CREDITS.md` (thanks), `LICENSES.md` (the legal
+  record), `THIRD_PARTY_SOURCES.md` (where each vendored component came
+  from, and how to check it), `LICENSE`.
 
 ## Layout
 
