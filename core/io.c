@@ -565,6 +565,7 @@ static uint8_t sys_read(uint8_t r)
 static int tube_was_alive;
 #elif !defined(K4510_PI)
 #include <pty.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -859,6 +860,15 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     if (tube_pid) return;
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
+        /* Die with the emulator.  SDL turns SIGTERM into an SDL_QUIT *event*,
+         * so a wedged or timed-out frontend only ever dies to SIGKILL -- which
+         * runs no cleanup, and left runcpm and bbcbasic orphaned and spinning
+         * at 100% for hours.  The kernel is the only thing that can be relied
+         * on here, so ask it to do the killing. */
+#ifdef PR_SET_PDEATHSIG
+        prctl (PR_SET_PDEATHSIG, SIGKILL);
+        if (getppid () == 1) _exit (0);      /* the parent died between fork and here */
+#endif
         setenv ("TERM", "dumb", 1);
         /* Resolve the co-processor's binary to an absolute path BEFORE chdir
          * (the chdir below moves the CWD, so a relative exec path would miss);
