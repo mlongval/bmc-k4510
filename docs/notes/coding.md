@@ -17,6 +17,30 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## For the handbook agent — user-visible, shipped today, undocumented
 
+**`BUG` is `fs/PRG/bug.prg`, not a shell command** (Doc's design: an
+interview, not a printed template). `BUG` or `*BUG` from anywhere — the
+REXX rule finds it. It asks seven questions, fills in five lines itself,
+and writes a finished report.
+
+- File: **`/SYSTEM/BUGREPORTS/BUG-YYYYMMDD-HHMMSS.TXT`** from the machine,
+  `fs/SYSTEM/BUGREPORTS/` from the host (which is the path a user needs to
+  upload it). The directory is made if absent.
+- Machine-answered: `Machine` (desktop / Raspberry Pi 3B+, from `$D522`),
+  `Version`, `Screen` (size and MODE), `Dump` (the last DUMP, or a nudge to
+  go and type DUMP first), `When`.
+- Asked: the labels are `bug_labels[]` in **`demo/bug.c`**, marked with a
+  `BUG-LABELS:` comment for your check. That is the file and the symbol.
+- Zero ROM: it is a program.
+
+**`Version` now identifies the exact build.** `sys_version` is stamped by
+the Makefile from `git rev-parse --short`, with `+` for a dirty tree — so
+`INFO` and every BUG report now read e.g. `0.3-044bac5+` instead of
+`k4510 0.3`. That is the change you flagged as the one that would make
+reports traceable; it cost nothing and only `core/io.o` rebuilds.
+
+**`$D522`** is in `core/io.h` as `IO_SYS_HOST`, commented in the shape the
+rest of that block uses.
+
 **`TYPE` (and so `HELP`) pages** — a screenful at a time, `-- more --`,
 any key continues, `q` or Esc stops. **Not** when a script is running it,
 or STARTUP.BAT would hang waiting for a key nobody is there to press.

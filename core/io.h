@@ -15,6 +15,7 @@
 #define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
+#define IO_SYS_HOST    0xD522u   /* R: 0 = desktop, 1 = Raspberry Pi */
 #define IO_SYS_OPTS    0xD521u   /* R: what the host's menu has switched on, for the ROM */
 #define SYSOPT_CPMCOM  0x01     /*    an unknown word may run a CP/M .COM */
 #define SYSOPT_NOBOOT  0x04     /*    do NOT run /STARTUP.BAT: the way out of one that wedges the machine */

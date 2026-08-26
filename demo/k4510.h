@@ -100,3 +100,5 @@ static void text8_print(uint32_t map, uint8_t cols, uint8_t x, uint8_t y, const 
     while (*s) far_poke(p++, *s++);
 }
 #endif
+
+unsigned char __fastcall__ rom_shell(const char *line);   /* run a K/OS command ($FF8F) */

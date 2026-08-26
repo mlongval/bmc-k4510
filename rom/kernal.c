@@ -470,8 +470,21 @@ static void cmd_save(const char *p)
     puts_("saved "); putdec(to - from + 1); puts_(" bytes"); newline();
 }
 
-static uint8_t typed;                        /* lines since the last "-- more --" */
 static uint8_t exec_busy;                    /* a script is running: nobody to press a key */
+static uint8_t typed;                        /* lines since the last "-- more --" */
+/* One screenful at a time.  Never while a script is running the command: there
+ * is nobody to press the key, and the wait would hang STARTUP.BAT at power-on.
+ * Returns 1 if the reader asked to stop. */
+static uint8_t page_break(void)
+{
+    uint8_t k, ofg;
+    if (exec_busy || ++typed < (uint8_t)(ROWS - 1)) return 0;
+    typed = 0;
+    ofg = fg; fg = C_DIM; puts_("-- more --"); fg = ofg;
+    do { k = k_getin(); } while (!k);
+    cx = 0; blank_row((uint8_t)(cy + OY));       /* take the prompt back off */
+    return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
+}
 static void cmd_type(const char *p)
 {
     char name[NAMEMAX]; uint32_t n; uint16_t i;
@@ -488,14 +501,7 @@ static void cmd_type(const char *p)
             /* A screen at a time, so HELP does not scroll past.  Never when a
              * script is running it: there is nobody to press the key, and the
              * wait would hang STARTUP.BAT. */
-            if (line[i] == '\n' && !exec_busy && ++typed >= (uint8_t)(ROWS - 1)) {
-                typed = 0;
-                { uint8_t k, ofg = fg;
-                  fg = C_DIM; puts_("-- more --"); fg = ofg;
-                  do { k = k_getin(); } while (!k);
-                  cx = 0; blank_row((uint8_t)(cy + OY));      /* take the prompt back off */
-                  if (k == 27 || k == 'q' || k == 'Q') { fs_cmd(5); return; } }
-            }
+            if (line[i] == '\n' && page_break()) { fs_cmd(5); return; }
         }
     }
     fs_cmd(5);

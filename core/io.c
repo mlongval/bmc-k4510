@@ -442,7 +442,21 @@ static void math_write(uint8_t r, uint8_t v)
 extern uint32_t mem_rom_base;
 static uint8_t  sys_reg[0x10];
 static uint8_t  sid_shadow[4][32];
-static const char sys_version[16] = "k4510 0.3";
+/* The build, not the generation.  The Makefile stamps git describe in here, so
+ * a BUG report names the exact commit it came from; without that both this and
+ * ROM_VERSION only say which era the machine is from.  16 bytes, NUL included. */
+#ifndef K4510_BUILD
+#define K4510_BUILD "k4510 0.3"
+#endif
+static const char sys_version[16] = K4510_BUILD;
+/* The guest cannot otherwise tell a desktop from a Pi: the version string is
+ * the same on both, and everything else that differs is host-side.  BUG has to
+ * say which machine an issue came from, so the host says so here. */
+#ifdef K4510_PI
+#define K4510_HOST_KIND 1
+#else
+#define K4510_HOST_KIND 0
+#endif
 /* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
  * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
  * ($D5E0: low nibble = channel, bit 4 = flush that channel's queue first,
@@ -548,6 +562,7 @@ static uint8_t sys_read(uint8_t r)
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
+    if (r == 0x22) return K4510_HOST_KIND;       /* which machine this is, for BUG and INFO */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     if (r == 0xF3) return sid_clock_sel;
