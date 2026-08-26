@@ -140,6 +140,15 @@ It builds against a circle-libsdl2 checkout with its `rpi3` world built
 (`make BOARD=rpi3 SHIM=/path/to/circle-libsdl2`), and `pi/make-sd.sh`
 lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
 
+## Documentation
+
+- **The handbook** — `doc/guide/k4510-guide.pdf`, built and tracked in
+  the repo. Source in `doc/guide/`, built with `doc/guide/make-guide.sh`
+  (screenshots first, from the machine itself).
+- **The diary** — `docs/BUILD-LOG.md`, every session with its reasoning.
+- **The design records** — `docs/`, mapped in `docs/README.md`.
+- **Credits and terms** — `CREDITS.md`, `LICENSES.md`, `LICENSE`.
+
 ## Layout
 
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
@@ -153,6 +162,8 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
     fs/          the machine's filesystem (programs, BASIC text files; RF1-8/AHL/SIEVE.BAS are the classic benchmarks)
     test/        tests, headless screenshot and benchmark tools
     data/        the text font (from the Linux kernel's font_8x8, GPL-2.0)
+    doc/guide/   the handbook: source, style, and the built PDF
+    docs/        design records and the build diary (docs/README.md maps them)
 
 ## Licence
 

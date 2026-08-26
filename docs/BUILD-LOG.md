@@ -3066,6 +3066,823 @@ UTF-8 from modern BBSes, telnet NAWS/TTYPE (we answer WONT to
 everything; a BBS assumes ANSI 80x24, and JIM is 79x29 in MODE 1 1 —
 fine for menus, MODE 1 0 gives it the full 80).
 
+## 2026-08-24 (archive-side) — the BASIC research: what could replace EhBASIC
+
+Discussion session (this host, archive folder — the coding session was
+busy reshaping the sideways-ROM map and was left alone). It started as
+"could adding elements of the 8510 give us 128k ram?" and ended, three
+questions later, at "research other BASICs for the 4510 side." Along
+the way: the 8510 is just an HMOS 6510 — the C128's 128K was the
+**8722 MMU**, not the CPU; its `122365 BYTES FREE` was two 16-bit
+pools summed through common-RAM trampolines; and the Tube BBC BASIC
+already owns 250 MB, so the native side is the open question.
+
+Two web-research agents ran in parallel: one on the Commodore lineage,
+one on independent 6502 BASICs. **Outcome, decided by Doc the same
+day: bring Microsoft 6502 BASIC (MIT since Sept 2025) into play;
+the coding session was asked to reserve a sideways-ROM slot.** The
+full reports follow, pasted verbatim for the record.
+
+---
+
+### Report 1 — Commodore-lineage BASIC options (45GS02-native)
+
+#### The headline finding
+**Microsoft open-sourced 6502 BASIC v1.1 (1976-78) under MIT in
+September 2025** — github.com/microsoft/BASIC-M6502 (repo archived
+read-only 2025-09-05, license stands). This resets the legal landscape
+for everything MS-lineage.
+([Hackaday](https://hackaday.com/2025/09/04/microsoft-basic-for-6502-is-now-open-source/),
+[Tom's Hardware](https://www.tomshardware.com/software/bill-gates-48-year-old-microsoft-6502-basic-goes-open-source))
+
+#### 1. C65 ROM BASIC 10 (910111)
+- **License: PROPRIETARY** — all Commodore ROMs owned by Cloanto; the
+  C65 ROM is licensed to MEGA65 per-device (fee per unit sold) and
+  bundled in C64 Forever since 2022. No standalone redistribution
+  right. ([generationamiga.com](https://www.generationamiga.com/2020/04/09/cloanto-licenses-commodore-65-rom-for-the-upcoming-mega-65/),
+  [forum64 thread](https://forum64.de/index.php?thread%2F106568-about-the-license-of-the-c65-rom=))
+- **Source:** never released; only community disassemblies
+  (zimmers.net hosts binaries — legally grey to even mirror).
+- **>64K:** yes, natively — program text in bank 0, variables/strings
+  in bank 1 (the model BASIC65 inherited); graphics commands
+  DMA-backed.
+- **Porting: HIGH** — binary-patch-only (no legal source), deeply
+  entangled with VIC-III, C65 F011 DOS, CIAs, C65 Kernal jump table.
+  Also famously buggy (prototype ROM).
+- **Footprint:** part of the 128 KB system ROM (BASIC+editor+graphics
+  roughly half; Kernal/DOS/charset the rest).
+- **Verdict for a public repo: unusable.**
+
+#### 2. MEGA65 BASIC65
+- **License: PROPRIETARY** — the "closed ROM."
+  github.com/MEGA65/mega65-rom-public is a **bug tracker only**: "As a
+  MEGA65 owner you have acquired a license to the ROM"; source repo
+  access is by request on Discord, owners-only, no
+  redistribution/derivative rights for other machines.
+  ([mega65-rom-public](https://github.com/MEGA65/mega65-rom-public))
+  Underlying Commodore rights still Cloanto's.
+- **>64K:** yes, the best of the family. Commands per the MEGA65
+  User's Guide ([memory.tex](https://github.com/MEGA65/mega65-user-guide/blob/master/memory.tex)):
+  - `BANK n` — sets the bank used by `PEEK/POKE/SYS/BLOAD/BSAVE` etc.;
+    with BANK 0–5 or address >$FFFF, PEEK/POKE go through the
+    45GS02's base-page quad-pointer ([addr32],Z) far addressing —
+    i.e. real 28-bit PEEK/POKE.
+  - `DMA` — C65-style F018 DMA job from BASIC; `EDMA` — enhanced DMA
+    with full 28-bit flat source/dest addresses.
+  - Extended `PEEK, POKE, SYS, BLOAD, BVERIFY, SCREEN, SPRSAV…` are
+    all bank-aware. Known limit: BANK/DMA can't reach colour RAM
+    beyond the first megabyte.
+  - Program/variable model: bank 0 text + bank 1 variables (BASIC 10
+    heritage).
+- **Porting: HIGH** — even ignoring the license wall: tied to VIC-IV
+  registers, MEGA65 hypervisor traps, C65-DOS/SD controller, CIAs.
+  The license alone disqualifies it.
+- **Footprint:** 128 KB ROM total (BASIC is the majority).
+- **Verdict: the feature model to imitate, not code to take.**
+
+#### 3. MEGA65 Open-ROMs
+- **License: CLEAN (GPLv3)** — documented clean-room process (spec
+  from books like Mapping the C64, similarity tool flagging >2-byte
+  matches against originals).
+  ([open-roms](https://github.com/MEGA65/open-roms))
+- **Completeness (per [STATUS.md](https://github.com/MEGA65/open-roms/blob/master/STATUS.md),
+  still true in 2025-2026):** Kernal is substantially done (IEC,
+  devices, screen partial); floating-point math package done; **but
+  the BASIC interpreter core is not**: integer/float variables/arrays
+  NOT DONE, expression handling only partial (strings mostly work),
+  FOR/NEXT, GOSUB, IF/THEN NOT DONE. It boots to READY and runs
+  trivial things; it cannot run real BASIC programs.
+- **>64K:** extended-BASIC ideas exist for MEGA65 builds, but nothing
+  bank-aware is usable yet.
+- **Porting: HIGH as a working BASIC** (you'd be writing the
+  interpreter yourself), **LOW-MED as a parts quarry** (GPL3 math
+  package, string GC, Kernal patterns). Note GPLv3 would apply to
+  your ROM if you incorporate it — fine for your repo, but it's viral.
+- **Footprint:** C64-shaped (8K BASIC + 8K Kernal regions; MEGA65
+  build larger).
+
+#### 4. mist64/msbasic
+- **License: MURKY-but-now-anchored.** The repo's README claims
+  "2-clause BSD" — but that can only cover mist64's reconstruction
+  scaffolding; the code itself is Microsoft's (byte-exact rebuilds of
+  9 shipped ROMs). **Since Sept 2025 the Microsoft core is genuinely
+  MIT** via microsoft/BASIC-M6502. Residual murk: the
+  Commodore-specific patch levels (CBM BASIC 1/2 ROM-exact builds)
+  contain **Commodore-authored modifications** that the MIT grant
+  doesn't cover and Cloanto still claims.
+- **Practical combo:** microsoft/BASIC-M6502 is the *legal anchor* but
+  is written in PDP-10 MACRO-10 syntax; msbasic is the *buildable
+  equivalent* — ca65/cc65 toolchain, same one your ROM already uses.
+  Build a generic/OSI/KBD-style config (pure-MS feature set), avoid
+  the CBM-ROM-exact targets, and cite the MS MIT release in your
+  license table.
+- **>64K:** no — 16-bit pointers throughout; strings, arrays, program
+  text all in one 64K image. You'd bolt on far PEEK/POKE/DMA tokens
+  yourself (your 45GS02 [zp],Z far pointers make the *data* side
+  easy; making program/variable storage >64K is a rewrite).
+- **Porting: LOW** — designed for retargeting: platform config files,
+  I/O isolated to a handful of vectors (char in/out, ctrl-C check,
+  LOAD/SAVE hooks). Zero VIC/CIA/Kernal entanglement.
+- **Footprint:** ~8-9 KB.
+- **Source:** github.com/mist64/msbasic +
+  github.com/microsoft/BASIC-M6502.
+
+#### 5. Commander X16 ROM BASIC
+- **License: MIXED, core is PROPRIETARY.**
+  [LICENSE.md](https://github.com/X16Community/x16-rom/blob/master/LICENSE.md)
+  is explicit: the `basic` and `math` directories are "©1977 Microsoft
+  Corp. ©1983 Commodore Business Machines" under a **commercial
+  license from Cloanto valid only "in the context of the X16
+  computer"** — outside users are told to contact Cloanto. Only the
+  *additions* (new BASIC commands, CMDR-DOS, FAT32, audio API) are
+  BSD-2, plus GPLv3 open-roms Kernal pieces. So no, it is not clean
+  for reuse, and the community is honest about it.
+- **>64K:** partial — `BANK` selects an 8 KB RAM bank at $A000 (up to
+  2 MB) for PEEK/POKE/SYS; `BLOAD` auto-wraps across banks. Program +
+  variables still live in the fixed low-RAM ~38 KB.
+- **Porting: MED** technically (C64-BASIC-shaped, X16 banking
+  hardware assumptions) — but license-blocked for the core; only its
+  BSD-2 extension code (graphics/audio command implementations, DOS
+  wedge) is reusable.
+- **Footprint:** ~16 KB ROM bank + annex bank for the extensions.
+
+#### Summary table (report 1)
+
+| Candidate | License verdict | >64K | Porting | Footprint |
+|---|---|---|---|---|
+| C65 BASIC 10 (910111) | PROPRIETARY — Cloanto, per-device MEGA65/C64-Forever only | Yes (bank0 text/bank1 vars) | HIGH (no source, VIC-III/DOS-welded) | ~half of 128 KB ROM |
+| MEGA65 BASIC65 | PROPRIETARY — owners-only source, Cloanto underneath | Yes — BANK, 28-bit PEEK/POKE, DMA, EDMA | HIGH (license + VIC-IV/hypervisor) | 128 KB ROM |
+| Open-ROMs | CLEAN — GPLv3 clean-room | Not yet | HIGH as BASIC, LOW as parts quarry | ~16 KB |
+| msbasic + MS MIT release | CLEAN for pure-MS configs; MURKY for CBM-ROM-exact builds | No (16-bit; far tokens bolt-on) | LOW — vector-isolated I/O, ca65/cc65 | ~8-9 KB |
+| X16 ROM BASIC | PROPRIETARY core (Cloanto, X16-context-only); BSD-2 additions | Partial (BANK + 8K window) | MED, license-blocked | ~16-32 KB |
+
+#### Other options found (report 1)
+- **C128 BASIC 7.0 / Plus-4 BASIC 3.5** — the split-pool (bank-0 text
+  / bank-1 vars) 7.0 model: same Cloanto-proprietary status as BASIC
+  10; original Commodore engineering sources circulating on
+  zimmers.net are leaks, not licensed. Dead end for a public repo.
+- **microsoft/BASIC-M6502 as a direct base** — worth listing
+  separately from msbasic: it is the one genuinely MIT-licensed
+  Commodore-ancestor BASIC in existence (the exact code the PET ran).
+  Legal gold; needs MACRO-10→ca65 translation, which msbasic has
+  effectively already done.
+- **A license-table caveat you already carry: EhBASIC.** Lee
+  Davison's EhBASIC is "free for non-commercial use" only, and
+  Davison died in 2013 leaving the rights orphaned — it is arguably
+  the murkiest thing in your current ROM. The pragmatic clean-up path
+  given everything above: migrate the native BASIC to an
+  msbasic/BASIC-M6502-derived build (MIT), then add your own
+  BANK/EDMA/far-PEEK-POKE tokens modeled on BASIC65's command
+  surface.
+
+---
+
+### Report 2 — Non-Commodore-lineage 6502 BASICs
+
+#### 1. EhBASIC 2.22 (Klaus2m5 fork) — the incumbent
+- **License (exact):** Not OSI. "EhBASIC is free but not copyright
+  free" — non-commercial use OK provided binaries/docs carry "Derived
+  from EhBASIC"; commercial use required contacting Lee Davison, who
+  died in 2013, so the commercial clause is now un-clearable and the
+  license can never be regularized. Widely redistributed anyway
+  (Klaus2m5, jefftranter, lgblgblgb forks all public on GitHub);
+  community treats it as tolerated with attribution.
+- **Implementation:** 6502 assembly (single source; many ports to
+  ca65).
+- **Memory model:** Classic 16-bit pointers everywhere (program,
+  vars, strings all in one 64K image). No fork with banked/large
+  memory was found — the only sighting is the PZ1 laptop running
+  stock EhBASIC *under* a banking scheduler (banking is outside
+  BASIC). **>64K: TEACHABLE** — far PEEK/POKE/COPY tokens using
+  45GS02 [zp],Z is easy; making program/variable storage itself >64K
+  is major surgery on ~16-bit pointer code throughout.
+- **REPL:** Y. **Port effort: NONE** (already running).
+  **2025-26 activity:** frozen (Klaus fork ~18 commits, bugfix-era).
+- URL: https://github.com/Klaus2m5/6502_EhBASIC_V2.22
+
+#### 2. BBC BASIC for 6502 (Acorn original + derivatives)
+- **License:** Proprietary, orphaned. The 2018 Apache-2.0 RISC OS
+  Open release covers **ARM BBC BASIC V only, not the 6502 ROMs**.
+  Stardot consensus: the 6502 BASIC IP passed Acorn→Element
+  14→Pace→Castle→(RISC OS Developments) so many times that "not even
+  Sophie Wilson is sure who owns it now." J.G. Harston's assemblable
+  source on mdfs.net still carries Acorn copyright; the Tube "BASIC V
+  for 65C02" there is copyright Colin C Dean, also not free.
+  BeebEater (github.com/chelsea6502/BeebEater, for Ben Eater builds)
+  is a nice MIT wrapper but **ships the proprietary ROM binary
+  inside**.
+- **>64K:** NO (16-bit; the BBC's answer was the Tube/sideways RAM,
+  outside BASIC). **REPL:** Y. **Port effort:** LOW technically (MOS
+  entry-vector shims, BeebEater proves it) but **legally unusable for
+  a clean public repo**. No open-source reimplementation of 6502 BBC
+  BASIC exists as of 2026.
+- URLs: https://mdfs.net/Software/BBCBasic/6502/ ,
+  https://stardot.org.uk/forums/viewtopic.php?t=16087 ,
+  https://github.com/chelsea6502/BeebEater
+
+#### 3. FastBasic (dmsc) — strongest real candidate
+- **License (exact):** GPL-2.0-or-later **with an explicit linking
+  exception**: programs you compile with it may be distributed under
+  any license. Clean for a public repo.
+- **Implementation:** Parser/compiler in 6502 asm (on-machine IDE) +
+  C++ cross-compiler on PC; runtime is a small bytecode **VM in ca65
+  assembly** — it already builds with the cc65 toolchain the K4510
+  uses.
+- **Memory model:** 16-bit VM; 16-bit ints + Atari-ROM floating point
+  (FP routines would need replacing or dropping for a port).
+  **>64K: TEACHABLE, and more cheaply than anywhere else** — because
+  all memory access funnels through ~10 VM opcodes, adding
+  FARPEEK/FARPOKE/FARCOPY (or even a far string pool) means touching
+  the VM, not a whole interpreter. The 45GS02's [zp],Z 32-bit mode
+  slots straight into a VM opcode.
+- **REPL:** Y-ish — full-screen IDE with editor + instant
+  compile-and-run on the machine (not line-at-a-time immediate mode).
+- **Port effort: MED** — author states "the libraries are fairly
+  portable, so creating a version for other 6502s shouldn't be too
+  much work"; work = console I/O layer, replace Atari FP, strip
+  P/M-graphics statements. **Activity:** active — v4.6 (2024), v4.7
+  discussed on AtariAge; 866 commits.
+- URL: https://github.com/dmsc/fastbasic
+
+#### 4. XC=BASIC 3 (neilsf)
+- **License:** MIT. **Implementation:** cross-compiler written in
+  **D** (runs on PC, emits 6502 via DASM). **REPL: N — compile-only**,
+  which fails the core requirement. **>64K:** NO (16-bit codegen);
+  teachable only by hacking the D codegen. **Port effort:** MED (add
+  a target config + runtime shims; C64/VIC20/C16/Plus4/PET/C128
+  supported, X16 via community target). **Activity:** mature, ~970
+  commits, slow but alive.
+- URL: https://github.com/neilsf/xc-basic3
+
+#### 5. Tiny BASICs (Tom Pittman, DDJ-IL, CorshamTech, uBASIC etc.)
+All are 2-8 KB toys with 16-bit (or 8-bit!) address spaces, no
+strings/FP worth having, and nothing to say about large memory —
+strictly a step down from EhBASIC. (CorshamTech's is GPL-3 and
+maintained if a minimal fallback is ever wanted:
+https://github.com/CorshamTech/6502-Tiny-BASIC ; uBASIC is BSD, in C,
+cc65-compilable, and would run — but it's if/for/goto-only. The irony
+is affordable, the language isn't.)
+
+#### 6. dflat (6502Nerd)
+- **License:** MIT. **Implementation:** 6502/65C02 assembly.
+  **REPL:** Y (interactive, structured BASIC-like: def/enddef
+  procedures, locals, recursion, while/repeat — no GOTO). **>64K:**
+  NO as-is; TEACHABLE same as EhBASIC (it's conventional 16-bit asm
+  inside). **Port effort: MED-LOW** — explicitly designed to port:
+  "core language just needs character put and get routines."
+  **Activity:** ongoing hobby refinement (Oric-1 branch, ~89
+  commits); one-man project, non-standard dialect (existing BASIC
+  listings won't run).
+- URL: https://github.com/6502Nerd/dflat
+
+#### 7. BASIC816 (pweingar, C256 Foenix) — the 65816 design reference
+- **License:** **GPL-3.0** (author has said he'd consider MIT if
+  asked). **Implementation:** 65816 assembly (64tass), clean-room,
+  interactive REPL, shipped as the stock BASIC of the C256 Foenix U
+  (a 65816 machine with up to 4 MB flat RAM). **>64K: YES —
+  genuinely** — program text, variable table and string heap
+  addressed with native 24-bit long pointers; this is the
+  proof-of-existence for "an interactive BASIC whose *heap* lives
+  above bank 0."
+- **Not portable to the 45GS02** (65816 native mode ≠ 45GS02;
+  opcode/register model differs), so **port effort: HIGH / treat as
+  reference only**: what it did — keep interpreter code+ZP state in
+  bank 0, use long-pointer addressing modes for every data structure
+  — maps directly onto the 45GS02's [zp],Z 32-bit pointers.
+  **Activity:** mostly 2019-2021; README still calls itself unstable
+  though it ships on real hardware. No comparable Apple IIGS/SNES
+  open BASIC found (GS BASICs are Apple-proprietary).
+- URL: https://github.com/pweingar/BASIC816
+
+#### 8. Wildcard that changed the landscape: Microsoft 6502 BASIC, MIT (Sept 2025)
+Technically Commodore-lineage (it *is* the ancestor), but note:
+Microsoft released the original 6502 BASIC 1.1 source (m6502.asm,
+~6,955 lines, the pagetable multi-target source) under **MIT** on
+2025-09-03. If the owner ever wants a license-spotless classic
+Microsoft-style core to hack far-memory features into — with zero
+attribution ambiguity — this now exists and EhBASIC's grey clause
+stops being the only game in town.
+https://opensource.microsoft.com/blog/2025/09/03/microsoft-open-source-historic-6502-basic/
+
+#### 9. BASIC-in-portable-C compiled with cc65
+Feasible but poor: uBASIC (BSD, dunkels.com/adam/ubasic/) compiles
+under cc65 and would fit (~few KB code), but cc65-generated
+interpreter code is 3-5x the size and far slower than hand asm, and
+every richer C BASIC (MY-BASIC, etc.) blows the 24 KB ROM-bank budget
+and assumes malloc/heap ≫ what's free. Verdict: only worth it for a
+toy scripting sublanguage, never as *the* BASIC.
+
+#### Comparison table (report 2)
+
+| Candidate | License | >64K | REPL | Port | Note |
+|---|---|---|---|---|---|
+| EhBASIC (Klaus2m5) | non-commercial + attribution, un-clearable | TEACHABLE | Y | NONE | already running; far PEEK/POKE easy, far heap = surgery |
+| BBC BASIC 6502 | proprietary, orphaned IP | NO | Y | LOW (tech) / blocked (legal) | ARM BASIC V is Apache-2.0, 6502 ROMs are not |
+| FastBasic | GPL-2.0+ w/ linking exception | TEACHABLE (via VM opcodes) | Y (on-machine IDE) | MED | ca65-based, active 2025, best asm-effort/feature ratio |
+| XC=BASIC 3 | MIT | NO | N | MED | compile-only kills it for this use |
+| Tiny BASICs | varies | NO | Y | LOW | too small to matter |
+| dflat | MIT | TEACHABLE | Y | MED-LOW | portable by design, one-man non-standard dialect |
+| BASIC816 | GPL-3.0 | YES (24-bit long ptrs) | Y | HIGH (ref only) | the blueprint for a far-heap interactive BASIC |
+| MS 6502 BASIC (2025 MIT) | MIT | TEACHABLE | Y | LOW-MED | Commodore-lineage but now license-clean |
+| uBASIC via cc65 | BSD-3 | trivially (C far shims) | Y | LOW | too weak a language |
+
+#### Top 3 for the BMC-K4510 (report 2's ranking)
+1. **FastBasic** — the only active, license-clean (GPL2+exception),
+   cc65-toolchain-native candidate where >64K support is
+   architecturally cheap: add far-memory opcodes to a small bytecode
+   VM using the 45GS02's [zp],Z pointers, rather than re-plumbing an
+   entire interpreter. On-machine IDE satisfies "interactive."
+2. **Keep EhBASIC, teach it far ops** — zero porting cost, users
+   already have it; add FARPEEK/FARPOKE/FARBLOCK/bank-pool tokens
+   (ROM budget permitting). Accept the grey "Derived from EhBASIC"
+   non-commercial clause — fine in practice for a hobby public repo,
+   but it can never be made properly open.
+3. **dflat** — MIT, explicitly built to be ported to homebrew 6502
+   machines, structured and interactive; the fallback if FastBasic's
+   Atari FP/runtime extraction proves heavier than expected. Use
+   **BASIC816** as the design reference for any far-heap work
+   regardless of which core wins.
+
+---
+
+### The synthesis and the decision
+
+Ranked across both reports for this machine: **migrate the native
+BASIC to an msbasic/BASIC-M6502 build (pure-MS config, MIT anchor),
+then add our own BANK / 28-bit PEEK-POKE / DMA tokens modeled on
+BASIC65's command surface** — clean license table, authentic
+Commodore-family dialect (EhBASIC is an MS-alike, demos mostly carry
+over), ~8-9 KB core, far commands in code we fully own. The banner
+can then print a C128-style number the C128's own way (pool
+arithmetic) — backed by commands that really reach the 256 MB.
+FastBasic stays the runner-up; BASIC816 the blueprint if a true
+far-heap BASIC ever goes on the ballot.
+
+Doc's call, same evening: do it. The coding session (then reworking
+the sideways-ROM memory map) was messaged to reserve a slot for the
+msbasic ROM plus token headroom; the vendoring itself is a later work
+item. Decision also recorded in project memory
+(`project-k4510-msbasic-decision.md`).
+
+## 2026-08-24 (archive-side, 2) — the font research: a clean chargen
+
+Same discussion session, next question from Doc: "research other 8x8
+bitmapped fonts that are license compatible? ascii and petscii." The
+motivation is the same trap the BASIC research walked around — the
+original C64/C65 chargen ROMs are Commodore IP, Cloanto-claimed, the
+same category as the BASIC ROMs. Two web-research agents ran in
+parallel: one on PETSCII-flavored/Commodore-style fonts, one on
+general open 8x8 ASCII faces. Full reports pasted verbatim below.
+
+**The short version:** the drop-in winner is the MEGA65 open-roms
+clean-room chargen (`bin/chargen_openroms.rom` — 4 KB, 512 glyphs,
+both PETSCII sets, already in 8-bytes-per-glyph format, LGPL-3.0);
+**unscii-8** is the public-domain powerhouse (complete Legacy
+Computing/PETSCII repertoire, trivial .hex conversion, but the
+512-glyph layout must be assembled by hand); **BESCII** (CC0) is the
+most C64-flavored clean design. The prettiest matches — Pet Me and
+Style64's C64 TrueType — are both license-excluded. And the legal rule
+of thumb the community follows: *inspired-by with visible pixel
+differences = safe; pixel-identical to the Commodore ROM = same bytes
+as the ROM = don't put it in a public repo.*
+
+---
+
+### Report 1 — PETSCII-flavored 8x8 fonts with clean licenses
+
+#### 1. Kreative Korp "Pet Me" family — NOT usable
+- **Page:** https://www.kreativekorp.com/software/fonts/c64/ (the
+  `/petme/` URL 404s; download:
+  https://www.kreativekorp.com/swdownload/fonts/retro/petme.zip)
+- **Coverage:** FULL, best-in-class — Pet Me (PET), Pet Me 2X
+  (VIC-20), Pet Me 2Y (CBM2/80col), Pet Me 64/64 2Y, Pet Me 128/128
+  2Y. "code points 0xE000-0x1FF encode the complete Commodore 64
+  character set"; also mapped to Symbols for Legacy Computing since
+  Oct 2019.
+- **Format:** TrueType only.
+- **License:** "Kreative Software Relay Fonts Free Use License
+  v1.2f" — full text at
+  https://www.kreativekorp.com/software/fonts/FreeLicense.txt. Free
+  redistribution with credit is allowed (clause 1a), **but clause 2
+  is fatal**: *"The User may not modify, reverse-engineer, or create
+  any derivative works of the Software."* Converting the TTF into
+  8-byte-per-glyph ROM data is a derivative work. Also clause 5:
+  *"Kreative Software reserves the right to change this license at
+  any time without notice."* **Verdict: excluded for ROM
+  conversion.** (These fonts are also pixel-exact traces of the
+  original ROMs, so the deeper Cloanto question below applies too.)
+
+#### 2. Style64 "C64 TrueType (Pro)" — NOT usable
+- **License page:** https://style64.org/c64-truetype/license
+- Quoted terms: *"You MAY NOT: sell this font; include/redistribute
+  this font in any font collection…; provide the font for direct
+  download from any web site."* Embedding permitted only *"without
+  any modification and using the same filenames"* (web @font-face),
+  or *"as part of a software package but ONLY if said software
+  package is freely provided to end users."* No modifications
+  allowed in any case; anything more requires negotiating *"a
+  (possibly commercial) license."*
+- **Verdict: excluded.** No-modification + no-direct-download
+  clauses are incompatible with converted ROM data sitting in a
+  public git repo. Their https://style64.org/petscii/ page is still
+  useful as a *reference* — it defines the "Direct PETSCII" PUA
+  mapping (U+E000/E100/E200/E300 banks) but maps to PUA, not to
+  U+1FB00, and offers no downloadable table.
+
+#### 3. MEGA65 open-roms — CONFIRMED, ready-made ROM data
+- **Repo:** https://github.com/MEGA65/open-roms — license per
+  `LICENSE`: **LGPL v3 or later** (not plain GPLv3), copyright
+  Gardner-Stephen / Standzikowski; some BASIC files MIT (Microsoft).
+- **Charset exists and is complete:** `assets/8x8font.png` (8×4096
+  px = 512 glyphs = **both charsets, 2×256, full PETSCII
+  graphics**), built by `pngprepare` into
+  `bin/chargen_openroms.rom` — a prebuilt **4096-byte chargen ROM,
+  already in the exact 8-bytes-per-glyph format** needed. It is a
+  distinct clean design, not a pixel copy of the Commodore ROM.
+- Bonus: `bin/chargen_pxlfont_2.3.rom` (4 KB, also drop-in chargen
+  format) — "PXLfont 88665b RF2.3" by Retrofan; `bin/README.md`
+  states: *"PXL font was created by Retrofan, we got a permission to
+  include it with Open ROMs under GNU Lesser General Public License
+  3.0."* (Outside open-roms, PXLfont's own terms are
+  permission-required — e.g. the Ozmoo copy at
+  https://github.com/johanberntsson/ozmoo/blob/master/fonts/PXLfont-rf.license.txt
+  is Ozmoo-only — so take it *via* open-roms under LGPL-3.0.)
+- **Verdict: usable.** LGPL-3.0 on a 4 KB data blob is the only
+  cost; for chargen data used as data (not linked code), LGPL's
+  obligations reduce to shipping the license + source (the PNG).
+
+#### 4. unscii-8 (Viznut) — CONFIRMED public domain, near-complete
+- **Page:** http://viznut.fi/unscii/ (note: expired/invalid TLS cert
+  as of 2026-08; content intact)
+- **License:** quoted from the page: *"'unscii-16-full' falls under
+  GPL because of how Unifont is licensed; **the other variants are
+  in the Public Domain**."* So unscii-8 = public domain, no
+  conditions.
+- **Coverage (verified by downloading `unscii-8.hex`):** 3191
+  glyphs; **213 glyphs in U+1FB00 Symbols for Legacy Computing**
+  (Unicode 13 added 214 — effectively complete, and the page
+  explicitly says the block includes "the missing PETSCII
+  characters"); 256 glyphs across U+25xx (box drawing, block
+  elements, geometric); card suits at U+2660/2663/2665/2666 all
+  present. Full PETSCII repertoire reachable for both upper/graphics
+  and lower sets via ASCII + these blocks; also ships `uns2uni.tr`
+  (PUA↔Unicode mapping file).
+- **Format/conversion:** HEX (Unifont hexdump — for 8x8 each line is
+  codepoint + 16 hex digits = **exactly 8 bytes/glyph**; conversion
+  is a 10-line script), plus PCF/TTF/OTF/WOFF. **Verdict: easiest
+  and cleanest license of all; style is unscii's own, not
+  Commodore-look.**
+
+#### 5. CC0/MIT PETSCII-inspired fonts — two verified
+- **BESCII** (Damian Vila) —
+  https://github.com/damianvila/font-bescii (archived; moved to
+  https://codeberg.org/Dmian/font-bescii). `LICENCE` file verified:
+  **CC0 1.0 Universal** full legal text. README: "An 8x8 pixel font
+  based on PETSCII… PETSCII symbols + some Amstrad CPC 464… PETSCII
+  characters mapped using Direct PETSCII mapping" (style64 PUA
+  scheme), plus Latin/Greek/Cyrillic/kana. **Coverage: full PETSCII
+  graphics repertoire, deliberately *not* pixel-identical** (a
+  redesign fixing C64 font flaws — see
+  https://damianvila.com/blog/20240515-designing-the-bescii-font.html).
+  Format: TTF/OTF/WOFF/WOFF2 **and FontForge .sfd source** (v2.0:
+  `Bescii-Mono.sfd`) — conversion needs rasterizing the TTF at 8px
+  or parsing the .sfd; moderate effort.
+- **funscii** (Wuerfel21) — https://github.com/Wuerfel21/funscii.
+  Verified: repo SPDX **CC0-1.0**; README: *"The font itself is put
+  into the public domain - licensed under the terms of CC0 1.0
+  Universal"* (builder is Apache-2.0). It is a fork of unscii with
+  fixes + Japanese; source `font.txt`/`glyphs` in unscii's text
+  format; community reports a C64-style binary build. Same coverage
+  story as unscii-8.
+- FontStruct "PETSCII Commodore"
+  (https://fontstruct.com/fontstructions/show/1336244/petscii-commodore)
+  is tagged CC0 but is a pixel-copy traced from the Wikipedia
+  PETSCII chart — the uploader cannot launder the original bitmap
+  into CC0; treat as unsafe.
+
+#### 6. Unicode Symbols for Legacy Computing as mapping target — CONFIRMED
+- Block U+1FB00–U+1FBFF, added in Unicode 13.0 (2020) specifically
+  for PETSCII et al. Proposal **L2/19-025** ("Proposal to add
+  characters from legacy computers and teletext", successor of
+  L2/17-435):
+  https://www.unicode.org/L2/L2019/19025-terminals-prop.pdf —
+  **contains per-machine mapping tables (incl. Commodore PETSCII →
+  Unicode)** that can drive a conversion; supplement L2/21-235
+  (Unicode 16 additions) at
+  https://www.unicode.org/L2/L2021/21235-terminals-supplement.pdf.
+- Human-readable PETSCII→Unicode mapping table:
+  https://www.kreativekorp.com/charset/map/petscii/
+- Open 8x8 fonts implementing the block: **unscii-8** (213/214
+  glyphs, verified), **funscii**, Pet Me 2019+ (license-blocked),
+  Kreative's Fairfax HD (OFL, but 6x12 not 8x8).
+
+#### 7. Other findings
+- **VICE fallback charset:** none exists — VICE (GPLv2+) ships the
+  *original* Commodore `chargen` ROM images on the old Usenet-era
+  tolerance; the ROMs are not GPL and are exactly the
+  Cloanto-claimed material (community discussion:
+  https://www.lemon64.com/forum/viewtopic.php?t=73857). Nothing to
+  reuse.
+- **ZX Origins (DamienG):** ~hundreds of 8x8 fonts incl. "C64"
+  export formats (C headers, 6502 asm); terms are informal —
+  "freely available… in exchange for a mention in the credits"
+  (https://damieng.com/typography/zx-origins/). ASCII-96 only, **no
+  PETSCII graphics repertoire**; useful for alternate text glyphs,
+  not for the chargen graphics half.
+
+#### Ranked top 3 (report 1)
+1. **MEGA65 open-roms `chargen_openroms.rom`** — already a 4 KB,
+   512-glyph, 8-bytes-per-glyph chargen with both PETSCII sets,
+   drop-in zero conversion; LGPL-3.0 (note in the license table).
+   PXLfont 2.3 from the same `bin/` dir is a nicer-looking second
+   option under the same license.
+2. **unscii-8** — public domain, no strings at all; `.hex` converts
+   trivially; complete Legacy Computing/PETSCII glyph repertoire,
+   but you must build the 512-entry PETSCII layout yourself using
+   the L2/19-025 mapping, and the look is unscii's, not Commodore's.
+3. **BESCII** — CC0, deliberately C64-flavored (closest "feel" with
+   a clean pedigree), full PETSCII graphics via Direct-PETSCII PUA
+   mapping; needs TTF→bitmap extraction (it is a true 8x8 grid
+   design, so 8px rasterization is lossless).
+
+Excluded despite being the prettiest matches: Pet Me
+(no-derivatives clause) and Style64 C64 TrueType (no-modification,
+no-direct-download).
+
+#### Legal caveat: pixel-exact clones of the Commodore charset
+Honest summary: **unsettled, lean away.** Community/legal consensus
+(e.g. the Lemon64 threads above): in the US, typeface *designs* are
+not copyrightable, but the ROM as a data file is, so byte-copying
+the chargen ROM is clearly off-limits; the open question is whether
+an independently-typed but pixel-identical 8x8 bitmap is a "copy of
+the ROM data" (it is byte-identical by construction) or an
+uncopyrightable typeface rendering. No case law answers this for
+8x8 chargen bitmaps; jurisdictions differ (UK/Germany protect
+typefaces, though 25-year terms have expired for 1982 designs).
+Cloanto/C64-forever actively license the ROMs, and open-roms chose
+clean-room reimplementation precisely to avoid the argument.
+Practical rule the community follows and open-roms/BESCII embody:
+*inspired-by with visible pixel differences = safe; pixel-identical
+= same bytes as the ROM = don't put it in a public repo.* All three
+ranked picks satisfy this.
+
+---
+
+### Report 2 — General open 8x8 ASCII bitmap fonts
+
+#### 1. dhepper/font8x8 — https://github.com/dhepper/font8x8
+- **License:** Public domain (stated in repo README). *Caveat:*
+  provenance chain is "directly derived from an assembler file" by
+  Marcel Sondaar, itself based on "IBM public domain VGA fonts."
+  IBM never formally dedicated these to the PD — the claim
+  ultimately rests on the US doctrine that bitmap glyph designs are
+  uncopyrightable. Community treats it as safe; used everywhere
+  (OS-dev tutorials, embedded projects).
+- **Coverage:** Basic ASCII (0x00–0x7F), extended Latin
+  (0x80–0xFF), box drawing, block elements, Greek, Hiragana — as
+  separate C arrays.
+- **Format:** C header arrays, exactly 8 bytes/glyph, LSB =
+  leftmost pixel. **Zero conversion needed** — already chargen ROM
+  format (bit-reversal per byte may be needed depending on shift
+  orientation).
+- **Readability:** Classic IBM-ish face; lowercase without true
+  descenders (CGA-style squash); 0 unslashed but distinguishable
+  from O; 1/l/I distinct. Serviceable, very "PC."
+- **Status:** Repo dormant (7 commits) but stable.
+
+#### 2. Ultimate Oldschool PC Font Pack (VileR) — https://int10h.org/oldschool-pc-fonts/readme/
+- **License:** **CC BY-SA 4.0**. Attribution: credit "VileR" + link
+  to int10h.org. Adaptations (which ROM-converted glyph data is)
+  must be distributed under a compatible license.
+- **8x8 faces in the pack:** IBM CGA 8x8, AMI EGA 8x8, ATI 8x8,
+  Verite 8x8, ToshibaTxL1 8x8, and dozens more OEM 8x8s (CGA
+  thin/thick, EGA, Amstrad, Phoenix, etc.).
+- **Mechanics:** Converting glyphs to a C array/ROM binary is fine
+  under CC BY-SA with credit + the CC BY-SA 4.0 notice on the
+  derived font data. The share-alike obligation attaches to the
+  font data, not to the emulator code that merely loads it (fonts
+  as data are generally treated as separate works — convention, not
+  litigated certainty). One CC BY-SA row in the license table.
+- **Underlying IBM/OEM designs:** VileR's own legal analysis: "The
+  raw bitmap typefaces are not copyrightable, unlike fonts in
+  specific formats such as .fon and TrueType (which qualify as
+  software)" (citing *Eltra Corp. v. Ringer*); IBM's fonts were
+  cloned by every BIOS vendor for decades without litigation.
+  Well-founded **for the US**; some jurisdictions (Germany, UK)
+  protect typefaces — essentially zero practical risk, small
+  theoretical non-US risk.
+- **Format:** TTF/OTB + PNG specimens + raw bitmaps in the extras;
+  conversion easy.
+- **Readability:** The CGA/EGA 8x8 faces are the gold standard for
+  readable 8x8: distinct 1/l/I, O/0, decent pseudo-descenders.
+
+#### 3. ZX Origins (Damien Guard) — https://damieng.com/typography/zx-origins/
+- **License:** Informal: fonts are "freely available to be used in
+  games you create in exchange for a mention in the credits section
+  or perhaps a coffee." Commercial use explicitly allowed;
+  recommended credit "*[fontname]* font by DamienG". **The one
+  prohibited use: "redistributing the font as a font."**
+- **The catch:** a chargen ROM in a public repo *is* redistributable
+  font data — a raw 768-byte glyph table sits in a gray zone
+  between "used in a product" (allowed) and "redistributed as a
+  font" (not). He is explicitly open to email; one message would
+  settle it. Not a drop-in for a strict license table without that.
+- **Collection:** 263 original 8x8 typefaces, each shipped as TTF
+  **plus C headers and Z80/6502/x86/68000 assembly** — already
+  8-bytes-per-glyph. Coverage full printable ASCII (Spectrum
+  heritage), typically no box drawing.
+- **Standout readable faces:** **Envious** (very clean terminal
+  face), **Localhost**, **Keytop**, **Clear Plan**, **Computer**.
+
+#### 4. unscii-8 — http://viznut.fi/unscii/ (repo: https://github.com/viznut/unscii)
+- **License:** "You can consider it Public Domain (or CC-0)" except
+  the Unifont-derived files (unifont.hex, unscii-16-full) which are
+  GPL. **unscii-8 is PD/CC0.**
+- **Coverage:** Huge — best in this sweep. Full ASCII, Latin-1, box
+  drawing, block elements, Teletext/Videotex mosaics, PETSCII
+  pseudographics, shades, round corners. Variants: unscii-8 plus
+  stylistic 8x8s (thin, alt, fantasy, mcr).
+- **Format:** .hex (trivially parseable), plus BDF/PCF/TTF/OTF.
+  Conversion to ROM data is a 10-line script.
+- **Readability:** Designed as a *usable terminal font*, not just
+  retro pastiche — good 0/O and 1/l/I distinction, consistent
+  stroke weight; compressed descenders (8px cell limit).
+
+#### 5. Spleen — https://github.com/fcambus/spleen
+BSD 2-Clause. **Sizes: 5x8, 6x12, 8x16, 12x24, 16x32, 32x64 — no
+8x8 exists.** Dismissed. (If an 8x16 is ever wanted for an
+80-column mode, Spleen 8x16 with full CP437 + BSD-2 is a top pick.)
+
+#### 6. Fantasy-console and homebrew fonts
+- **TIC-80:** project MIT, but the system font is **6x6** in 8x8
+  sprite cells. Dismissed on size.
+- **PICO-8:** font and palette are **CC0** (official FAQ) — but
+  glyphs are 3x5. Dismissed on size.
+- **Pixel Operator** (Jayvee Enaguas) — **CC0 1.0**
+  (fontlibrary.org; source notabug.org/HarvettFox96/ttf-pixeloperator).
+  8px-height mono variants exist but ship **TTF only** — rasterize
+  at 8px and verify the advance is actually 8. Usable with modest
+  work; license perfect.
+- **Kitchen Sink** (Polyducks, itch.io) — **6x8, not 8x8**, and
+  "redistributing the font as an asset is prohibited" + an NFT
+  clause. **Excluded** on both size and license.
+- **Portfolio 6x8:** 6x8 (Atari Portfolio). Dismissed.
+
+#### 7. Terminus
+Sizes 6x12 through 16x32; **no 8x8**. SIL OFL 1.1. Dismissed.
+
+#### 8. Linux consolefonts and other BDF/PSF sources
+- **Kernel `lib/fonts/font_8x8.c`:** SPDX **GPL-2.0**, "generated
+  by cpi2fnt," no origin credit. Same IBM-derived CP437 face as
+  font8x8, but taking it from the kernel imports GPL-2.0 —
+  pointless when dhepper/font8x8 offers equivalent glyphs as PD.
+  Same for `font_pearl_8x8.c`. Skip.
+- **IBM BIOS font recreations:** the canonical open ones are
+  exactly the int10h pack (CC BY-SA) and dhepper/font8x8 (PD).
+  Nothing cleaner-licensed found; nothing else notable at 8x8
+  surfaced that beats the above.
+
+#### Ranked top 3 (report 2)
+1. **unscii-8** — PD/CC0, widest coverage by far (ideal raw
+   material for a fantasy machine's full 256-glyph chargen), .hex
+   converts trivially, genuinely readable. Cleanest license + best
+   fit. Watch-out: don't grab the Unifont-derived files (irrelevant
+   at 8x8).
+2. **dhepper/font8x8** — already literally chargen-format C arrays,
+   PD-labeled, ASCII+Latin+box+blocks. Slightly weaker provenance
+   story but universally used; fine as fallback or "boring
+   default."
+3. **Ultimate Oldschool PC Font Pack (IBM CGA 8x8 / ATI 8x8 /
+   Verite 8x8)** — the most authentic and most readable faces, but
+   CC BY-SA 4.0 means attribution + share-alike on the converted
+   glyph data — one viral-ish row in the license table. Use for the
+   real CGA look if the flag is acceptable.
+
+ZX Origins is the honorable mention: 263 original faces,
+pre-converted 6502 source, but the "don't redistribute as a font"
+clause needs one clarifying email before a raw glyph table lands in
+a public repo.
+
+---
+
+### The combined ranking
+
+For the K4510 chargen, both sweeps agree on the shape of the answer:
+
+1. **open-roms `chargen_openroms.rom`** (LGPL-3.0) — the only
+   ready-made, complete, 512-glyph PETSCII chargen in drop-in
+   8-bytes-per-glyph format; zero conversion work. PXLfont 2.3 from
+   the same directory (same license route) if a nicer face is
+   wanted.
+2. **unscii-8** (public domain) — the no-strings powerhouse for
+   both ASCII and PETSCII repertoires; requires assembling the
+   512-entry layout via the L2/19-025 PETSCII→Unicode mapping, and
+   the look is its own.
+3. **BESCII** (CC0) — the most Commodore-flavored clean design;
+   TTF→bitmap extraction needed (lossless — it's a true 8x8 grid).
+
+The prettiest candidates (Pet Me, Style64) are license-excluded;
+pixel-identical recreations of the Commodore charset are avoided on
+principle regardless of who typed them in. No decision taken yet —
+this entry is the research record; the pick is Doc's.
+
+## 2026-08-24 (archive-side, 3) — reset chord and the C64u-style menu: the design
+
+Doc, adding an element to the project: *"1) change reset key from
+F12 to something like Commodore-Restore. 2) wire commodore F7 to
+open a settings menu like BMC64 and the C64u where we can adjust
+border width, change screen font etc — please architect a logical
+scaffold for future additions, please make it look more like the
+C64u menu than the BMC64 one."*
+
+Archive-side session checked the seams in the mirror first:
+`sdl/main.c:108` is the F12 → `cpu65_reset()` binding, and
+`core/io.h:143` shows the machine receives F1–F12 as $90–$9B — so F7
+currently reaches guest programs (and BBC BASIC uses function keys).
+The design below went to the coding session as the work order;
+implementation judgment stays with it. Pasted for the record.
+
+### 1. Reset: F12 → "Commodore-Restore" chord
+
+Unbind SDLK_F12. Replace with a two-key chord evoking C= + Restore:
+suggested Left-Super ("Commodore key") + PageUp ("Restore"), or
+Left-Ctrl+PageUp if Super fights the window manager — final pick from
+the existing keymap. Requirements: chord = hard reset, cannot fire
+from a single accidental keypress, and the binding lives in the
+settings registry so the menu can rebind it later. F12 ends up
+unbound.
+
+### 2. F7 → settings menu, C64u-style
+
+**Module layout (portability first — Pi/Circle must reuse it):**
+`core/ui/` with `settings.c/h` (registry + persistence), `menu.c/h`
+(tree + navigation + state machine), `ui_draw.c/h` (text-cell
+drawing primitives). No SDL types anywhere in core/ui — the host
+(sdl/main.c now, Circle later) feeds key events in and composites
+the overlay buffer out, same pattern as the rest of core/.
+
+**Settings registry (the actual scaffold):**
+- Typed entries: `{ id "video.border_width", type
+  BOOL|INT|ENUM|CHORD, default, min/max/step or enum labels, apply
+  callback, flags LIVE|NEEDS_RESTART }`.
+- Persisted to a human-editable key=value file (`k4510.cfg` beside
+  `fs/`; on the Pi, the SD root), with a version key. Unknown keys
+  preserved on rewrite. Load at boot, save on menu close (the C64u
+  behavior: leaving the menu persists).
+- Adding a future setting = one registry row + one menu row + an
+  apply hook. That is the whole extension contract.
+
+**Menu tree (declarative):** `MenuItem { label, kind
+SUBMENU|TOGGLE|ENUM|INT|ACTION|INFO, settings id or action fn }` —
+static const arrays, no runtime construction.
+
+**Modality:** F7 opens/closes. While open: emulation frozen (core
+stops ticking), audio muted, all keys routed to the menu. Close =
+resume exactly where frozen. The menu must not touch machine RAM —
+it has to open even when the guest has crashed (the Ultimate's
+freeze-menu virtue).
+
+**The F7 conflict, flagged:** the machine receives F7 as $96 and BBC
+BASIC uses function keys, so the menu shadows a guest key.
+Mitigation: only *unmodified* F7 opens the menu (Shift+F7 still
+reaches the guest), and `input.menu_key` is itself a registry
+setting so it can be moved. Doc chose F7 knowingly; the escape
+hatch is there.
+
+**Look (C64u, not BMC64):** not a full-screen takeover — a framed
+window (double-line box) centered over the live screen, machine
+display dimmed ~50% behind it. Title bar in the frame top. Items
+listed with values right-aligned in the same row. Cursor bar
+inverse-video. ENUM values edited via a small centered popup window
+listing the options (the C64u context-menu feel), not by left/right
+cycling. Bottom row inside the frame: function-key legend ("F1 Help
+F7 Close  ESC Back"). ESC backs out one level; at top level ESC/F7
+closes. Palette: the Ultimate's dark-blue panel / light-blue frame /
+white text vibe, taken from the machine palette, not hardcoded RGB.
+Drawn with an 8x8 font from `data/fonts/` — `font8-unscii.bin` is
+drop-in and public domain; the menu must NOT depend on the machine's
+current chargen (crash-proofness again).
+
+**Initial content (small, proves the scaffold):**
+- *Video:* border width (INT, live); screen font (ENUM: kernel8 /
+  unscii / openroms / pxlfont — live-swaps the chargen, which turns
+  the undecided font swap into an A/B doable from the menu);
+  scale/fullscreen if cheap.
+- *Audio:* master volume.
+- *Input:* reset chord (CHORD), menu key.
+- *Machine:* reset now, power-cycle, Tube restart (ACTIONs).
+- *Info:* version, ROM build date, fs path.
+
+**Future hooks (design for, don't build):** save-state slots,
+palette editor, CRT/scanline effects, Pi-specific audio/overscan,
+per-machine profiles.
+
+**Pi note:** draw only while open and only on dirty state — the
+menu must cost zero frames when closed (the frame-budget lesson).
+
+Sent to the coding session 2026-08-24; it logs its own entry when
+built.
+
 ## 2026-08-25 (ai) — the F7 menu and the reset chord
 
 Doc: "ok do f7 menu then mad pascal". The work order was the archive
@@ -3555,3 +4372,49 @@ a whole power-on too late.
 Still to do, in Doc's order: free space in ROM1C by moving a cold command
 into a sideways bank, then spend it on the visible countdown, so a
 keyboard-only Pi with no menu gets told the window exists.
+
+## 2026-08-26 — the book's back matter, the licence, and one place for the PDF
+
+Doc: *"draw up a draft Thank You chapter for the handbook. We must not
+forget anyone whose work has contributed to this project. Also we need a
+similar Licences chapter."* Then, after reading it: his name is
+**Michael**, not Michel; add a disclaimer page; and *"I always want the
+new handbook.pdf available in the repo on github, not just in the
+releases .zip."*
+
+Three chapters of end matter, unnumbered (`\backmatter`, secnumdepth 0,
+a `numberless` titlesec format, explicit `\markboth` because titlesec
+otherwise stamps "Chapter 10." on an unnumbered chapter):
+
+- **Disclaimer** — the GPL's §11/§12 in full, the plain-language version
+  (a toy, allowed to be wrong, keep backups), a no-endorsement line, and
+  a closing page: constructive comments to the issue tracker, all
+  complaints, criticisms and negativity to `/dev/null`.
+- **Thank You** — everyone whose code, fonts, or heritage is in the
+  machine, by section: the CPU core and reSID; the tongues; the fonts;
+  Circle and circle-libsdl2; the workshop (cc65, 64tass, NASM, SDL2,
+  XeLaTeX and the book's own two faces); heritage. It ends admitting the
+  list is incomplete and asking to be corrected.
+- **Licences** — the same ground as `LICENSES.md`, in prose, with the two
+  traps a redistributor forgets: EhBASIC is non-commercial-only, and the
+  "BBC BASIC" name is licensed to this project and not to forks.
+
+`LICENSE` had been referenced by `LICENSES.md` since the repo went
+public and never existed. It does now: the full GPL-2.0 text.
+`CREDITS.md` and `LICENSES.md` caught up with the chapters they seeded
+(build tools, the book's fonts, Wozmon and the planned MS BASIC, the
+deliberately-not-shipped list: the CP/M system disk, the HVSC symlink, a
+Commodore chargen, your `STARTUP.BAT`).
+
+**The built handbook now lives in the repo.** `doc/guide/*.pdf` stays
+ignored, with a `!doc/guide/k4510-guide.pdf` negation after it, so
+`doc/guide/k4510-guide.pdf` is versioned and reaches GitHub with the
+source. It is built on ubuntu-s1 and only there — the laptop has no TeX
+at all, and its `doc/guide/shots/` is empty — so the rule is: rebuild on
+ubuntu-s1, commit the PDF with the change that caused it, and every other
+machine gets the book by `git pull`.
+
+Also merged back: three "archive-side" sections of 2026-08-24 (the BASIC
+research, the font research, the reset-chord and C64u-menu design) that
+had been written into the archive folder's own copy of this log and never
+reached this one. The archive copy is retired; this file is the diary.
