@@ -85,3 +85,38 @@
 % an aside
 \newtcolorbox{aside}{colback=kyellow!18!white,colframe=korange,boxrule=0.8pt,
   left=6pt,right=6pt,top=4pt,bottom=4pt,breakable}
+% --- the register appendix ----------------------------------------------
+% Appendix A is generated from the machine's headers (doc/guide/mkregs.py).
+% It is a reference, so it is set as one: an address column the eye can run
+% down at a fixed left edge, the description in the book's own text face,
+% and monospace kept for the things that are code. Twelve pages of folded
+% \verbatim, which is what this replaced, is not a reference.
+\newlength{\regcol}\setlength{\regcol}{5.9em}
+\newenvironment{regblock}
+  {\par\small\sloppy\setlength{\parskip}{2.5pt plus 1pt}\setlength{\parindent}{0pt}}
+  {\par\medskip}
+\newcommand{\rn}[1]{\textbf{\texttt{#1}}}          % a register's name
+\newcommand{\racc}[1]{\textit{#1}}                 % R:, W:, RW:
+% An entry: the address in its column, the description hanging past it.
+\newcommand{\reg}[2]{\par\hangindent\regcol\hangafter=1\noindent
+  \makebox[\regcol][l]{\texttt{#1}}#2\par}
+% The same, for an address too wide for the column (a long range).
+\newcommand{\reglong}[2]{\par\hangindent\regcol\hangafter=1\noindent
+  \texttt{#1}\hspace{0.5em}#2\par}
+% A remark that belongs to the entries around it, not to one of them.
+\newcommand{\regnote}[1]{\par\hangindent\regcol\hangafter=0\noindent#1\par}
+% A fragment whose own spacing is doing the aligning -- a little table
+% inside a comment. Kept as it was written, which is the point of it.
+% #1 the size that fits it, #2 how far in it starts (mkregs.py chooses both)
+\newenvironment{reglit}[2]
+  {\VerbatimEnvironment\par\vspace{1pt}%
+   \begin{Verbatim}[fontsize=#1,xleftmargin=#2,samepage=false]}
+  {\end{Verbatim}\vspace{1pt}}
+% A form to copy: the issue template on the Filing an Issue page. Neutral
+% grey, because it is neither something the machine printed nor something
+% you type at it -- it is a page to fill in.
+\newenvironment{form}
+  {\VerbatimEnvironment\begin{tcolorbox}[colback=kgrey!8!white,
+     colframe=kgrey!55!white,boxrule=0.6pt,left=6pt,right=4pt,top=4pt,
+     bottom=4pt,breakable]\begin{Verbatim}[fontsize=\small]}
+  {\end{Verbatim}\end{tcolorbox}}

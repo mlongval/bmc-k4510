@@ -7,12 +7,19 @@ build time, so what you read here is what the emulator was compiled
 against. When a device gains a register, this appendix gains it in the
 next build --- which is the only way a reference of this kind stays true.
 
-The consequence is that the voice changes here. These are working
-comments from working code: terse, occasionally opinionated, and using
-the machine's own shorthand --- \verb|LE| for little-endian, \verb|R:|
-and \verb|W:| for a register that reads and writes differently, \verb|$|
-for hex. Addresses are given as an offset inside the device's block
-where the block's base is obvious, and in full where it is not.
+Nothing in it is reworded: every word below is a word from a header.
+What the generator decides is only which column a word belongs in --- the
+address on the left, the register's name after it, the comment's own
+sentence following. Where a comment's own spacing was doing the work of a
+table, that table is kept exactly as it was written, in monospace, because
+there it is the spacing that carries the meaning.
+
+The voice is still the voice of working code: terse, occasionally
+opinionated, and using the machine's own shorthand --- \verb|LE| for
+little-endian, \verb|R:| and \verb|W:| for a register that reads and
+writes differently, \verb|$| for hex. Addresses are given as an offset
+inside the device's block where the block's base is obvious, and in full
+where it is not.
 
 Chapter~\ref{cha:io} is the map of which device lives where; this is what
 is inside each one.
