@@ -156,9 +156,17 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
 
 ## Licence
 
-GPL-2.0-or-later for the project; components and their terms are listed
-in `LICENSES.md`. EhBASIC is free for non-commercial use only — see
-`basic/README-EhBASIC.txt`.
+GPL-2.0-or-later for the project (full text in `LICENSE`); Copyright
+(C) 2026 Michael Longval. Components and their terms are listed in
+`LICENSES.md`, the thanks in `CREDITS.md`. EhBASIC is free for
+non-commercial use only — see `basic/README-EhBASIC.txt`.
+
+This is a hobby machine offered as a gift, and it comes with **no
+warranty of any kind** — see sections 11 and 12 of `LICENSE`. It is a
+toy, and it is allowed to be wrong. Keep backups.
+
+Constructive comments can be left at the repository's issues page. All
+complaints, criticisms and negativity can be addressed to `/dev/null`.
 
 The design documents and the build diary live in a separate folder on
 the author's machine and are not part of this repository.

@@ -49,6 +49,15 @@ Thank you:
 - **Xalior** —
   [circle-libsdl2](https://github.com/Xalior/circle-libsdl2).
 
+## The workshop
+
+The machine is built with **cc65**, **64tass**, **NASM**, **GCC** and
+**GNU Make**, and shows itself to you through **SDL2**. The guide is
+set in **XeLaTeX** with **Clear Sans** (Intel) and **Iosevka**
+(Belleve Invis), and every screenshot in it is captured from the
+machine actually running — a picture that cannot be produced fails the
+build.
+
 ## Heritage and inspiration
 
 - **The MEGA65 project** — for keeping the 45GS02 and the C65 dream
@@ -62,3 +71,22 @@ Thank you:
   (planned: the machine's next native BASIC).
 - **The VICE team** — decades of emulation scholarship this project
   leans on constantly.
+- **The Neo6502 handbook** and the **MEGA65 User's Guide** — the two
+  books the guide is modelled on, down to the page size.
+- **The High Voltage SID Collection** and the composers in it, whose
+  tunes are what `SIDPLAY` plays on a good evening. None of that music
+  is distributed with this machine (see LICENSES.md); it is theirs.
+
+## The machine's other author
+
+Most of the K4510's own code — VICKe, SHEILA, the DMA engine, the ROM,
+K/OS, the Tube ULA, the editors, the Pi port — was written in
+conversation with Claude (Anthropic's Claude Code), over several months
+of long sessions with a build log to prove it. The design decisions are
+the author's; a great deal of the typing was not.
+
+## And whoever is missing
+
+This list was assembled by hand and is certainly incomplete. If your
+work is in this machine and your name is not here, that is an error and
+not a judgement — open an issue and it will be fixed.

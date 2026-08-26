@@ -36,6 +36,8 @@ doc/guide/*.log
 doc/guide/*.out
 doc/guide/*.toc
 doc/guide/*.pdf
+# the built handbook travels with the repo -- not only in the release zip
+!doc/guide/k4510-guide.pdf
 tube/*.o
 tube/bbcbasic
 test/tubetest

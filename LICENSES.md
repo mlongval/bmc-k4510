@@ -2,9 +2,11 @@
 
 The BMC-K4510 as a whole is distributed under the **GNU General Public
 License, version 2 or (at your option) any later version** — see
-`LICENSE`. Everything written for this project (the machine, VICKe,
+`LICENSE` (the full GPL-2.0 text). It comes with **no warranty
+whatsoever**: see sections 11 and 12 of that file, and the disclaimer
+in the guide. Everything written for this project (the machine, VICKe,
 SHEILA, the MATH unit, the ROM, the demos, the Pi port) is
-Copyright (C) 2026 Michel Longval and is released under those terms.
+Copyright (C) 2026 Michael Longval and is released under those terms.
 
 Components with their own origins:
 
@@ -21,6 +23,8 @@ Components with their own origins:
 | `cpm/src/` | RunCPM (CP/M 2.2 environment with internal CCP), Marcelo Dantas "Mockba the Borg" (vendored unmodified; see `cpm/VENDORED-FROM.txt`) | MIT |
 | `forth/tali/` | Tali Forth 2, Scot W. Stevenson / Sam Colwell / Patrick Surry (vendored unmodified; see `forth/tali/VENDORED-FROM.txt`) | public domain |
 | ROM and `.prg` binaries | linked against the cc65 runtime (`none.lib`) | cc65's zlib-style licence |
+| `rom/wozmon.*` | Wozmon, reimplemented for the 45GS10 from Steve Wozniak's published 1976 listing | project licence (GPL-2.0-or-later) |
+| planned: MS 6502 BASIC 1.1 (via `mist64/msbasic`) | Microsoft's 2025 source release; not yet in the machine | MIT |
 
 Not in this repository but needed for the Raspberry Pi build
 (`pi/Makefile` expects them beside the checkout): [Circle](https://github.com/rsta2/circle)
@@ -30,6 +34,40 @@ therefore GPL-3.0 as a whole, which GPL-2.0-or-later code permits. The
 Raspberry Pi boot firmware (`bootcode.bin`, `start.elf`, `fixup.dat`)
 in a distributed card image is Broadcom's, redistributable with
 Raspberry Pi hardware under its own licence.
+
+## Build tools (not distributed, needed to build)
+
+GCC and GNU Make (GPL), cc65 (zlib-style), 64tass (GPL-2.0), NASM
+(BSD-2-Clause), SDL2 (zlib), Python 3 (PSF). The guide additionally
+needs XeLaTeX (LPPL) and is set in **Clear Sans** (Intel, Apache-2.0)
+and **Iosevka** (Belleve Invis, SIL OFL 1.1) — neither font is part of
+the machine. Mad Pascal and MADS (Tomasz Biela, MIT) are needed only to
+compile Pascal; the K4510 target in `pascal/` installs into your own
+Mad Pascal checkout.
+
+## Deliberately not shipped
+
+- **The CP/M system disk.** RunCPM's `DISK/A0.zip` — Digital Research's
+  `ASM`, `MAC`, `DDT`, `STAT`, `SUBMIT` and third-party tools —
+  installs into `fs/CPM/A/0/` for your use but is not committed: its 81
+  files have mixed provenance and this repository is public. Same for
+  WordStar, Turbo Pascal 3 and MBASIC, which the `K-*.SUB` launchers
+  start but which you must supply yourself.
+- **SID tunes.** `fs/SID` is a symlink to a local copy of the High
+  Voltage SID Collection. The tunes are their composers' copyright and
+  are not part of this repository or of any release.
+- **A Commodore character ROM.** Drop your own `chargen.bin` into
+  `/SYSTEM` and the machine will use it; `.gitignore` keeps it out.
+- **Your `STARTUP.BAT`** — yours, not the repository's (copy
+  `/SYSTEM/STARTUP.SAMPLE`).
+
+## If you redistribute
+
+Ship the sources you built from, keep this file with them, keep
+`8x8font.png` beside the open-roms font, and remember the two easy
+traps: EhBASIC is non-commercial-only, and the "BBC BASIC" name is
+licensed to this project and not to yours — call your fork's BASIC
+something else.
 
 History note: until 2026-08-23 the text font was derived from a
 Commodore 64 character ROM. That file and every derivative were removed
