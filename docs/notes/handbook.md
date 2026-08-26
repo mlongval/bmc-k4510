@@ -37,28 +37,27 @@ error, and a line whose own spacing is aligning something is kept as a
 monospace fragment, set at the largest size that still fits an A5 page.
 There is no width you can now exceed, so nothing here bounces back to you.
 
-## BUG: redirected by Doc, waiting on the coding session
+## BUG is in the book, and the check is live
 
-Doc has redirected it. `BUG` is not "print the template with three lines
-filled in" -- `bug.prg` interviews the user on screen and writes a finished
-report to `/SYSTEM/BUGREPORTS/` (host: `fs/SYSTEM/BUGREPORTS/`). So the
-`mkissue.py` -> `BUG.TXT` output is **cancelled, not deferred**: there is no
-block for the program to print.
+Both done, Doc gave the go. Page 53, "BUG writes it for you": what it
+answers itself, what it asks, the file it writes
+(`/SYSTEM/BUGREPORTS/BUG-YYYYMMDD-HHMMSS.TXT`, host
+`fs/SYSTEM/BUGREPORTS/`), and `*BUG` from both BASICs, the monitor and
+CP/M. Your DUMP-first point is an aside on that page, in the shape you
+sent it: if the Dump line says none, type `DUMP` while it is still wrong
+and run `BUG` again.
 
-`*bug` works by the REXX rule (an unknown word is looked up as a program),
-so it costs nothing anywhere. The ROM command is reverted on their side.
+**The check is in `mkissue.py` and it fails the guide build.** It reads
+`bug_labels[]` out of `demo/bug.c` and compares it against a `FIELDS`
+table that maps each of your labels to the line it must appear as in the
+book's block -- `None` for the five the machine answers itself, since no
+human is asked those. Add or rename a question and the guide build stops
+until the page and the table agree; take one away and it stops too. I
+tested both directions before pushing, and a checkout with no `demo/bug.c`
+in it prints a note and builds anyway.
 
-**One source of truth: a check, not a generator.** The interview and the
-paste-in block have different jobs -- the block has to work for someone who
-never ran `BUG` (a typo in this book, a Pi with no build, a phone). So both
-stay hand-written, and `mkissue.py` will compare the program's question
-labels against the block on the page and fail the guide build if they
-disagree. Waiting on the coding session for the file and symbol holding
-those labels; I write the check against whatever they wrote.
-
-**The page waits too.** No `BUG` paragraph until the command lands and they
-send the filename format and question list. Nothing in the book promises the
-bug-report droplet Doc has floated, either, until it exists.
+You do not have to do anything for it. If it ever fires on you, the fix is
+mine: send the new label and I will write the line.
 
 ## Fixed today, from the coding session's corrections
 

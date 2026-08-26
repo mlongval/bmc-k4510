@@ -32,9 +32,45 @@ fault rather than the machine's, and it gets fixed the same way. Say
 which page, and the two halves of the project can sort out between them
 which one was lying.
 
+\section{BUG writes it for you}
+At the machine you need fill in nothing by hand. \verb|BUG| interviews
+you --- seven questions, one at a time --- and writes the finished report
+to disk:
+
+\begin{type}
+/] BUG
+\end{type}
+
+\noindent Five lines it answers itself, and they are the five most often
+got wrong: which machine (the desktop emulator, or bare metal on a Pi),
+the exact build, the screen you are looking at, the last dump, and when.
+Then it asks you the rest and writes
+
+\begin{center}
+\texttt{/SYSTEM/BUGREPORTS/BUG-YYYYMMDD-HHMMSS.TXT}
+\end{center}
+
+\noindent making the directory if it is not there. From the host that
+file is in \pth{fs/SYSTEM/BUGREPORTS/}, which is the path you need in
+order to attach it.
+
+\verb|BUG| is a program rather than a command, so it reaches you
+everywhere the \texttt{*} escape does: \verb|*BUG| from either BASIC,
+from the monitor, from CP/M.
+
+\begin{aside}
+\textbf{\texttt{DUMP} first, then \texttt{BUG}.} If the report's
+\texttt{Dump} line says there is none, the machine is telling you that
+the more valuable half is missing. Type \verb|DUMP| while it is still
+wrong and run \verb|BUG| again --- the two travel together, and this is
+the one thing that is easy to do in the wrong order.
+\end{aside}
+
 \section{The report}
 Copy this, fill in what you can, delete what does not apply. Nothing in
-it is required except the last two lines.
+it is required except the last two lines. This is the same report
+\verb|BUG| writes, by hand --- for filing about this book, from a
+machine that will not boot, or from a telephone.
 
 \begin{form}
 Machine:  BMC-K4510, desktop  |  Raspberry Pi 3B+

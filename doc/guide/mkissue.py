@@ -17,6 +17,33 @@ import re, sys, pathlib
 
 CHAPTER = "chapters/88-issues.tex"
 OUT = ".github/ISSUE_TEMPLATE/report.md"
+PROGRAM = "demo/bug.c"      # BUG asks the same questions; see check_labels()
+
+# BUG interviews the user at the machine; the block on the page is the same
+# report filled in by hand, for someone who never ran it. The two have
+# different jobs and neither is generated from the other -- but they must
+# not come to ask different things, so this table says which line of the
+# page answers which question of the program's bug_labels[], and the guide
+# build fails when either side gains or loses one.
+#
+#   (label in demo/bug.c, line it must appear as on the page)
+#
+# None = the machine answers it itself and no human is asked, so the page
+# has no line for it.
+FIELDS = [
+    ("Machine",                                   "Machine"),
+    ("Version",                                   "Version"),
+    ("Screen",                                    None),
+    ("Dump",                                      "Dump"),
+    ("When",                                      None),
+    ("Where were you?",                           "Where"),
+    ("What did you type, exactly?",               "What I typed, exactly"),
+    ("What happened?",                            "What happened"),
+    ("What did you expect instead?",              "What I expected"),
+    ("Why did you expect that?",                  "Why I expected it"),
+    ("Still wrong with  k4510 --no-startup.bat ?", "Still wrong with"),
+    ("Anything else?",                            None),
+]
 
 FRONT = """---
 name: Report or request
@@ -69,14 +96,55 @@ def unlatex(t):
     return re.sub(r"\s+", " ", t).strip()
 
 
+def check_labels(root, block):
+    """Fail the build if BUG and the page have come to ask different things.
+
+    Absent program: a note, not a failure -- the book must still build in a
+    checkout that has no machine in it. Present and disagreeing: a failure,
+    which is the whole point of the table."""
+    src = root / PROGRAM
+    if not src.exists():
+        print("issue template: no %s here, labels unchecked" % PROGRAM)
+        return True
+    text = src.read_text()
+    m = re.search(r"bug_labels\[\]\s*=\s*\{(.*?)\}", text, re.S)
+    if not m:
+        print("mkissue: no bug_labels[] in %s" % PROGRAM, file=sys.stderr)
+        return False
+    found = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
+    want = [prog for prog, _ in FIELDS]
+    if found != want:
+        print("mkissue: %s asks different things than the page knows about."
+              % PROGRAM, file=sys.stderr)
+        for label in [l for l in found if l not in want]:
+            print("  new question, page and FIELDS need it:  %r" % label,
+                  file=sys.stderr)
+        for label in [l for l in want if l not in found]:
+            print("  gone from the program, still in FIELDS: %r" % label,
+                  file=sys.stderr)
+        if sorted(found) == sorted(want):
+            print("  (same questions, different order)", file=sys.stderr)
+        return False
+
+    ok = True
+    lines = [l.lstrip() for l in block.split("\n")]
+    for prog, page in FIELDS:
+        if page and not any(l.startswith(page) for l in lines):
+            print("mkissue: BUG asks %r; the page has no %r line"
+                  % (prog, page), file=sys.stderr)
+            ok = False
+    return ok
+
+
 def main():
     here = pathlib.Path(__file__).parent
     root = here.resolve().parents[1]
     src = (here / CHAPTER).read_text()
 
     # the three leads of "Three things first" -- the bold sentence of each
-    section = src[src.index("\\section{Three things first}"):
-                  src.index("\\section{The report}")]
+    start = src.index("\\section{Three things first}")
+    nxt = src.index("\\section{", start + 1)      # whatever section follows it
+    section = src[start:nxt]
     checks = [balanced(section, m.end()) for m in re.finditer(r"\\textbf\{", section)]
     if len(checks) != 3:
         print("mkissue: expected 3 checks on the page, found %d" % len(checks),
@@ -86,6 +154,11 @@ def main():
     m = re.search(r"\\begin\{form\}\n(.*?)\\end\{form\}", src, re.S)
     if not m:
         print("mkissue: no form block on the page", file=sys.stderr)
+        return 1
+
+    if not check_labels(root, m.group(1)):
+        print("mkissue: fix the page, or FIELDS in this script, and rebuild.",
+              file=sys.stderr)
         return 1
 
     out = [FRONT]
