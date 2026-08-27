@@ -118,6 +118,14 @@ written.
 
 ## For the coding agent
 
+**I rewrote `README.md` tonight** (shared file; saying so here as the
+protocol asks). It announced alpha-0.2, a held key at the banner, the `@`
+escape, `MODE 0-4`, the Tube as desktop-only, and said the diary was not
+in the repository. It now describes the machine as released in alpha-0.3.
+Anything in it about your area that is wrong is yours to correct without
+asking.
+
+
 Four things from Doc's review of the book tonight, in his words where I
 have them. None is mine to build.
 

@@ -4800,3 +4800,102 @@ right margin, and any LaTeX error at all.
 Also documented, from the coding session's note: `k4510 --no-startup.bat`
 (and `--no-startup`, and `K4510_NO_STARTUP=1`) — skip STARTUP.BAT for one
 run without touching the F7 setting or `k4510.cfg`.
+
+## 2026-08-26 (k) — Appendix A set as a reference, and a page for filing an issue
+
+Doc: "from page 42 to 50 the font and layout is ugly and not consistent
+with the rest of the handbook." Right, and the cause was entry (j)'s
+founding argument. Printing the header comments verbatim bought nine
+pages of footnotesize monospace, machine-folded at 76 columns, with
+fragments like `read/write` and `op)` hanging on lines of their own. A
+reference that cannot be read is not a reference.
+
+`mkregs.py` parses now. The comments already have a shape —
+`$D720  FOP  description` — so the generator reads that shape and sets
+it: the address in a fixed column, the name in bold monospace, the
+description in the book's own face, prose between entries set as prose.
+Nothing is reworded; the parser only decides which column a word belongs
+in. Where a comment's own spacing was doing the work of a table (VICKY's
+mode table, the MATH op list, SHEILA's instructions) the table is kept
+exactly as written, in monospace, at the largest size that fits A5. The
+76-column rule is gone with the folding: there is no width a header can
+now exceed. Appendix A is one page longer and reads like the rest.
+
+Also that afternoon: Paul Scott Robson credited for the Neo6502's
+firmware and handbook (an omission Doc caught); the hold-a-key window
+removed from the book when the machine lost it (it was in 2.7, 2.10 and
+the boot figure); the one-way bank rule written into chapter 9 after the
+coding session found it the hard way.
+
+**Filing an issue.** Doc's observation: any issue filed here is going to
+be handed to a coding session as written, so the template should be a
+prompt, not a form. That became a chapter, then — after the coding
+session built `BUG` — Appendix B: `DUMP ON` before you reproduce it,
+`BUG` interviews you and writes the report, attach two files. The
+hand-filled block lives in `issue-form.txt` for the GitHub template
+alone; `mkissue.py` generates that template and **fails the guide build
+if `bug_labels[]` in `demo/bug.c` and the book ask different things** —
+a check rather than a generator, because the interview only exists for
+someone at a running machine and the block must work for someone who
+never ran it. Tested in both directions before it shipped.
+
+One correction from the coding session mattered: the page had shipped
+saying `INFO -v` identifies your build, when both version strings named
+a generation. They stamped the git hash into `sys_version` on the back of
+it, so it now does — and the `+` for a dirty tree is trustworthy since
+they added `make check-artifacts`, which fails on a stale tracked binary
+(content, not size: the offending `.prg` files were the same length).
+
+## 2026-08-26 (l) — Doc read the whole book
+
+Nineteen items from one reading, done the same evening (0897650), then
+four machine changes they triggered, then the book following those.
+
+**Wrong.** The book said, twice, that "BBC BASIC" was used *by
+permission*. Doc: "I did not contact the BBC for this. I just asked
+Claude to check out BBCBasic for SDL." Thanks, Licences and the coding
+session's `tube/ALTERED.md`, `LICENSES.md` and `THIRD_PARTY_SOURCES.md`
+all said it; all now say the name is Richard Russell's interpreter's,
+published under his own arrangement with the BBC, that this project has
+not sought and does not hold any licence to it, and that it appears only
+to identify what is vendored. `ALTERED.md` carries a note that the
+earlier claim was untrue, rather than a silent edit. The `@` escape
+(confusing) is gone from chapter 3. MODE 3 and 4 are gone from the
+user's guide, and by the end of the night from the command itself: Doc
+chose to restrict rather than guard — "a bad call to mode will screw up
+the screen for someone coming in" — so `MODE` and `.HELP` offer 0-2 and
+VICKY keeps all five for programs. The DIR figure still showed the
+hold-a-key line: every figure recaptured.
+
+**Unclear.** Chapter 7 now opens with a table separating Turbo Pascal 3
+(a program of 1985 on the Z80 under CP/M, user-supplied, makes `.COM`)
+from Mad Pascal (a cross-compiler on the desktop, makes `.prg`) before a
+word of prose. Chapter 8's key lists are tables, one key per row. 8.3
+states the rule the book had been inconsistent about: `*EDIT` alone
+edits the program in memory and does the SWAP for you; any other file
+wants `*SWAP EDIT name`. 2.1 rewritten from the current `fs/` and
+`.HELP`; 2.5 lists exactly what the network speaks and where, and says
+there is no FTP; 2.11 is three lines pointing at Appendix B.
+
+**Missing.** An alpha notice as the first page. Meatloaf, FujiNet and
+SDL thanked. Chapter 1's sections retitled as asked.
+
+**`jk`.** Doc: "I cannot figure out how to get jk to produce ESC." Tested
+on the machine with `test/capture` before answering: `:imap jk <Esc>`
+then `ihello worldjk0x` leaves `ello world`, so the mapping worked; the
+trouble was that it had to be typed every session. The coding session
+added `/SYSTEM/VI.RC` the same night.
+
+**The four machine changes, and the book after them.** Arrows in CP/M
+(sent as the WordStar diamond; Home/End/PgUp/PgDn deliberately not, and
+the book says exactly which); `TELNET` black while connected; `VI.RC`;
+the ALTERED.md correction. Each turned a sentence from true to false and
+each sentence was changed the same hour (50df478, 16aa386). The one I
+had said needed nothing — MODE — needed one sentence: 2.9 still said
+"in MODE 3 the first line is raster line 40" as if you could type it.
+
+alpha-0.3 "Colophon" is published; the handbook asset was rebuilt with
+`GUIDE_VERSION=alpha-0.3` after all of this and uploaded over the old
+one. The README was rewritten to match the machine as released — it
+still announced alpha-0.2, a held key at the banner, the `@` escape, and
+the Tube as desktop-only.
