@@ -40,9 +40,8 @@ memory:  FILL from.to value
          COPY from.to dest
 system:  INFO
          TIME
-         MODE [0-4] [0|1]
-         (0 640x480, 1 640x240, 2 320x240,
-         3 320x200, 4 160x200)
+         MODE [0-2] [0|1]
+         (0 640x480, 1 640x240, 2 320x240)
          COLOR fg [bg]
          ECHO
          CLS

@@ -644,8 +644,12 @@ static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
     if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(modename(vmode)); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0-4 [0|1])"); newline(); return; }
-    m = parsehex(&p, &d); if (!d || m > 4) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240), 3 = 40x25 (320x200), 4 = 20x25 (160x200)  [0|1: margin]"); return; }
+               puts_(modename(vmode)); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0-2 [0|1])"); newline(); return; }
+    /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
+     * way back out, and someone meeting the machine for the first time should
+     * not be able to type themselves into a screen they cannot use. VICKY
+     * still has them: a program that wants one writes the CTRL bits itself. */
+    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)  [0|1: margin]"); return; }
     vmode = (uint8_t)m; skipsp(&p);
     if (*p) { m = parsehex(&p, &d); if (!d || m > 1) { error("mode: second value 0 = full screen, 1 = one-cell margin"); return; } margin = (uint8_t)m; }
     video_init(); cls();
