@@ -20,6 +20,7 @@ extern "C" void  host_poll_input(void) { c64kbd_poll(); }
 // at gigabytes a second and uncached at tens of megabytes.
 #include <circle/bcmpropertytags.h>
 #include <cstdint>
+#include <SDL2/SDL_circle.h>      /* SDL2Circle_CallOn0 */
 #include <cstdio>
 #include <cstring>
 extern "C" uint8_t *k4510_ram;
