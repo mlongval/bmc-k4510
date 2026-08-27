@@ -559,6 +559,14 @@ uint16_t io_audio_gaps;                   /* the frontend counts: audio callback
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
+/* SETUP measures the machine and then asks to keep the answer.  The guest
+ * cannot write k4510.cfg -- it is outside the machine's filesystem -- and has
+ * no business knowing what a host fingerprint is, so it writes SYS+$28 and the
+ * frontend does both.  Reading SYS+$28 says whether this host has been
+ * measured at all, which is what the banner tells the user about. */
+static int clock_measured, adopt_req;
+void io_set_clock_measured(int yes) { clock_measured = yes ? 1 : 0; }
+int  io_adopt_requested(void) { int a = adopt_req; adopt_req = 0; return a; }
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -578,7 +586,8 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x23) return (uint8_t)settings_get(SET_CPU_CLOCK);
     if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
-    if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);   /* how many steps the ladder has, so a guest need not probe for it */
+    if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);
+    if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
@@ -1119,6 +1128,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
         if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
         if ((addr & 0xFF) == 0x24) io_audio_gaps = 0;                 /* any write clears the gap count */
+        if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
                                    /* the guest acknowledging a video-mode request: it has performed it,
                                     * so the request goes away at once instead of standing for frames
