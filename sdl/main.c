@@ -414,6 +414,22 @@ int k4510_frontend_main(int argc, char **argv)
                   for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
                 Uint64 t3 = PCLK();
                 p_cpu += t1 - t0; p_vic += t2 - t1; p_sid += t3 - t2;
+#ifdef K4510_PI
+                /* The shim serves the audio callback only when this core pumps
+                 * events, and its device runway is 30 ms: a frame longer than
+                 * that (28 fps at 40.5 MHz is 36 ms) ran the device dry however
+                 * full our ring was.  So the pump is called a quarter-frame at
+                 * a time, with the ring topped up first, and the sound holds
+                 * whatever the frame rate. */
+                if ((y & 127) == 127) {
+                    int vol_ = settings_get(SET_AUDIO_VOLUME); int guard_ = 1024;
+                    while (((ring_w - ring_h) & RING_MASK) < 1536 + 800 && guard_--) {
+                        int16_t t_[256]; int n_ = sid_render(CYCLES_PER_LINE, t_, 256);
+                        for (int i = 0; i < n_; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(t_[i] * vol_ / 100);
+                    }
+                    SDL_PumpEvents();
+                }
+#endif
             }
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;

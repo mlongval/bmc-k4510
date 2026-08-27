@@ -12,6 +12,12 @@ WHAT IT IS
   runs it with no operating system (Circle + circle-libsdl2).
 
 WHAT YOU NEED
+  A power supply that holds 5 V under load: the official Raspberry Pi
+  supply (5.1 V, 2.5 A).  A phone charger or a thin cable sags with three
+  cores flat out, the firmware caps the clock, and the machine runs at a
+  fraction of its speed; INFO and the BENCH report say when this is
+  happening.  (The BMC64 keyboard adapter takes positive-centre barrel
+  power; on a micro-USB supply, use a USB keyboard.)
   Raspberry Pi 3B+ (3B probably works; 4/5 not yet), HDMI display,
   USB keyboard, an SDHC card of 4 GB or more (2 GB SDSC cards do not
   work), formatted FAT32.
@@ -26,6 +32,8 @@ INSTALL
 TRY
   HELP                 the shell commands
   INFO                 what the machine is; INFO -v names this exact build
+  BENCH                measures the machine and sweeps the CPU clocks with
+                       a note sounding; writes /SYSTEM/BENCH-NN.TXT
   DIR                  files (CD BASIC, CD PRG, CD SID move around)
   MODE 0-4             640x480, 640x240, 320x240, 320x200, 160x200
   VI file / EDIT file  the two editors (VI is modal, and pages to far
@@ -45,6 +53,15 @@ TRY
                        filesystem, so files pass both ways)
   FORTH                Tali Forth 2, native
   MON                  the monitor
+
+THE CPU CLOCK
+  A Pi 3B+ emulates about 15 MHz of this machine in real time, so that is
+  its default (F7 > Machine > CPU clock: 40.5 / 30 / 20 / 15 / 10).  At a
+  higher setting programs run faster than the Pi can keep up with, the
+  picture drops below 60 frames a second, and the sound -- which keeps
+  playing whatever the frame rate -- slows its tempo with it.  The
+  desktop emulator runs the full 40.5 MHz.  INFO reports the clock in
+  force.
 
 THE HOST MENU
   F7 opens the settings: border, screen font, resolution, scanlines,
