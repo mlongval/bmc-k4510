@@ -24,6 +24,12 @@
 #define NET      0xD900u
 #define CLKMAX   16
 #define SWEEP_S  2                    /* seconds per ladder step */
+/* A 2 s window is 96,000 samples at 48 kHz.  Some filling happens even on a
+ * healthy host -- the ring is topped to a lead, so it dips and is refilled
+ * every frame -- so the bar is a fraction of the window rather than zero.
+ * 2% is quiet enough that Doc cannot hear it; 17% (hdieu at 20 MHz, 60 fps
+ * and 0 gaps) he can, which is what sent us looking. */
+#define FILL_CLEAN 1920
 
 void __fastcall__ rom_chrout(unsigned char c);
 unsigned char __fastcall__ rom_shell(const char *line);
@@ -89,8 +95,8 @@ static unsigned long frames(void)
 static uint8_t nclk;
 static unsigned long swp_khz[CLKMAX];
 static uint8_t  swp_fps[CLKMAX];
-static unsigned swp_gap[CLKMAX];
-static uint8_t  chosen = 0xFF;
+static unsigned swp_gap[CLKMAX], swp_fill[CLKMAX];
+static uint8_t  chosen = 0xFF, settled_short;   /* settled_short: the best available, not a clean one */
 static uint8_t  vid_ok, aud_ok, net_ok;      /* 0 fail, 1 pass, 2 skipped, 3 not fitted */
 
 /* every road out of SETUP goes through here */
@@ -143,14 +149,14 @@ static void anykey(const char *s)
  * that is what "choppy" is -- so each row says whether the machine kept up
  * AND whether the sound did.  A clock is right for this host when it holds
  * 60 fps with no gaps. */
-static void bar(uint8_t x, uint8_t y, uint8_t fps, unsigned gaps)
+static void bar(uint8_t x, uint8_t y, uint8_t fps, unsigned gaps, unsigned fill)
 {
     uint8_t w = (uint8_t)((unsigned)fps * 40u / 60u), i;
     if (w > 40) w = 40;
     at(x, y);
-    if (fps >= 59 && !gaps)      sgr2(1, 42);      /* green: holds */
-    else if (fps >= 59)          sgr2(1, 43);      /* yellow: fast enough, sound suffers */
-    else                         sgr2(1, 41);      /* red: cannot keep up */
+    if (fps >= 59 && !gaps && fill < FILL_CLEAN) sgr2(1, 42);   /* green: holds it */
+    else if (fps >= 59 || !gaps)          sgr2(1, 43);   /* yellow: keeping up on one count, not both */
+    else                                  sgr2(1, 41);   /* red: neither */
     for (i = 0; i < w; i++) put(' ');
     sgr(0);
     for (; i < 40; i++) put(' ');
@@ -163,7 +169,8 @@ static void test_clock(void)
     footer("measuring every step of the clock ladder, 2 s each");
     at(3, 3); say("The machine runs its cycles inside the host's frame, so the frame");
     at(3, 4); say("rate IS the machine's speed.  60 fps and no audio gaps means this");
-    at(3, 5); say("host holds that clock.  Green holds it; red does not.");
+    at(3, 5); say("host holds it.  Gaps are silence; filled is sound the SIDs made");
+    at(3, 6); say("while the machine was too late to -- what you hear as choppy.");
 
     clk0 = REG(SYS + 0x23);
     nclk = REG(SYS + 0x27);
@@ -186,16 +193,28 @@ static void test_clock(void)
         do { s = now_s(); } while (since(s0, s) < SWEEP_S);
         swp_fps[i] = (uint8_t)((frames() - f0) / SWEEP_S);
         swp_gap[i] = (unsigned)REG(SYS + 0x24) | ((unsigned)REG(SYS + 0x25) << 8);
+        swp_fill[i] = (unsigned)REG(SYS + 0x2A) | ((unsigned)REG(SYS + 0x2B) << 8);
         REG(SID0 + 0x04) = 0x10;                              /* gate off */
-        bar(18, y, swp_fps[i], swp_gap[i]);
-        at(60, y); num(swp_fps[i]); say(" fps  ");
-        if (swp_gap[i]) { sgr(31); num(swp_gap[i]); say(" gaps"); sgr(0); }
-        else            { sgr(32); say("clean"); sgr(0); }
+        bar(18, y, swp_fps[i], swp_gap[i], swp_fill[i]);
+        at(58, y); num(swp_fps[i]); say(" fps ");
+        if (swp_gap[i])            { sgr(31); num(swp_gap[i]); say(" gaps"); sgr(0); }
+        else if (swp_fill[i] >= FILL_CLEAN) { sgr(33); num(swp_fill[i]); say(" filled"); sgr(0); }
+        else if (swp_fps[i] < 59)  { sgr(33); say("behind"); sgr(0); }
+        else                       { sgr(32); say("clean"); sgr(0); }
         eol();
-        if (chosen == 0xFF && swp_fps[i] >= 59 && !swp_gap[i]) chosen = i;
+        if (chosen == 0xFF && swp_fps[i] >= 59 && !swp_gap[i] && swp_fill[i] < FILL_CLEAN) chosen = i;
     }
     REG(SID0 + 0x18) = 0x00;
     REG(SYS + 0x23) = clk0;
+    /* Nothing clean anywhere: rather than keep nothing, take the quietest step
+     * that at least holds 60 fps without a gap, and say at the end that it is
+     * the best this host can do rather than a clean bill. */
+    if (chosen == 0xFF) {
+        unsigned best = 0xFFFFu;
+        for (i = 0; i < nclk; i++)
+            if (swp_fps[i] >= 59 && !swp_gap[i] && swp_fill[i] < best) { best = swp_fill[i]; chosen = i; }
+        if (chosen != 0xFF) settled_short = 1;
+    }
 }
 
 /* ---- 2. video ------------------------------------------------------------ */
@@ -364,8 +383,8 @@ static void write_report(void)
     for (i = 0; i < nclk; i++) {
         add("  "); addmhz(swp_khz[i]);
         add("  "); addn(swp_fps[i]); add(" fps  ");
-        addn(swp_gap[i]); add(" audio gaps");
-        if (i == chosen) add("   <- kept");
+        addn(swp_gap[i]); add(" gaps  "); addn(swp_fill[i]); add(" filled");
+        if (i == chosen) add(settled_short ? "   <- kept (best available)" : "   <- kept");
         add("\n");
     }
     add("\nVideo:    "); add(verdict(vid_ok));
@@ -392,8 +411,15 @@ static void result(void)
         REG(SYS + 0x23) = chosen;
         { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }
         REG(SYS + 0x28) = 1;                          /* the frontend keeps it */
-        at(3, 4); sgr2(1, 32); say("This machine holds "); say_mhz(swp_khz[chosen]); sgr(0);
-        at(3, 6); say("Kept.  Every later boot starts there without measuring again.");
+        if (settled_short) {
+            at(3, 4); sgr2(1, 33); say("The quietest this machine manages is "); say_mhz(swp_khz[chosen]); sgr(0);
+            at(3, 6); say("It holds 60 fps with no gaps, but the SIDs are still filling in");
+            at(3, 7); say("sound the machine is too late to make, so you may hear it.");
+            at(3, 8); say("The host itself is the limit here, not the emulated clock.");
+        } else {
+            at(3, 4); sgr2(1, 32); say("This machine holds "); say_mhz(swp_khz[chosen]); sgr(0);
+            at(3, 6); say("Kept.  Every later boot starts there without measuring again.");
+        }
     } else {
         at(3, 4); sgr2(1, 31); say("No step of the ladder holds 60 fps with clean sound."); sgr(0);
         at(3, 6); say("The clock is left as it was.  The lowest step is the one to try.");

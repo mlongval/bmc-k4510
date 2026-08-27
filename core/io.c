@@ -576,6 +576,14 @@ int  io_adopt_requested(void) { int a = adopt_req; adopt_req = 0; return a; }
  * SYS+$29 says a measurement is in progress and the governor stands down. */
 static int measuring;
 int  io_measuring(void) { return measuring; }
+/* What "choppy" actually is, since 952daa6.  The gap counter asks whether the
+ * ring ran dry, and that fix stops it running dry by clocking the SIDs on
+ * without the CPU when the machine is late -- so gaps read 0 across the whole
+ * band where a host is merely losing, and Doc could hear drops on rows both
+ * BENCH and SETUP called clean.  This counts the samples that came from that
+ * top-up rather than from a frame the machine ran: it is the sound the
+ * machine did not make, which is the sound he is hearing. */
+uint16_t io_audio_fill;
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -597,7 +605,9 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
     if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);
     if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */
-    if (r == 0x29) return (uint8_t)measuring;   /* how many steps the ladder has, so a guest need not probe for it */
+    if (r == 0x29) return (uint8_t)measuring;
+    if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* filled samples since last cleared, saturating */
+    if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
@@ -1137,7 +1147,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
         if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
         if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
-        if ((addr & 0xFF) == 0x24) io_audio_gaps = 0;                 /* any write clears the gap count */
+        if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
         if ((addr & 0xFF) == 0x29) measuring = v ? 1 : 0;              /* SETUP: hold the governor off while the ladder is swept */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }

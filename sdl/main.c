@@ -533,6 +533,9 @@ int k4510_frontend_main(int argc, char **argv)
             while (((ring_w - ring_h) & RING_MASK) < target && guard--) {
                 int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
                 for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
+                /* how much of the sound the machine did not make: the honest
+                 * measure of choppy, now that the ring is kept from running dry */
+                if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);
             }
         }
         { Uint64 d = SDL_GetPerformanceCounter() - p_a; p_mach += d; gov_mach += d; gov_frames++; }

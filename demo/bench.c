@@ -110,7 +110,7 @@ static void line(const char *label, unsigned long v, const char *unit)
 
 void main(void)
 {
-    unsigned long fps, cpu, chr, dma, f0, sweep_fps[CLKMAX]; unsigned sweep_gap[CLKMAX]; unsigned long sweep_khz[CLKMAX];
+    unsigned long fps, cpu, chr, dma, f0, sweep_fps[CLKMAX]; unsigned sweep_gap[CLKMAX], sweep_fill[CLKMAX]; unsigned long sweep_khz[CLKMAX];
     uint8_t s0, s, i, clk0, nclk;
 
     { volatile uint8_t d = REG(SYS + 4); (void)d; }
@@ -162,6 +162,8 @@ void main(void)
         do { s = now(); } while (since(s0, s) < 2);
         sweep_fps[i] = (fcount() - f0) / 2;
         sweep_gap[i] = (unsigned)REG(SYS + 0x24) | ((unsigned)REG(SYS + 0x25) << 8);
+        /* the sound the machine did not make: 0 gaps no longer means clean */
+        sweep_fill[i] = (unsigned)REG(SYS + 0x2A) | ((unsigned)REG(SYS + 0x2B) << 8);
         /* the clock this step actually became, from the machine, not a table */
         sweep_khz[i] = clk_khz();
         REG(SID0 + 0x04) = 0x10;                                  /* gate off */
@@ -201,9 +203,13 @@ void main(void)
     add("Clock sweep, a note sounding on SID 0, 2 s each:\n");
     for (i = 0; i < nclk; i++) {
         add("  "); addmhz(sweep_khz[i]); addn(sweep_fps[i], 2); add(" fps   ");
-        addn(sweep_gap[i], 0); add(" audio gaps"); add(sweep_gap[i] ? "" : "   (clean)"); nl();
+        addn(sweep_gap[i], 0); add(" gaps  "); addn(sweep_fill[i], 0); add(" filled");
+        /* clean means the machine made every frame AND every sample of it */
+        add((sweep_fps[i] >= 59 && !sweep_gap[i] && sweep_fill[i] < 800) ? "   (clean)" : ""); nl();
     }
-    add("  A clock is right for this host when it holds 60 fps with 0 gaps.\n");
+    add("  A clock is right when it holds 60 fps, 0 gaps and nothing filled.\n");
+    add("  Filled = samples the SIDs made while the machine was too late to.\n");
+    add("  Gaps count only silence; filled is what you actually hear as choppy.\n");
     add("  (the clock in force before the sweep was put back)\n");
     nl();
     add("The frame rate is the machine's speed: the emulator runs its cycle\n");
