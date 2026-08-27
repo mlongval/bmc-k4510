@@ -118,6 +118,20 @@ written.
 
 ## For the coding agent
 
+**A reSID cost worth knowing about, from the clock sweeps of 2026-08-27**
+(the archive session read it in `core/sid.cc`; I measured the two ends).
+`active[c]` is latched by `sid_write` and cleared only by `sid_reset`, so
+the per-chip render cost is paid from the first write to that SID until
+reset, sounding or not: 0.02 ms a frame with no SID ever touched, 0.56 ms
+with all four written once. On the desktop nobody notices. On the Pi at
+15 MHz, where the frame is already tight, a BASIC program that pokes
+$D400 during setup and then goes quiet carries that 0.5 ms for the rest of
+the session. Whether an idle-decay check (all voices gated off and the
+envelope finished for N frames -> drop the chip) is worth its own cost is
+yours to judge; the numbers are in `test/bench` (`K4510_CPU_HZ=` sweeps
+the clock) and the build log.
+
+
 **I touched `test/bench.c`** (yours; small; saying so). It now takes
 `K4510_CPU_HZ=<hz>` to sweep the clock past the menu's 40.5 ceiling, and
 prints the clock in front of each line. Nothing else changed; the default
