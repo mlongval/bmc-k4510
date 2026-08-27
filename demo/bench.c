@@ -25,6 +25,7 @@
 
 #define TERM 0xDA00u
 #define SECS 3                       /* per figure; four figures, so about 12 s */
+#define CLKMAX 16                    /* as many ladder steps as BENCH will sweep */
 
 void __fastcall__ rom_chrout(unsigned char c);
 unsigned char __fastcall__ rom_shell(const char *line);
@@ -65,6 +66,26 @@ static void sayn(unsigned long v)
  * never updated and the first wait span forever. bug.c does it this way
  * for the same reason. */
 static uint8_t now(void) { volatile uint8_t d = REG(SYS + 4); (void)d; return REG(SYS + 5); }
+/* the clock in force, in kHz.  Three bytes: the ladder reaches 202500, which
+ * is past what SYS+0/1 can hold on their own. */
+static unsigned long clk_khz(void)
+{
+    volatile uint8_t d = REG(SYS + 4); (void)d;
+    return (unsigned long)REG(SYS) | ((unsigned long)REG(SYS + 1) << 8)
+         | ((unsigned long)REG(SYS + 0x26) << 16);
+}
+/* kHz as the machine says it: 202500 -> "202.5 MHz" */
+static uint8_t mhzfmt(char *o, unsigned long khz)
+{
+    char t[8]; uint8_t n = 0, k = 0; unsigned long w = khz / 1000; uint8_t f = (uint8_t)((khz % 1000) / 100);
+    do { t[k++] = (char)('0' + (uint8_t)(w % 10)); w /= 10; } while (w);
+    while (k) o[n++] = t[--k];
+    if (f) { o[n++] = '.'; o[n++] = (char)('0' + f); }
+    o[n++] = ' '; o[n++] = 'M'; o[n++] = 'H'; o[n++] = 'z';
+    return n;
+}
+static void saymhz(unsigned long khz) { char b[16]; uint8_t n = mhzfmt(b, khz), i; for (i = 0; i < n; i++) rom_chrout((unsigned char)b[i]); }
+static void addmhz(unsigned long khz) { char b[16]; uint8_t n = mhzfmt(b, khz), i; for (i = 0; i < n; i++) addc(b[i]); while (n < 11) { addc(' '); n++; } }
 static uint8_t since(uint8_t s0, uint8_t s) { return (uint8_t)(s >= s0 ? s - s0 : 60 - s0 + s); }
 static uint8_t edge(void) { uint8_t s = now(); while (now() == s) ; return now(); }
 static unsigned long fcount(void)
@@ -89,12 +110,11 @@ static void line(const char *label, unsigned long v, const char *unit)
 
 void main(void)
 {
-    unsigned long fps, cpu, chr, dma, f0, sweep_fps[5]; unsigned sweep_gap[5];
-    uint8_t s0, s, i, clk0;
-    static const char *const clk_names[5] = { "40.5 MHz", "30 MHz  ", "20 MHz  ", "15 MHz  ", "10 MHz  " };
+    unsigned long fps, cpu, chr, dma, f0, sweep_fps[CLKMAX]; unsigned sweep_gap[CLKMAX]; unsigned long sweep_khz[CLKMAX];
+    uint8_t s0, s, i, clk0, nclk;
 
     { volatile uint8_t d = REG(SYS + 4); (void)d; }
-    say("\nBENCH -- measuring, about 25 seconds.\n\n");
+    say("\nBENCH -- measuring; the sweep is 2 s a step, so the length follows the ladder.\n\n");
 
     /* 1. frames per second: the one that says whether the host keeps up */
     s0 = edge(); f0 = fcount();
@@ -116,12 +136,24 @@ void main(void)
      *    audio callbacks that found nothing to play -- that is what "choppy"
      *    is -- so each line says whether the machine kept up AND whether the
      *    sound did. The clock in force before is put back at the end. */
-    say("\nclock sweep, with a note on SID 0 (10 s)...\n");
+    say("\nclock sweep, with a note on SID 0, every step the machine offers...\n");
     clk0 = REG(SYS + 0x23);
+    /* How many steps are there?  The machine says, at SYS+0x27.  BENCH once
+     * had the five clock names of 2026-08-26 frozen into a table and swept
+     * indices 0-4 by number; when the ladder gained five faster steps at the
+     * front it went on printing 40.5 MHz over a measurement of 202.5, and
+     * read as a tenfold slowdown that had not happened.  Nothing here knows a
+     * clock by its position any more: the count comes from the machine, and
+     * each label is the clock that step actually became.
+     * (Asking by writing 0xFF and reading the clamp back does NOT work: cc65
+     * answers the read from the value it just stored, the same habit the
+     * SYS+4 latch comment above describes.  Tried; the sweep came out empty.) */
+    nclk = REG(SYS + 0x27);
+    if (nclk == 0 || nclk > CLKMAX) nclk = CLKMAX;
     REG(SID0 + 0x18) = 0x0F;                                      /* volume */
     REG(SID0 + 0x05) = 0x00; REG(SID0 + 0x06) = 0xF0;             /* attack/decay, sustain/release */
     REG(SID0 + 0x00) = 0x45; REG(SID0 + 0x01) = 0x1D;             /* A-440 at 1 MHz */
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < nclk; i++) {
         REG(SYS + 0x23) = i;
         { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }   /* two frames to settle */
         REG(SID0 + 0x04) = 0x11;                                  /* triangle, gate on */
@@ -130,8 +162,10 @@ void main(void)
         do { s = now(); } while (since(s0, s) < 2);
         sweep_fps[i] = (fcount() - f0) / 2;
         sweep_gap[i] = (unsigned)REG(SYS + 0x24) | ((unsigned)REG(SYS + 0x25) << 8);
+        /* the clock this step actually became, from the machine, not a table */
+        sweep_khz[i] = clk_khz();
         REG(SID0 + 0x04) = 0x10;                                  /* gate off */
-        say("  "); say(clk_names[i]); say(": "); sayn(sweep_fps[i]); say(" fps, "); sayn(sweep_gap[i]); say(" audio gaps\n");
+        say("  "); saymhz(sweep_khz[i]); say(": "); sayn(sweep_fps[i]); say(" fps, "); sayn(sweep_gap[i]); say(" audio gaps\n");
     }
     REG(SYS + 0x23) = clk0;
     REG(SID0 + 0x18) = 0x00;
@@ -165,8 +199,8 @@ void main(void)
     line("DMA 4K copies/second", dma, "");
     nl();
     add("Clock sweep, a note sounding on SID 0, 2 s each:\n");
-    for (i = 0; i < 5; i++) {
-        add("  "); add(clk_names[i]); add("  "); addn(sweep_fps[i], 2); add(" fps   ");
+    for (i = 0; i < nclk; i++) {
+        add("  "); addmhz(sweep_khz[i]); addn(sweep_fps[i], 2); add(" fps   ");
         addn(sweep_gap[i], 0); add(" audio gaps"); add(sweep_gap[i] ? "" : "   (clean)"); nl();
     }
     add("  A clock is right for this host when it holds 60 fps with 0 gaps.\n");

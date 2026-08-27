@@ -689,7 +689,9 @@ static void info_version(void)
 static void info_cpu(void)
 {
     uint16_t it; uint32_t mhz100;
-    label("CPU"); puts_("45GS10: 4510 + Q register + 32-bit flat + 28-bit MAP, "); putdec(r16(SYS)); puts_(" kHz"); newline();
+    /* three bytes: the ladder reaches 202500 kHz, past what SYS+0/1 hold */
+    label("CPU"); puts_("45GS10: 4510 + Q register + 32-bit flat + 28-bit MAP, ");
+    putdec((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)); puts_(" kHz"); newline();
     it = speed_loop();                                  /* 18 cycles per iteration, one frame */
     mhz100 = (uint32_t)it * 18UL * 60UL / 10000UL;
     pad(8); puts_("measured "); putdec(mhz100 / 100); k_chrout('.'); putdec2(mhz100 % 100); puts_(" MHz  (");

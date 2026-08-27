@@ -569,9 +569,17 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
     if (r == 0x22) return K4510_HOST_KIND;       /* which machine this is, for BUG and INFO */
-    if (r == 0x23) return (uint8_t)settings_get(SET_CPU_CLOCK);   /* the clock index in force (0 = 40.5 MHz ... 4 = 10 MHz) */
+    /* The clock's index in the frontend's ladder.  Deliberately NOT documented
+     * as a fixed table: the ladder is reordered when steps are added, and a
+     * guest that knows a clock by its position gets it wrong the day that
+     * happens (BENCH did, 2026-08-27).  Write past the end to learn the
+     * highest index -- the write clamps -- and read SYS+0/1/0x26 to see what
+     * a step actually became. */
+    if (r == 0x23) return (uint8_t)settings_get(SET_CPU_CLOCK);
     if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
+    if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);   /* how many steps the ladder has, so a guest need not probe for it */
+    if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     if (r == 0xF3) return sid_clock_sel;
