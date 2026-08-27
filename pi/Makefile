@@ -35,6 +35,7 @@ $(CORE)/build.h: FORCE
 	@printf '/* generated: the commit this build came from */\n#define K4510_BUILD "%s"\n' '$(K4510_BUILD)' > $@.tmp; \
 	 cmp -s $@.tmp $@ 2>/dev/null || mv $@.tmp $@; rm -f $@.tmp
 $(CORE)/io.o: $(CORE)/build.h
+frontend.o: $(CORE)/build.h      # sdl/main.c stamps PERF.TXT with it too
 
 include $(SHIM)/circle-syscallwrap/syscallwrap.mk
 include $(CIRCLEHOME)/Rules.mk
