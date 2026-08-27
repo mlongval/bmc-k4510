@@ -161,7 +161,9 @@ lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
     pascal/      the Mad Pascal target
     fs/          the machine's filesystem: /PRG /EHBASIC /BBCBASIC /FORTH /CPM /SID /SYSTEM
     test/        tests, headless capture and benchmark tools
+    tools/       romfree.py, which measures what is left in each ROM bank
     data/        fonts (the kernel 8x8, open-roms, unscii, BESCII)
+    sidfiles/    199 SID tunes; fs/SID is a symlink to them
     doc/guide/   the handbook: source, style, generators, and the built PDF
     docs/        design records and the build diary (docs/README.md maps them)
 
