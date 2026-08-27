@@ -602,9 +602,25 @@ int k4510_frontend_main(int argc, char **argv)
                 unsigned g = io_audio_gaps - gaps_seen;
                 int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
                 if ((ms > GOV_LATE_MS || g >= 3) && down >= 0) {
-                    settings_set(SET_CPU_CLOCK, down); settings_set(SET_CPU_MEASURED, down); settings_save(cfg);
-                    fprintf(stderr, "clock: %.1f ms a frame%s at %.1f MHz, stepping down to %.1f\n",
-                            ms, g >= 3 ? " and the sound starving" : "", settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(down) / 1e6);
+                    /* The clock, and only the clock.  cpu.measured and cpu.host
+                     * belong to SETUP: they mean "this host was measured, and
+                     * this is what it came to", and the banner asks for SETUP
+                     * until they say so.  The governor writing them would have
+                     * a three-second window impersonate a full measurement and
+                     * silence that prompt -- and it wrote cpu.measured without
+                     * cpu.host, so the pair said "measured on host 0", which no
+                     * fingerprint can ever equal (calib_host_hash never returns
+                     * 0) and no boot could ever reuse.  The archive session
+                     * found that in hdieu's k4510.cfg, 2026-08-27.
+                     *
+                     * So this is a live correction: it saves the clock, which
+                     * carries on a host SETUP has never measured, and defers to
+                     * SETUP's answer on one it has. */
+                    settings_set(SET_CPU_CLOCK, down); settings_save(cfg);
+                    fprintf(stderr, "clock: %.1f ms a frame%s at %.1f MHz, stepping down to %.1f%s\n",
+                            ms, g >= 3 ? " and the sound starving" : "", settings_cpu_hz_of(s) / 1e6,
+                            settings_cpu_hz_of(down) / 1e6,
+                            io_clock_measured() ? " for this session (SETUP's measurement stands; re-run it if this repeats)" : "");
                 }
                 gov_t0 = 0;
             }

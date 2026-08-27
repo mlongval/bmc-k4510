@@ -566,6 +566,8 @@ int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
  * measured at all, which is what the banner tells the user about. */
 static int clock_measured, adopt_req;
 void io_set_clock_measured(int yes) { clock_measured = yes ? 1 : 0; }
+int  io_clock_measured(void) { return clock_measured; }   /* asked back: the governor says a different
+                                                           * thing when SETUP's answer is the one standing */
 int  io_adopt_requested(void) { int a = adopt_req; adopt_req = 0; return a; }
 /* SETUP sweeps the ladder and starves the sound on purpose at the top of it.
  * The governor's whole job is to step down when the sound starves, so left
