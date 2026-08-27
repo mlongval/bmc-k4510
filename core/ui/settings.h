@@ -29,7 +29,12 @@ typedef enum {
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
-enum { CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_15, CPUCLK_10, CPUCLK_COUNT };
+/* Fastest first.  The steps above 40.5 are multiples of it (x2 x3 x4 x5)
+ * plus a round 60: the MEGA65 number was always a suggestion, and a host
+ * that can do more should be allowed to.  Saved by NAME in k4510.cfg, so
+ * this list may be reordered without stranding an existing config. */
+enum { CPUCLK_202_5, CPUCLK_162, CPUCLK_121_5, CPUCLK_81, CPUCLK_60,
+       CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_15, CPUCLK_10, CPUCLK_COUNT };
 unsigned settings_cpu_hz(void);                /* the emulated clock, from SET_CPU_CLOCK */
 #define SF_LIVE     1        /* takes effect at once */
 #define SF_RESTART  2        /* needs a power cycle */

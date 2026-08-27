@@ -8,7 +8,8 @@ static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont"
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
-static const char *const cpu_names[]   = { "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
+static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
+                                           "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 
@@ -29,8 +30,13 @@ static const set_desc desc[SET_COUNT] = {
     /* The machine is a fantasy and its timings are suggestions.  A Pi 3B+
      * emulates about half of 40.5 MHz in real time; asked for all of it, it
      * runs the whole machine at 20 fps and the sound starves.  So the Pi
-     * defaults to 20 MHz and runs in real time, and the desktop keeps the
-     * full clock.  INFO reports whichever is set. */
+     * defaults to 15 MHz and runs in real time, and the desktop starts at
+     * 40.5.  Neither is a ceiling: the menu offers everything the enum has,
+     * because what a host can hold is a question about that host, not about
+     * this machine.  A desktop measured over 120 MHz should be allowed to
+     * run there; a Pi asked for 202.5 will crawl, and the setting is live,
+     * so stepping back down is how you find out.  INFO reports whichever is
+     * set. */
 #ifdef K4510_PI
     { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_15,   0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
 #else
@@ -39,7 +45,8 @@ static const set_desc desc[SET_COUNT] = {
 };
 unsigned settings_cpu_hz(void)
 {
-    static const unsigned hz[CPUCLK_COUNT] = { 40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
+    static const unsigned hz[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
+                                               40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
     int v = settings_get(SET_CPU_CLOCK); if (v < 0 || v >= CPUCLK_COUNT) v = 0;
     return hz[v];
 }
