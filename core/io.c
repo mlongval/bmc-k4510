@@ -543,7 +543,9 @@ static void seq_write(uint8_t r, uint8_t v)
 
 void io_frame_tick(void) { sys_frames++; seq_tick(); term_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
 static unsigned sys_cpu_khz = 40500;
+static int sys_sid_active = 4;   /* how many SIDs the Audio menu is clocking now */
 void io_set_cpu_khz(unsigned khz) { sys_cpu_khz = khz; }   /* the frontend, from the CPU clock setting */
+void io_set_sid_active(int n) { sys_sid_active = n; }      /* the frontend, from the Active SIDs setting */
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -607,7 +609,8 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */
     if (r == 0x29) return (uint8_t)measuring;
     if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* filled samples since last cleared, saturating */
-    if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);   /* how many steps the ladder has, so a guest need not probe for it */
+    if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);
+    if (r == 0x2C) return (uint8_t)sys_sid_active;               /* SIDs the Audio menu is clocking now (1-4), for INFO */   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;

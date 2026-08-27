@@ -631,6 +631,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             }
         }
         sid_set_max(settings_get(SET_AUDIO_SIDS) + 1);   /* live: the Active SIDs menu index is 0-based, the count is +1 */
+        io_set_sid_active(settings_get(SET_AUDIO_SIDS) + 1);   /* so INFO reports the count in force, not a constant */
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
             io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);

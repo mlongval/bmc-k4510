@@ -745,7 +745,8 @@ static void info_video(void)
 static void info_sound(void)
 {
     uint8_t c, v, gates;
-    label("SOUND"); puts_("4 x SID 6581 (reSID) at $D400 $D420 $D440 $D460, mono mix"); newline();
+    label("SOUND"); puts_("SID 6581 (reSID): "); putdec(REG(SYS + 0x2C));
+    puts_(" of 4 clocked at $D400 $D420 $D440 $D460, mono mix"); newline();
     for (c = 0; c < 4; c++) {
         uint16_t b = SID0 + c * 0x20;
         gates = 0; for (v = 0; v < 3; v++) if (REG(b + 4 + v * 7) & 1) gates |= 1 << v;
@@ -1440,7 +1441,7 @@ static void banner(void)
          * force is INFO's business, and it says it in kHz. */
         case 2: fg = C_FG; puts_("CPU: 45GS10"); break;
         case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
-        case 4: fg = C_FG;  puts_("CHIPS: 4 reSID, VICKY, SHEILA, FRED, JIM"); break;
+        case 4: fg = C_FG;  puts_("CHIPS: 1-4 reSID, VICKY, SHEILA, FRED, JIM"); break;
         }
         fg = ofg;
         newline();
