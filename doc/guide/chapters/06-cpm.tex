@@ -94,6 +94,13 @@ at 79$\times$29 --- \verb|WS| and you are editing; Turbo Pascal~3 on
 \texttt{H:} user~3 needs nothing either. A program that asks its
 terminal type at install time wants ``VT100'' or ``ANSI''.
 
+The cursor keys do nothing in CP/M software. They reach the Z80 as the
+VT100 sequences a terminal sends, and the programs of 1984 were not
+written to read those: they use the WordStar keys --- Ctrl-E, S, D and X
+for up, left, right and down --- and so does Turbo Pascal
+(Chapter~\ref{cha:pascal}). That is CP/M being CP/M, not a fault of the
+Tube.
+
 \screeninline{shots/wordstar.png}{WordStar~4 editing its own \texttt{READ.ME}:
 the edit menu, the ruler, the text --- 79$\times$29 on JIM.}
 Desktop host only, like the rest of the Tube.

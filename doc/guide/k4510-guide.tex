@@ -30,6 +30,21 @@ Draft version: \guideversion{} \textperiodcentered{} CPU 45GS10
 Date: \guidedate\par}
 \end{titlepage}
 \nopagecolor
+% The alpha notice: the very first page after the cover, before anything else.
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{aside}
+\textbf{This is alpha documentation.} It describes a machine that is
+still being built, and it is written alongside it. Everything in it ---
+commands, keys, registers, the layout of files, the names of things ---
+is subject to change, and some of it will have changed between this
+printing and the machine you are running. Where the two disagree, the
+machine is right and this book is behind it; Appendix~\ref{cha:issues}
+says how to tell us. The version on the cover is the build this book
+was made from.
+\end{aside}
+\vspace*{\fill}
+\clearpage
 \frontmatter
 \tableofcontents
 \mainmatter
@@ -47,9 +62,9 @@ Date: \guidedate\par}
 \input{chapters/11-io}
 \appendix
 \input{chapters/92-registers}
+\input{chapters/93-issues}
 \backmatter
 \setcounter{secnumdepth}{0}  % end matter: unnumbered chapters, unnumbered sections
-\input{chapters/88-issues}
 \input{chapters/89-disclaimer}
 \input{chapters/90-thanks}
 \input{chapters/91-licences}

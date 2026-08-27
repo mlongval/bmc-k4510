@@ -6,7 +6,7 @@ an emulation of any real computer. Its CPU, video chip, sound, and operating
 software are its own; the parts it borrows --- a 6502-family instruction set,
 the SID sound chip --- it borrows openly and then outgrows.
 
-\section{What is in the box}
+\section{What is the BMC-K4510?}
 \begin{itemize}[leftmargin=1.4em]
 \item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
   4510 with the Q pseudo-register and 32-bit flat addressing) plus this
@@ -27,7 +27,7 @@ the SID sound chip --- it borrows openly and then outgrows.
   more languages one word away: BBC BASIC on the Tube, Forth, and CP/M.
 \end{itemize}
 
-\section{Getting one}
+\section{Building the emulator}
 On the \textbf{desktop} (Linux), three lines build the whole machine:
 \begin{type}
 git clone https://github.com/mlongval/bmc-k4510
@@ -37,7 +37,8 @@ cd bmc-k4510 && ./setup.sh
 \verb|setup.sh| installs the compilers and SDL2, builds everything, and
 runs the machine's ten test suites.
 
-On the \textbf{Raspberry Pi 3B+}, download the SD-card zip from the
+\subsection*{Or: putting it on a Raspberry Pi}
+On the \textbf{Raspberry Pi 3B+} nothing is built --- download the SD-card zip from the
 project's releases page and put it on a card --- either unzip it onto the
 card's root yourself, or let the script do it:
 \begin{type}

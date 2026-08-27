@@ -14,64 +14,156 @@ run on the Pi as well as the desktop.
 \verb|EDIT name| opens a file, or starts an empty one if there is no such
 file yet. The whole text sits in memory below the program, so it holds
 about 22\,KB --- ample for a \texttt{STARTUP.BAT}, a \texttt{.SUB}, a
-BASIC listing or a letter.
+BASIC listing or a letter. There are no modes: what you type goes in,
+and everything else is a control key.
 
-\begin{type}
-arrows Home End PgUp PgDn   move
-Backspace Delete            rub out
-Enter                       split the line
-Ctrl-O  or  Ctrl-S          save
-Ctrl-X                      leave
-\end{type}
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Does} \\
+\midrule
+arrows & move by a character or a line \\
+Home, End & start and end of the line \\
+PgUp, PgDn & a screenful \\
+Enter & split the line at the cursor \\
+Backspace & rub out to the left; at the start of a line, join it to the one above \\
+Delete & rub out under the cursor \\
+Ctrl-O \emph{or} Ctrl-S & save \\
+Ctrl-X & leave --- twice on a changed file, to throw the changes away \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 The bar along the bottom carries the name, a \verb|*| while there are
 unsaved changes, where the cursor is, and those last two keys, so there is
-nothing to remember. Backspace at the start of a line joins it to the one
-above. Long lines slide sideways rather than wrap. \verb|Ctrl-X| on a
-changed file says so and waits: press it again to throw the changes away,
-or \verb|Ctrl-O| to keep them.
+nothing to remember. Long lines slide sideways rather than wrap.
 
 \section{VI}
-\verb|VI name| is modal in the old way: the keys are commands until
-\verb|i| (or \verb|a|, \verb|I|, \verb|A|, \verb|o|, \verb|O|) puts you
-into insert, and Escape brings you back out.
+\verb|VI name| is modal in the old way. In \emph{normal} mode the keys
+are commands; a handful of them put you into \emph{insert} mode, where
+what you type goes into the file; and Escape brings you back. The
+\verb|:| line at the bottom is the third place, for the ex commands.
+
+\subsection*{Modes}
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Enters insert\ldots} \\
+\midrule
+\texttt{i} & before the cursor \\
+\texttt{a} & after the cursor \\
+\texttt{I} & at the start of the line \\
+\texttt{A} & at the end of the line \\
+\texttt{o} & on a new line below \\
+\texttt{O} & on a new line above \\
+\texttt{s} & replacing the character under the cursor \\
+\texttt{S} & replacing the whole line \\
+\texttt{C} & replacing the rest of the line \\
+\texttt{c}\emph{motion} & replacing what the motion covers; \texttt{cc} the whole line \\
+\midrule
+Esc & \ldots and leaves it, back to normal mode \\
+\texttt{:} & opens the command line (from normal mode) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Moving}
+A count goes in front of nearly anything: \verb|5j| is five lines down,
+\verb|10G| is line ten.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Moves} \\
+\midrule
+\texttt{h} \texttt{j} \texttt{k} \texttt{l} & left, down, up, right --- the arrows do the same \\
+\texttt{w} & to the next word \\
+\texttt{b} & back a word \\
+\texttt{e} & to the end of the word \\
+\texttt{0} & to the start of the line \\
+\texttt{\textasciicircum} & to the first non-blank on the line \\
+\texttt{\$} & to the end of the line \\
+\texttt{gg} & to the first line \\
+\texttt{G} & to the last line, or to line \emph{n} with a count \\
+PgUp, PgDn & a screenful \\
+\texttt{/}\emph{text} & to the next \emph{text} --- a plain substring, not a pattern \\
+\texttt{?}\emph{text} & to the previous one \\
+\texttt{n} & the same search again; \texttt{N} the other way \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Changing}
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Does} \\
+\midrule
+\texttt{x} & delete the character under the cursor \\
+\texttt{X} & delete the one to its left \\
+\texttt{d}\emph{motion} & delete what the motion covers: \texttt{dw} a word, \texttt{d\$} to the end \\
+\texttt{dd} & delete the line \\
+\texttt{D} & delete to the end of the line \\
+\texttt{y}\emph{motion}, \texttt{yy} & copy (yank) the same, without deleting \\
+\texttt{p} & put what was deleted or yanked, after the cursor \\
+\texttt{P} & put it before \\
+\texttt{r}\emph{c} & replace one character with \emph{c} \\
+\texttt{\textasciitilde} & flip the case of one character \\
+\texttt{J} & join the next line onto this one \\
+\texttt{u} & undo --- unlimited \\
+Ctrl-R & redo --- also unlimited \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Operators take any motion --- \verb|d2w| deletes two words, \verb|y$| yanks
+to the end of the line --- or double themselves to work on whole lines.
+A charwise operator \textbf{clamps to the line}: \verb|dw| at the end of
+a line stops there instead of eating into the next one. That is
+deliberate, and so is the plain-substring search: \verb|/foo| finds
+\verb|foo|, and \verb|.| \verb|*| \verb|[| mean themselves.
+
+\subsection*{The command line}
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Command} & \textbf{Does} \\
+\midrule
+\texttt{:w} & save \\
+\texttt{:w} \emph{name} & save under another name \\
+\texttt{:q} & leave --- refuses on a changed file \\
+\texttt{:q!} & leave anyway, changes lost \\
+\texttt{:wq}, \texttt{:x} & save and leave \\
+\texttt{:s/}\emph{old}\texttt{/}\emph{new}\texttt{/} & replace the first \emph{old} on this line (\texttt{/g}: every one) \\
+\texttt{:\%s/}\emph{old}\texttt{/}\emph{new}\texttt{/g} & the same on every line of the file \\
+\texttt{:map} \emph{keys} \emph{result} & define a key sequence, in normal mode \\
+\texttt{:imap} \emph{keys} \emph{result} & the same, in insert mode \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Making \texttt{jk} leave insert mode}
+The usual mapping is the one most people want first, and it is typed at
+the \verb|:| line exactly like this, with the Escape spelt out in angle
+brackets:
 
 \begin{type}
-counts   3dd 5j 2dw 10G      before almost anything
-move     h j k l arrows  w b e  0 ^ $  gg G  PgUp PgDn
-operate  d c y + any motion, or doubled: dd cc yy
-insert   i a I A  o O  s S  C            Esc leaves insert
-change   x X r ~ J D  p P (the unnamed register)
-undo     u        redo Ctrl-R
-search   /pat  ?pat  n N
-ex       :w  :q  :q!  :wq  :x
-         :s/old/new/[g]    :%s/old/new/[g]
-         :map lhs rhs      :imap lhs rhs
+:imap jk <Esc>
 \end{type}
 
-A count goes in front of nearly anything: \verb|3dd| deletes three lines,
-\verb|2dw| two words, \verb|10G| goes to line ten. Operators take any
-motion --- \verb|d| \verb|c| \verb|y| with \verb|w|, \verb|b|,
-\verb|e|, \verb|0|, \verb|^|, \verb|$|, \verb|G| --- or double
-themselves to work on whole lines. What \verb|d|, \verb|x| or \verb|y|
-took goes into the unnamed register for \verb|p| and \verb|P|. Undo is
-unlimited, and so is redo: the journal lives in far memory with the file,
-so one level would have cost the same as all of them.
+\noindent From then on, typing \verb|j| then \verb|k| in insert mode
+leaves it, and the two letters never reach the file. A lone \verb|j|
+still does: the editor holds it for half a second waiting for the
+\verb|k|, and hands it over when nothing comes. \verb|<CR>| is the other
+spelt-out key; everything else in the result is literal.
 
-\verb|:map| and \verb|:imap| define your own keys --- \verb|:imap jk|
-\verb|<Esc>| is the usual one --- and last for the session.
-
-Two behaviours are deliberate and worth knowing before they surprise you.
-A charwise operator \textbf{clamps to the line}: \verb|dw| at the end of
-a line stops there instead of eating into the next one. And a search is a
-\textbf{plain substring}, not a pattern --- \verb|/foo| finds
-\verb|foo|, and \verb|.| \verb|*| \verb|[| mean themselves. So does
-the left-hand side of \verb|:s|.
-
-\verb|:q| on a changed file refuses and says so; \verb|:q!| throws the
-changes away and \verb|:wq| keeps them. \verb|:w name| writes somewhere
-else. Lines past the end of the file are marked \verb|~| down the left, as
-they should be.
+Mappings last for the session --- there is no startup file for
+\verb|VI| yet --- so this is a line to type once each time you open it.
 
 \begin{aside}
 \textbf{Where the file lives.} Nothing of it is in the 64\,KB. Every line
@@ -80,28 +172,35 @@ and only the line under the cursor is brought down, fetched when the
 cursor arrives and written back when it leaves. So the ceiling is far
 memory rather than the address space: 32000 lines, and \verb|LOAD| and
 \verb|SAVE| go straight to and from a flat copy out there without the file
-ever passing through the CPU's view.
-
-That is the whole design, and it is deliberately the \emph{only} design:
-there is no small-file case kept separately to disagree with the large one
-at exactly the wrong moment. It costs nothing because the DMA engine
-copies with \texttt{memmove} semantics, so opening or closing a line is a
-single transfer of everything below it however long the file is.
+ever passing through the CPU's view. Undo is a journal in the same
+place, which is why it is unlimited: one level would have cost the same
+as all of them.
 
 A 1.28\,MB file of 20000 lines --- twenty times the whole address space
 --- opens, edits at the far end and saves back byte for byte.
 \end{aside}
 
-\section{Editing without losing what you were doing}
-A program loaded from the shell lands on top of whatever was in memory, so
-running an editor from inside a BASIC would ordinarily destroy the
-program you were writing. \verb|SWAP| (Chapter~\ref{cha:shell}) is the way
-round it:
+\section{Editing from inside a BASIC}\label{sec:editfrombasic}
+There are two cases, and they look alike, so here is the rule.
+
+\textbf{To edit the program you are writing}, type \verb|*EDIT| or
+\verb|*VI| with nothing after it. BASIC saves the program to a temporary
+file, runs the editor on it, and loads it back when you leave --- so what
+you type in the editor is what you \verb|LIST| afterwards. Variables do
+not survive the round trip, exactly as with \verb|LOAD|.
+Section~\ref{sec:basicvi} has the details.
+
+\textbf{To edit any other file}, put \verb|SWAP| in front:
 
 \begin{type}
-*SWAP EDIT MYPROG.BAS
+*SWAP EDIT NOTES.TXT
 \end{type}
 
-from EhBASIC puts the machine away, runs the editor on a clean one, and
-gives yours back --- program, variables, screen and all --- when the
-editor exits.
+\noindent A program loaded from the shell lands on top of whatever is in
+memory, so a plain \verb|*EDIT NOTES.TXT| would run the editor over the
+program you were writing. \verb|SWAP| (Chapter~\ref{cha:shell}) puts the
+machine away first --- program, variables, screen and all --- runs the
+editor on a clean one, and gives yours back when the editor exits.
+
+So: no file name, no \verb|SWAP| needed, it is done for you; a file name,
+\verb|SWAP| first.

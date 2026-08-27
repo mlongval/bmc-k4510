@@ -1,0 +1,19 @@
+Machine:  BMC-K4510, desktop  |  Raspberry Pi 3B+
+Version:  what INFO -v gives, e.g. build 0.3-044bac5+  (a trailing
+          + means that build was made from an edited tree).  Or,
+          if it will not boot, the version on the handbook's cover
+Where:    shell | EhBASIC | BBC BASIC | CP/M | Forth | Pascal |
+          VI or EDIT | the F7 menu | the handbook
+
+What I typed, exactly:
+
+    LOAD "DEMO.BAS"
+    RUN
+
+What happened:
+What I expected:
+Why I expected it:  handbook p.NN | a real C64 or Beeb does it |
+                    it worked before
+
+Still wrong with  k4510 --no-startup.bat ?   yes | no | did not try
+Dump:  dumps/dump-017.txt   (type DUMP, then attach that file)

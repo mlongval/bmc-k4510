@@ -74,12 +74,11 @@ erode because their shape pages are poked, not redrawn.}
 \section{The * escape}
 Any shell command works from BASIC with \verb|*| in front --- \verb|*DIR|,
 \verb|*CD EHBASIC|, \verb|*MON|, \verb|*DUMP a note| --- and \verb|*BYE|
-leaves BASIC for the shell (\verb|@| is accepted too, a survivor from an
-earlier machine). Escape or Ctrl-C stops a running program (and
+leaves BASIC for the shell. Escape or Ctrl-C stops a running program (and
 silences the SIDs); the program's variables survive for \verb|PRINT|-style
 post-mortems.
 
-\section{Editing the program in VI}
+\section{Editing the program in VI}\label{sec:basicvi}
 \verb|*VI| and \verb|*EDIT|, with nothing after them, edit the program that
 is in memory:
 

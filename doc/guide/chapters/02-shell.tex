@@ -7,19 +7,43 @@ set on one screen --- the text it prints is itself a file on disk, a hidden
 one called \verb|/.HELP|.
 
 \section{Files and directories}
-Files live on the host (the \texttt{fs/} directory on the desktop, the
-\texttt{k4510/fs/} folder of the SD card on the Pi). The layout is one
-directory per language: machine code in \texttt{/PRG}, the BASICs in
-\texttt{/EHBASIC} and \texttt{/BBCBASIC}, Forth in \texttt{/FORTH}, CP/M's
-drives under \texttt{/CPM}, music in \texttt{/SID} --- and a bare name is
-searched across the language directories too, so you rarely need a path.
+Files live on the host: the \texttt{fs/} directory beside the emulator on
+the desktop, the \texttt{k4510/fs/} folder of the SD card on the Pi. The
+machine sees that directory as \texttt{/} and nothing above it. Inside,
+one directory per language, and a few that are the machine's own:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.70\linewidth}@{}}
+\toprule
+\texttt{/PRG} & machine-code programs: the demos, \texttt{EDIT} and \texttt{VI}, \texttt{TELNET}, \texttt{BUG} \\
+\texttt{/EHBASIC} & EhBASIC programs \\
+\texttt{/BBCBASIC} & BBC BASIC programs, for the Tube \\
+\texttt{/FORTH} & Forth \\
+\texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each (Chapter~\ref{cha:cpm}) \\
+\texttt{/SID} & music for \texttt{SIDPLAY} --- a link to your own HVSC copy, not shipped \\
+\texttt{/SYSTEM} & the machine's own: \texttt{STARTUP.SAMPLE}, \texttt{BUGREPORTS/}, a \texttt{chargen.bin} if you add one \\
+\texttt{/STARTUP.BAT} & yours; run at power-on (Section~\ref{sec:badstartup}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A bare name not found where you are is looked for in \texttt{/PRG},
+\texttt{/EHBASIC}, \texttt{/BBCBASIC} and \texttt{/FORTH} as well, so
+you rarely need a path; a name is matched regardless of case when the
+exact one is absent; and \texttt{..} never climbs above \texttt{/}.
 
 \begin{type}
-DIR              CD EHBASIC       CD ..
-MKDIR MYDIR      RM OLD.TXT       RMDIR MYDIR
-TYPE README.TXT  RENAME OLD NEW   CP FROM TO
-LOAD name [addr] SAVE name from.to
-XD name          a hex dump (HEX works too); Esc stops it
+DIR [A] [dir | pattern]     LS is the same
+CD dir       CD ..          CHDIR is the same
+MKDIR dir    RMDIR dir
+RM name                     DEL and ERASE are the same
+RENAME old new              REN and MV are the same
+CP from to                  a file (COPY is memory: see Housekeeping)
+TYPE name                   a screenful at a time; q stops
+XD name                     a hex dump (HEX is the same); Esc stops it
+LOAD name [addr]            SAVE name from.to
+EDIT name    VI name        the editors, Chapter 8
 \end{type}
 
 Names that begin with a dot are hidden; \verb|DIR A| shows them.
@@ -132,6 +156,26 @@ the Ethernet port (DHCP); without a cable the device answers ``not
 fitted'' and URLs are simply absent names. The Pi has no TLS, so
 \texttt{https://} works on the desktop only.
 
+So that there is no guessing, this is the whole list of what the machine
+speaks, and where:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l l l@{}}
+\toprule
+\textbf{Scheme} & \textbf{What} & \textbf{Desktop} & \textbf{Pi} \\
+\midrule
+\texttt{http://} & fetch a file; a name anywhere a name goes & yes & yes \\
+\texttt{https://} & the same, over TLS & yes & no \\
+\texttt{tnfs://} & a directory on a TNFS server, read-only & yes & yes \\
+\texttt{tcp://} & a raw connection, through the N: device only & yes & yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent There is no FTP, on either machine, and no SSH. The Pi's
+network is untested at the time of this printing.
+
 \section{CAPSLOCK}
 \verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
 keyboard come up uppercase, so a language whose keywords are uppercase ---
@@ -199,8 +243,6 @@ the left, 0 uses every cell.
 0 & 640$\times$480 & 80$\times$60 & the whole glass \\
 1 & 640$\times$240 & 80$\times$30 & the machine starts here \\
 2 & 320$\times$240 & 40$\times$30 & \\
-3 & 320$\times$200 & 40$\times$25 & the C64's geometry \\
-4 & 160$\times$200 & 20$\times$25 & four screen pixels each \\
 \end{tabular}
 
 The F7 menu, under Video, has the same two knobs: \emph{Resolution} shows
@@ -209,13 +251,10 @@ and choosing another asks the ROM to perform it, because the console's
 geometry belongs to the ROM and not to the host. \emph{Left/top margin}
 is the second parameter.
 
-The menu offers only the first three. MODE~3 and MODE~4 are for a game or
-a language that wants the pixels: 40$\times$25 and 20$\times$25 are not a
-shell, and a machine you have steered into 20 columns from a menu is a
-machine you then have to steer out of. They are a \verb|MODE| command
-away, the menu shows one when you are in it, and neither is ever written
-to \texttt{k4510.cfg} --- what is saved is never smaller than
-320$\times$240.
+The menu offers the same three, and what it saves is never smaller than
+320$\times$240. VICKY can draw smaller fields than these, but they are for
+a program that wants the pixels, not for a shell; a program asks for them
+through the video registers (Chapter~\ref{cha:io}).
 
 The picture is always painted into 640$\times$480: a 200-line mode gets
 40 blank lines above and below it, and a 320- or 160-wide one has its
@@ -247,7 +286,6 @@ reach for in a script, or when a startup file has wedged the machine and
 you want a single clean boot to go and fix it.
 
 \section{When something goes wrong}
-\verb|DUMP a note| writes the whole machine state --- registers, screen, the
-last 4096 instructions, your last keystrokes --- to a numbered file on the
-host, for a human (or their AI) to read later. \verb|DUMP ON| does it
-automatically every fifteen seconds.
+Type \verb|DUMP ON|, make it go wrong again, then type \verb|BUG| and
+answer its questions: the report it writes is the issue.
+Appendix~\ref{cha:issues} is the whole of it, on two pages.

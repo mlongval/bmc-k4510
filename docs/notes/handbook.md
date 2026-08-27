@@ -2,7 +2,7 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 17:0x**
+**Updated: 2026-08-26 21:3x**
 
 ## Now
 
@@ -36,6 +36,25 @@ test. A line it cannot read as a register becomes a note rather than an
 error, and a line whose own spacing is aligning something is kept as a
 monospace fragment, set at the largest size that still fits an A5 page.
 There is no width you can now exceed, so nothing here bounces back to you.
+
+## Doc's review of the whole book — done, evening of 2026-08-26
+
+Nineteen items, all in the book. The ones that touch you are in "For the
+coding agent" below. The rest: an alpha notice as the first page; ch 1
+retitled (What is the BMC-K4510? / Building the emulator); ch 2.1
+rewritten from the current `fs/` and `.HELP` (directory table, every
+command with its synonyms); MODE 3 and 4 gone from the user's guide (Doc:
+programs only); 2.5 lists exactly what the network speaks and says there
+is no FTP; 2.11 is now three lines pointing at Appendix B; the `@` escape
+gone from ch 3; ch 7 rebuilt around a table that separates Turbo Pascal
+(on CP/M, user-supplied) from Mad Pascal (cross-compiler); ch 8 is key
+tables, one key per row, with `:imap jk <Esc>` tested on the machine and
+documented exactly; 8.3 states the rule (`*EDIT` alone = the program,
+`*SWAP EDIT name` = any other file); Filing an Issue is Appendix B,
+BUG-first, the hand form moved out to `issue-form.txt` (GitHub only);
+Meatloaf, FujiNet and SDL thanked; and the BBC BASIC wording corrected.
+
+**That last one matters to you** — see below.
 
 ## BUG is in the book, and the check is live
 
@@ -98,6 +117,50 @@ Shell → Run STARTUP.BAT, and your `*VI`/`*EDIT` section, kept as
 written.
 
 ## For the coding agent
+
+Four things from Doc's review of the book tonight, in his words where I
+have them. None is mine to build.
+
+1. **CP/M cursor keys.** "the cursor keys on the emulator do not work in
+   CPM." I traced it: kernal.c:1368 sends the key to JIM's KEY port, which
+   turns an arrow into `ESC[A`, and tube_keys() forwards that to the Z80.
+   CP/M software of 1984 reads the WordStar diamond (Ctrl-E/S/D/X), not
+   VT100 sequences, so the arrows do nothing in WordStar or Turbo. The
+   book now says exactly that, as today's behaviour. If you translate
+   arrows to the diamond while the Tube is running CP/M (RunCPM, not BBC
+   BASIC), tell me and the two paragraphs (ch 6 aside, ch 7.1) change.
+
+2. **TELNET background.** Doc: "the TELNET program should switch screen
+   background to BLACK when starting and back to preexisting color when
+   exiting -> most BBSs are setup for black backgrounds." `demo/telnet.c`
+   is yours. JIM's DEFBG ($DA15) and the console's bg are the two things
+   to save and restore; say when it lands and ch 2.5 gets a sentence.
+
+3. **`tube/ALTERED.md` makes a claim Doc says is false.** It reads "The
+   name 'BBC BASIC' is used by permission of the BBC and is not
+   transferable to derived works." Doc: "I did not contact the BBC for
+   this. I just asked Claude to check out BBCBasic for SDL." The book said
+   the same thing in two places and now says: the name is Richard
+   Russell's interpreter's, published under his own arrangement with the
+   BBC; this project has not sought and does not hold any licence to it
+   and uses it only to identify what is vendored. Please bring ALTERED.md
+   into line — it is a licence-condition file and it should not assert a
+   permission nobody asked for.
+
+4. **A startup file for VI.** Doc could not get `jk` to produce Escape;
+   the mapping works (I tested it on the machine: `:imap jk <Esc>` then
+   `ihello worldjk0x` gives `ello world`), so the trouble is that it has to
+   be typed every session. Suggestion, not a request: VI reads
+   `/SYSTEM/VI.RC` (or `.virc`) at start, one ex command per line. The
+   book currently says "there is no startup file for VI yet"; that
+   sentence changes the day there is one.
+
+Also noted, for you and Doc to settle: Doc wants MODE 3 and 4 out of the
+user's reach ("a bad call to mode will screw up the screen for someone
+coming in"). The book no longer mentions them at the command; the command
+and `.HELP` still offer 0-4. And `k4510.cfg` is still untracked in both
+our `git status` — a `.gitignore` line, when you are next in there.
+
 
 - **EhBASIC sprites are now documented** — chapter 3.3, `SPRITE`,
   `SPRDEF`, `SPROFF`, with `INVADER2.BAS` captured as the figure. If the

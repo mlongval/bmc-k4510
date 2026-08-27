@@ -1,12 +1,66 @@
 \chapter{Pascal}\label{cha:pascal}
 
-The machine has two Pascals, and they are different animals. Turbo
-Pascal~3 runs on the Tube under CP/M (Chapter~\ref{cha:cpm}): an
-on-machine compiler, a Z80 program, its own world. \emph{Mad Pascal}
-is the other kind --- a cross-compiler, like cc65 the ROM is built with:
-you write on the desktop, \texttt{mp} compiles to 6502 assembly, MADS
-assembles it, and the result is a \texttt{.prg} the shell's \verb|RUN|
-loads like any other program. It is Tomasz Biela's compiler (MIT), a
+The machine has two Pascals, and they share nothing but the language.
+Keep them apart in your head from the start:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.33\linewidth} >{\raggedright\arraybackslash}p{0.33\linewidth}@{}}
+\toprule
+ & \textbf{Turbo Pascal 3} & \textbf{Mad Pascal} \\
+\midrule
+What it is & a program of 1985 & a cross-compiler of today \\
+Where it runs & on the machine: the Z80, under CP/M & on your desktop \\
+What it makes & a CP/M \texttt{.COM}, for the Z80 & a K/OS \texttt{.prg}, for the 45GS10 \\
+What it can touch & CP/M's world only & every chip in the machine \\
+How you get it & you supply it; it is Borland's & in the repository, free \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Nothing carries over between them --- not the source, not the
+toolchain, not the programs they produce. The first section is one, the
+second is the other.
+
+\section{Turbo Pascal 3, on CP/M}
+Borland's Turbo Pascal~3 is a CP/M program, so it runs where CP/M runs:
+on the Tube's Z80 (Chapter~\ref{cha:cpm}), in its own world, exactly as
+it did on a Kaypro. You write, compile and run without leaving it, and
+what it produces is a CP/M program that runs under CP/M on the Z80 ---
+it cannot see VICKY, the SIDs or anything else on the K4510 side of the
+Tube, any more than a Kaypro could.
+
+It is not shipped, because it is Borland's. Put \texttt{TURBO.COM} and
+\texttt{TURBO.MSG} into \pth{fs/CPM/H/3} --- the folder that CP/M's
+drive \verb|P:| is a shortcut to --- and install it for a ``VT100'' or
+``ANSI'' terminal, which is what JIM is. Then, from the K/OS prompt:
+
+\begin{type}
+TURBO
+\end{type}
+
+\noindent \verb|TURBO| is an alias that \pth{/SYSTEM/STARTUP.SAMPLE}
+defines, for \verb|CPM K-TURBO|: boot CP/M, go to \verb|P:|, start Turbo,
+and --- because the submit ends in \verb|EXIT| --- come all the way back
+to the K/OS prompt when you leave it. Chapter~\ref{cha:cpm} explains
+that arrangement.
+
+\screen{shots/turbo.png}{Turbo Pascal~3 starting on the Z80, its
+terminal drawn by JIM.}
+
+Inside, it is 1985. The editor is WordStar's: Ctrl-E, S, D and X move,
+Ctrl-K then D leaves the editor for the menu, and the cursor keys do
+nothing --- they reach the Z80 as VT100 sequences that the software of
+the time was never written to read. \verb|R| runs the program in memory;
+\verb|O| then \verb|C| makes it compile to a \texttt{.COM} you can run
+from the CP/M prompt by name.
+
+\section{Mad Pascal, the cross-compiler}
+\emph{Mad Pascal} is the other kind entirely --- a cross-compiler, like
+the cc65 this machine's ROM is built with. You write on the desktop,
+\texttt{mp} compiles to 6502 assembly, MADS assembles it, and the result
+is a \texttt{.prg} in \pth{fs/PRG} that the shell's \verb|RUN| loads like
+any other program. It is Tomasz Biela's compiler (MIT), a
 Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed
 and floating point, strings, records, pointers, units and inline
 assembly, made for the Atari and since taught the C64, the X16 and the
@@ -24,9 +78,26 @@ cells in the machine's sixteen colours, in a little over four seconds
 at 40.5~MHz --- fixed point, 32-bit integers, forty lines of Pascal.
 \verb|PSIEVE| is the classic sieve, ten passes timed by the frame
 counter; \verb|HELLO| prints, shows the colours, and echoes what you
-typed after its name.
+typed after its name. All three are already compiled and in
+\pth{fs/PRG}, so you can run them without installing anything.
 
-\section{The target}
+\subsection*{Building}
+On the desktop, with FPC and a Mad-Pascal checkout (the installer
+patches its target table and rebuilds \texttt{mp}). It looks for the
+checkout in \pth{~/Projects/neo6502_dev/Mad-Pascal} unless
+\texttt{MP\_DIR} says otherwise:
+
+\begin{verbatim}
+make pascal-install    # once; MP_DIR=... to point elsewhere
+make pascal            # demo/pas/*.pas -> fs/PRG/*.prg
+\end{verbatim}
+
+A new program is a file in \texttt{demo/pas/}; \texttt{make} finds it.
+The compiled \texttt{.prg} files are committed, so a machine without
+the toolchain still runs them, and the test suite (\texttt{test/pastest.sh})
+runs \verb|HELLO| and \verb|PSIEVE| through the ROM.
+
+\subsection*{The target}
 Everything a Pascal program needs from the machine is in
 \texttt{pascal/} of the repository, laid out as it lives inside a
 Mad-Pascal checkout: the runtime base (\texttt{base/rtl6502\_k4510.asm}
@@ -62,23 +133,7 @@ consequences for the programmer:
   buffer. Programs return to the shell with the ROM's state intact.
 \end{itemize}
 
-\section{Building}
-On the desktop, with FPC and a Mad-Pascal checkout (the installer
-patches its target table and rebuilds \texttt{mp}). It looks for the
-checkout in \pth{~/Projects/neo6502_dev/Mad-Pascal} unless
-\texttt{MP\_DIR} says otherwise:
-
-\begin{verbatim}
-make pascal-install    # once; MP_DIR=... to point elsewhere
-make pascal            # demo/pas/*.pas -> fs/PRG/*.prg
-\end{verbatim}
-
-A new program is a file in \texttt{demo/pas/}; \texttt{make} finds it.
-The compiled \texttt{.prg} files are committed, so a machine without
-the toolchain still runs them, and the test suite (\texttt{test/pastest.sh})
-runs \verb|HELLO| and \verb|PSIEVE| through the ROM.
-
-\section{Floating point on the MATH unit}
+\subsection*{Floating point on the MATH unit}
 \texttt{single} (IEEE-754, 32-bit) does not run in software here. The
 runtime's add, subtract, multiply, divide, compare, \verb|Trunc|,
 \verb|Round| and \verb|Frac| are the MATH unit at \texttt{\$D700}
@@ -90,11 +145,12 @@ unit, 24 with the software library (assemble with
 transcendentals are in the \texttt{k4510} unit --- \verb|MathSqrt|,
 \verb|MathSin|, \verb|MathCos|, \verb|MathTan|, \verb|MathAtan|,
 \verb|MathAtan2|, \verb|MathExp|, \verb|MathLn|, \verb|MathPow|,
-\verb|MathFloor| --- one register write each, alongside the SYSTEM
-unit's own polynomial \verb|Sqrt|, \verb|Sin| and \verb|Cos|, which
-still work and are still slower.
+\verb|MathFloor| --- one register write each. SYSTEM's own
+\verb|Sqrt|/\verb|Sin|/\verb|Cos|/\verb|ArcTan|/\verb|Exp|/\verb|Ln| on
+\texttt{single} run on the unit too: the installer patches
+\texttt{system.pas} under \verb|{$ifdef k4510}|.
 
-\section{Graphics on VICKY}
+\subsection*{Graphics on VICKY}
 \verb|uses graph| draws on VICKY's layer~1: a 640$\times$480 8-bit bitmap
 at \texttt{\$200000} --- the one BBC BASIC's ULA uses too --- over the
 console, which stays visible wherever the picture is transparent
@@ -112,8 +168,3 @@ GRAPH build on those; \verb|OutTextXY| writes with the console's font.
 \screen{shots/pgraph.png}{\texttt{PGRAPH}: bars, a star and triangles by
 the blitter, circles by pixel, text from the ROM's font --- and the
 console's own line still on top.}
-
-Note that SYSTEM's
-\verb|Sqrt|/\verb|Sin|/\verb|Cos|/\verb|ArcTan|/\verb|Exp|/\verb|Ln| on
-\texttt{single} also run on the MATH unit now: the installer patches
-\texttt{system.pas} under \verb|{$ifdef k4510}|.

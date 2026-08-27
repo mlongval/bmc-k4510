@@ -32,10 +32,11 @@ asked about the graphics and sound words bolted onto it; the machine
 carries his name in its \verb|README| and its startup banner instead.
 
 \textbf{Richard T. Russell} wrote BBC BASIC, and has kept writing it
-for forty years. The console edition (BBCTTY) is what runs on the
-Tube co-processor in Chapter~\ref{cha:tube}. The name ``BBC BASIC'' is
-used here \emph{by his permission}, which is a courtesy this project
-does not take lightly.
+for forty years. The console edition of his BBC BASIC for SDL~2.0
+(BBCTTY) is what runs on the Tube co-processor in
+Chapter~\ref{cha:tube}, under the zlib licence he publishes it with.
+``BBC BASIC'' is the name of his interpreter; this book uses it only to
+say what is running, and claims nothing in it.
 
 \textbf{Marcelo Dantas} (``Mockba the Borg'') wrote
 \href{https://github.com/MockbaTheBorg/RunCPM}{RunCPM}, which is the
@@ -109,7 +110,9 @@ let the desktop emulator move to the Pi essentially as written.
 The machine is built with \textbf{cc65} (compiler, assembler, linker
 and runtime for the whole system ROM), \textbf{64tass}, \textbf{NASM},
 \textbf{GCC} and \textbf{GNU Make}; it shows itself to you through
-\textbf{SDL2}. This book is set in \textbf{XeLaTeX} with
+\textbf{SDL2} --- Sam Lantinga's library and its contributors', which
+is the window, the keyboard and the sound on the desktop, and through
+Xalior's port, on the Pi as well. This book is set in \textbf{XeLaTeX} with
 \textbf{Clear Sans} and \textbf{Iosevka}, and every screenshot in it
 was captured from the machine actually running --- a picture that
 cannot be produced fails the build.
@@ -133,6 +136,13 @@ has been the C64's front door since 1998: the games database, the
 reviews and scans, the music, and a forum that actually answers.
 Twenty-eight years of one person's dedication to a machine's community,
 and a good half of the small facts this project needed came from there.
+
+\textbf{The Meatloaf project} (idolpx) --- the C64 cartridge that made
+a URL a file name, which is the whole of this machine's rule for the
+network: name it, and it is fetched. \textbf{The FujiNet project} ---
+the network device the Atari got first, whose N: device this machine
+imitates and whose TNFS servers it speaks to;
+\texttt{CD tnfs://fujinet.online/} is a directory on theirs.
 
 \textbf{Paul Scott Robson} wrote the Neo6502's firmware --- the
 operating system and BASIC that make an Olimex Neo6502 a computer
