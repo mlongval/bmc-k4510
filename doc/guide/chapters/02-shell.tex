@@ -258,11 +258,12 @@ The menu offers the same three, and what it saves is never smaller than
 a program that wants the pixels, not for a shell; a program asks for them
 through the video registers (Chapter~\ref{cha:io}).
 
-The picture is always painted into 640$\times$480: a 200-line mode gets
-40 blank lines above and below it, and a 320- or 160-wide one has its
-pixels doubled or quadrupled sideways. Raster lines and SHEILA's display
-list count the glass, 0--479, not the mode --- so in MODE~3 the first line
-of your picture is raster line~40.
+The picture is always painted into 640$\times$480: a 240-line mode has
+each line drawn twice, and a 320-wide one has its pixels doubled
+sideways. Raster lines and SHEILA's display list count the glass,
+0--479, not the mode --- which matters the moment a program asks VICKY
+for a 200-line field, where the first line of the picture is raster
+line~40.
 
 \section{When STARTUP.BAT is the problem}\label{sec:badstartup}
 \texttt{/STARTUP.BAT} runs at power-on, and a bad one runs at every
