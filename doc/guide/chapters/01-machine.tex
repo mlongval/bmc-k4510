@@ -20,8 +20,9 @@ the SID sound chip --- it borrows openly and then outgrows.
   number, and the Pi at 15) and \verb|BENCH| measures which one your
   host can hold. (Having the machine measure that itself at boot is
   proposed in \pth{docs/CPU-CLOCK-POLICY.md}, and not built.)
-  \verb|INFO| and the banner report the clock in force, which is the
-  only honest number.
+  \verb|INFO| reports the clock in force, read live, which is the only
+  honest number --- and the banner names none, because the machine no
+  longer has one speed.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
 \item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
