@@ -27,6 +27,7 @@ folder. One letter apart, sorry.)
 | `K4510-Design.md` | The machine's design document: what it is and why. `make-pdf.sh` / `make-epub.sh` render it. |
 | `VICKY-SPEC.md` | The video chip: registers, modes, layers, sprites, blitter, SHEILA. |
 | `VIDEO-OPTIONS.md` | The video routes considered before VICKY was chosen. |
+| `CPU-CLOCK-POLICY.md` | The CPU clock as a policy, not a constant: measure the host at boot rather than trust a compiled-in default; the three-host sweep of 2026-08-27 as evidence; why calibration must run with sound on. |
 | `PORTABILITY.md` | What the desktop and Pi builds share, and where the host seam is. |
 | `FEATURES.txt` | The historical feature ballot (A–K), all built. Decisions now happen in conversation and land in `BUILD-LOG.md`. |
 | `bmc-k4510-45gs02-decision.md` | Why the 45GS02 core, and why unchanged. |
