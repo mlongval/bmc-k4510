@@ -209,6 +209,7 @@ const char *fs_get_cwd(void);
 
 uint8_t io_read(uint16_t addr);
 void    io_frame_tick(void);
+void    io_set_cpu_khz(unsigned khz);            /* what SYS $00/01 report */
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
 extern uint64_t io_prof_cycles;
 void    io_prof_reset(void);                 /* called by VICKY at vblank */

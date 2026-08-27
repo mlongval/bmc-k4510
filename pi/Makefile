@@ -37,6 +37,10 @@ $(CORE)/build.h: FORCE
 $(CORE)/io.o: $(CORE)/build.h
 frontend.o: $(CORE)/build.h      # sdl/main.c stamps PERF.TXT with it too
 
+# Circle's Rules.mk says `OPTIMIZE ?= -O2`, so this wins.  The emulator is a
+# callback-per-byte interpreter on an in-order core; -O3's inlining and
+# unrolling are worth having here even if they cost image size.
+OPTIMIZE = -O3 -fomit-frame-pointer
 include $(SHIM)/circle-syscallwrap/syscallwrap.mk
 include $(CIRCLEHOME)/Rules.mk
 

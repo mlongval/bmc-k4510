@@ -541,10 +541,12 @@ static void seq_write(uint8_t r, uint8_t v)
 }
 
 void io_frame_tick(void) { sys_frames++; seq_tick(); term_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
+static unsigned sys_cpu_khz = 40500;
+void io_set_cpu_khz(unsigned khz) { sys_cpu_khz = khz; }   /* the frontend, from the CPU clock setting */
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
-    sys_reg[0] = 40500 & 0xFF; sys_reg[1] = 40500 >> 8;
+    sys_reg[0] = (uint8_t)(sys_cpu_khz & 0xFF); sys_reg[1] = (uint8_t)(sys_cpu_khz >> 8);
     sys_reg[2] = 256 & 0xFF;   sys_reg[3] = 256 >> 8;
     sys_reg[5] = m->tm_sec; sys_reg[6] = m->tm_min; sys_reg[7] = m->tm_hour;
     sys_reg[8] = m->tm_mday; sys_reg[9] = m->tm_mon + 1;

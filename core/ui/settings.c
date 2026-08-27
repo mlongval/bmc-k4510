@@ -8,6 +8,7 @@ static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont"
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
+static const char *const cpu_names[]   = { "40.5 MHz", "30 MHz", "20 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 
@@ -25,7 +26,23 @@ static const set_desc desc[SET_COUNT] = {
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */
     { "shell.startup",       "Run STARTUP.BAT", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_RESTART },  /* read at power-on: the way out of a bad one */
+    /* The machine is a fantasy and its timings are suggestions.  A Pi 3B+
+     * emulates about half of 40.5 MHz in real time; asked for all of it, it
+     * runs the whole machine at 20 fps and the sound starves.  So the Pi
+     * defaults to 20 MHz and runs in real time, and the desktop keeps the
+     * full clock.  INFO reports whichever is set. */
+#ifdef K4510_PI
+    { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_20,   0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
+#else
+    { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_40_5, 0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
+#endif
 };
+unsigned settings_cpu_hz(void)
+{
+    static const unsigned hz[CPUCLK_COUNT] = { 40500000u, 30000000u, 20000000u, 10000000u };
+    int v = settings_get(SET_CPU_CLOCK); if (v < 0 || v >= CPUCLK_COUNT) v = 0;
+    return hz[v];
+}
 static int value[SET_COUNT];
 static int changed;
 

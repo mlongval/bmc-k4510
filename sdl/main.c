@@ -35,8 +35,10 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
     for (int i = 0; i < n; i++) out[i] = (ring_h != ring_w) ? ring[ring_h++ & RING_MASK] : 0;
 }
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
-#define CYCLES_PER_FRAME (CPU_HZ / 60)
-#define CYCLES_PER_LINE  (CYCLES_PER_FRAME / VICKY_HEIGHT)
+/* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on
+ * the Pi by default, where the whole machine would otherwise run at 20 fps */
+static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGHT;
+#define CYCLES_PER_LINE  cycles_per_line
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
 {
@@ -172,11 +174,19 @@ int k4510_frontend_main(int argc, char **argv)
     }
     cpu65_reset();
 
-    sid_init((double)CPU_HZ, AUDIO_RATE);
+    cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
+    sid_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
+#ifdef K4510_PI
+    /* No vsync on the Pi: the shim blocks the present until the flip, so a
+     * frame that overran by a millisecond waited for the next vsync and the
+     * machine ran at 30 or 20 fps in steps.  It paces itself below instead. */
+    SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+#else
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+#endif
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
     /* Two rows of texture per line of the machine, so scanlines cost a second
@@ -222,7 +232,9 @@ int k4510_frontend_main(int argc, char **argv)
 #define PERF_FRAMES 300
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
-          if (p_last) { p_tot += c - p_last; p_n++; }
+          /* the window opens 20 s after start, so it measures the machine at
+           * the prompt rather than BENCH, whose clock reads are dear on the Pi */
+          if (p_last && SDL_GetTicks() > 20000) { p_tot += c - p_last; p_n++; }
           if (p_n == 1) io_prof_reset();                    /* the window starts at the second frame */
           p_last = c;
           if (p_n == PERF_FRAMES) {
@@ -406,6 +418,10 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
+        if (settings_cpu_hz() != cpu_hz_now) {
+            cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
+            io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);
+        }
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
             if (open) vicky_repaint(fb, VICKY_WIDTH);    /* frozen: nothing else would draw the new chargen */
@@ -500,6 +516,14 @@ int k4510_frontend_main(int argc, char **argv)
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
+#ifdef K4510_PI
+        { /* 60 frames a second, drift-free: sleep to the next deadline; if the
+           * frame overran, the deadline just moves on -- no step down to 30 */
+          static Uint64 next; Uint64 now = SDL_GetPerformanceCounter(), per = SDL_GetPerformanceFrequency() / 60;
+          if (!next || now > next + 4 * per) next = now;
+          next += per;
+          if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency())); }
+#endif
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
           if (shot && --shot_fr == 0) {

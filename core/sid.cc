@@ -29,6 +29,7 @@ extern "C" void sid_init(double hz, int sample_rate)
         chips[i].reset();
     }
 }
+extern "C" void sid_set_cpu_hz(double hz) { cpu_hz = hz; }   /* the CPU clock changed: same SID clock, different ratio */
 extern "C" void sid_reset(void) { sid_acc = 0; for (int i = 0; i < K4510_SIDS; i++) chips[i].reset(); }
 extern "C" void sid_write(int c, uint8_t r, uint8_t v) { if (c >= 0 && c < K4510_SIDS) chips[c].write(r & 0x1F, v); }
 extern "C" uint8_t sid_read(int c, uint8_t r) { return (c >= 0 && c < K4510_SIDS) ? chips[c].read(r & 0x1F) : 0xFF; }

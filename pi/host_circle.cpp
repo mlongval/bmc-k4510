@@ -53,7 +53,7 @@ extern "C" void host_perf_probe(char *out, unsigned n)
     uint64_t t1 = cnt();
     double spin_mhz = (double)(2 * N) * (double)cntf() / (double)(t1 - t0) / 1e6;
     // 2. read 4 MB of the machine's RAM, one byte a cache line
-    uint64_t sum = 0; const unsigned MB4 = 4u << 20;
+    volatile uint64_t sum = 0; const unsigned MB4 = 4u << 20;   /* volatile: the first probe was optimised to nothing and read "inf" */
     t0 = cnt(); for (unsigned i = 0; i < MB4; i += 64) sum += k4510_ram[i]; t1 = cnt();
     double ram_mbs = (double)MB4 / ((double)(t1 - t0) / (double)cntf()) / 1e6;
     // 3. the same over a static buffer of this image
