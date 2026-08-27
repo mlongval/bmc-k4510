@@ -28,7 +28,7 @@ static void net_send(const unsigned char *p, unsigned int n) { w32(NET + 8, (uin
 
 void main(void)
 {
-    unsigned char n = rom_args(), i = 0, k, iac = 0;
+    unsigned char n = rom_args(), i = 0, k, iac = 0, obg = 0, odbg = 0;
     const char *p = *(const char **)0xF0;
     unsigned int got, j;                              /* j indexes the 256-byte read buffer: a byte would wrap on a full one */
     REG(TERM + 4) = 1;                                    /* JIM: defaults, home... */
@@ -45,6 +45,16 @@ void main(void)
     w32(NET + 4, (uint16_t)url);
     if (REG(NET_ST) == 6) { say("telnet: no network on this host\r\n"); return; }
     if (net(1)) { say("telnet: cannot connect to "); say(url + 6); say("\r\n"); return; }
+    /* A BBS lays its screens out for a black terminal -- its ANSI sets the
+     * colours it wants and returns to "default" for the rest, so on the
+     * machine's blue that default fights the art. Go black for the session
+     * and give the machine its own colours back on the way out. */
+    obg  = REG(V_BGCOL);
+    odbg = REG(TERM + 0x15);                              /* JIM's DEFBG: where SGR 0 and 49 land */
+    REG(TERM + 0x15) = 0;
+    REG(TERM + 0x0C) = 0;                                 /* and what it paints with now */
+    REG(V_BGCOL)     = 0;                                 /* the screen behind the terminal */
+    REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
     say("connected to "); say(url + 6); say("  (F12 hangs up)\r\n");
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
     for (;;) {
@@ -106,4 +116,7 @@ void main(void)
     }
     net(4);
     REG(TERM + 0x0E) = 0;
+    REG(TERM + 0x15) = odbg;                              /* every exit comes through here: F12, */
+    REG(TERM + 0x0C) = odbg;                              /* a far end that hung up, or a closed */
+    REG(V_BGCOL)     = obg;                               /* socket -- so the colours always return */
 }
