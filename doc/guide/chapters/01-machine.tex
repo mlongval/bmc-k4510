@@ -38,8 +38,10 @@ the SID sound chip --- it borrows openly and then outgrows.
   (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
   drawn into the same glass, doubled and centred, so the raster is always
   480 lines however few of them the picture uses.
-\item \textbf{Sound: four SID chips} (reSID 6581) and a floating-point MATH
-  unit the BASIC leans on.
+\item \textbf{Sound: one to four SID chips} (reSID 6581) --- four is what
+  the machine has and what it starts with, and a host that would rather
+  spend the frame elsewhere can run fewer (F7, under Audio). A
+  floating-point MATH unit sits beside them, which the BASIC leans on.
 \item \textbf{A system ROM}: a shell with directories, a Wozmon-style
   monitor, and EhBASIC~2.22 extended with graphics and sound --- with three
   more languages one word away: BBC BASIC on the Tube, Forth, and CP/M.
@@ -144,7 +146,10 @@ page on the right, the screen-font list open over them.}
 
   The figures in this book are taken with the effects off, whatever the
   settings say, so that what you see here is the machine's own output.
-\item[Audio] volume.
+\item[Audio] volume; \emph{Active SIDs}, one to four. Four is the
+  machine's own answer and what every demo expects; fewer is for a host
+  with no frame to spare, since a chip costs its render whether or not
+  it is sounding (Appendix~\ref{cha:sound}).
 \item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
   Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
 \item[Machine] \emph{save state} and \emph{load state}, four slots

@@ -69,7 +69,9 @@ on, and the K4510 boots in about three seconds.
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
   display-list coprocessor in the Amiga copper's tradition. No video RAM:
   every pointer is a 28-bit address.
-- **Sound:** four reSID 6581s. (OPL2 is planned, not fitted.)
+- **Sound:** one to four reSID 6581s — four by default, fewer on a host
+  that wants the frame back (F7 → Audio → Active SIDs). (OPL2 is planned,
+  not fitted.)
 - **MATH unit:** eight IEEE-single registers with in-place ops and the
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
