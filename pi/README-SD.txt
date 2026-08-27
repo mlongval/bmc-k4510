@@ -18,7 +18,9 @@ WHAT YOU NEED
   fraction of its speed; INFO and the BENCH report say when this is
   happening.  (The BMC64 keyboard adapter takes positive-centre barrel
   power; on a micro-USB supply, use a USB keyboard.)
-  Raspberry Pi 3B+ (3B probably works; 4/5 not yet), HDMI display,
+  Raspberry Pi 3B+ (3B probably works; a Pi 4 or 5 is not yet built for
+  -- the libraries support both, and a Pi 4 is the next thing to try, since
+  its processor should carry the full 40.5 MHz), HDMI display,
   USB keyboard, an SDHC card of 4 GB or more (2 GB SDSC cards do not
   work), formatted FAT32.
 
