@@ -3,10 +3,19 @@
 This directory vendors a subset of Richard T. Russell's BBCSDL
 (https://github.com/rtrussell/BBCSDL), specifically the Console Mode
 edition ("BBCTTY") interpreter, for use as the BMC-K4510's Tube
-co-processor. The name "BBC BASIC" is used by permission of the BBC and
-is not transferable to derived works; the K4510 documentation therefore
-describes this as "Richard Russell's BBC BASIC interpreter, running on
-the Tube co-processor", and claims no naming rights.
+co-processor.
+
+"BBC BASIC" is the name of Richard Russell's interpreter, published
+under whatever arrangement he holds with the BBC. This project has not
+sought and does not hold any licence to that name, from the BBC or from
+anyone else, and asserts no rights in it. It is used here only to
+identify the software that is vendored -- which is why the K4510's
+documentation says "Richard Russell's BBC BASIC interpreter, running on
+the Tube co-processor" rather than presenting it as ours.
+
+(An earlier version of this file stated that the name was "used by
+permission of the BBC". That was never true of this project and has been
+removed.)
 
 Alterations, all marked with [BMC-K4510] comments:
 - include/bbccon.h: MAXIMUM_RAM reduced from 4 GB to 256 MB, to match

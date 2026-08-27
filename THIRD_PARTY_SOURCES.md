@@ -8,11 +8,17 @@ what they published.
 file is the provenance: upstream URL, version, whether it was altered,
 and how to verify it.
 
-**Last checked: 2026-08-26** against the tree at that date. Every
+**Last checked: 2026-08-26** against the tree at that date. The digests
+for `core/xemu`, `core/resid` and `tube` were recomputed on that re-check:
+the first two had changed since they were recorded, and `tube` had not
+changed at all yet still did not reproduce, so that one was wrong when
+written. The other three reproduce exactly. Every
 component has a `VENDORED-FROM.txt` beside it; this file is the summary.
 
 Digests written `dir:` are of the directory's source files, sorted by
-path and concatenated -- reproduce them with the command at the bottom.
+path and concatenated -- reproduce them with the command at the bottom,
+which pins `LC_ALL=C` because the sort order, and so the digest, depends
+on it.
 A component marked *not recorded* is a gap in this record, not a claim
 that the code is unknown; those are listed again at the end.
 
@@ -28,7 +34,7 @@ that the code is unknown; those are listed again at the end.
 | Version | Commit **not determined**; `cpu65.c` carries "Copyright (C)2016-2025 LGB" (`cpu65.h` says 2024), vendored 2026-08-21. `core/xemu/VENDORED-FROM.txt` says how to settle it. |
 | Licence | GPL-2.0-or-later (`core/xemu/LICENSE.xemu`) |
 | Altered | No. Used unchanged. |
-| Verify | `dir: bb95bd505651fe6d` |
+| Verify | `dir: 8b7cdc2fcb509484` |
 
 ## reSID
 
@@ -40,7 +46,7 @@ that the code is unknown; those are listed again at the end.
 | Version | As shipped in VICE 3.3, vendored 2026-08-22 — for a library distributed inside another project that is firmer than a commit. The headers' `version 2` is the SID model constant, not a release. `core/resid/VENDORED-FROM.txt` |
 | Licence | GPL-2.0-or-later |
 | Altered | No. |
-| Verify | `dir: 41328e368449fb65` |
+| Verify | `dir: 69adec626fd3713d` |
 
 ## BBC BASIC (BBCSDL console edition, "BBCTTY")
 
@@ -50,9 +56,9 @@ that the code is unknown; those are listed again at the end.
 | Local path | `tube/` (sources in `tube/src`, headers in `tube/include`) |
 | Upstream | https://github.com/rtrussell/BBCSDL (Richard T. Russell) |
 | Version | 1.34b (`tube/include/BBC.h`) |
-| Licence | zlib. **The name "BBC BASIC" is used by permission of the BBC and is not transferable to derived works.** |
+| Licence | zlib. "BBC BASIC" is the name of Richard Russell's interpreter; this project holds no licence to that name and asserts no rights in it, using it only to identify what is vendored. See `tube/ALTERED.md`. |
 | Altered | **Yes** -- every change marked `[BMC-K4510]`; the notice required by condition 2 of the licence is `tube/ALTERED.md`. |
-| Verify | `dir: 70ab3ff99c61878a` |
+| Verify | `dir: 8988e29475436852` |
 
 ## RunCPM
 
@@ -193,9 +199,15 @@ honest gap, so none were guessed.
 
 ## Re-check commands
 
-    # a directory digest, as used above
-    find core/xemu -type f \( -name '*.c' -o -name '*.h' \) -print0 \
-      | sort -z | xargs -0 cat | sha256sum | cut -c1-16
+    # a directory digest, as used above.  The same command for every
+    # component -- .cc for reSID, .asm/.s/.inc for Tali Forth and EhBASIC.
+    # LC_ALL=C matters: without it the sort order and the digest change.
+    dir_digest() {
+      find "$1" -type f \( -name '*.c' -o -name '*.h' -o -name '*.cc' \
+           -o -name '*.asm' -o -name '*.s' -o -name '*.inc' \) -print0 \
+        | LC_ALL=C sort -z | xargs -0 cat | sha256sum | cut -c1-16
+    }
+    dir_digest core/xemu
 
     # a single artefact
     sha256sum data/font8.bin
