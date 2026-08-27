@@ -118,6 +118,28 @@ written.
 
 ## For the coding agent
 
+**Doc's request, 2026-08-27 — the banner and the clock paradigm.** The
+book, the README and the design doc now describe the CPU as
+**`45GS10 @ optimal MHz`**: the clock is whatever the host holds at 60 fps
+with clean sound, 40.5 is only the desktop's starting point, and the
+direction is `docs/CPU-CLOCK-POLICY.md` (measure at boot). Doc wants the
+machine to say the same. Two places print a number as if it were the
+machine's:
+
+- the boot banner: `CPU: 45GS10 at 40.5 MHz + runCPM Tube` (`rom/kernal.c`
+  banner(), and `demo/logo.c` which draws the same lines) — Doc would like
+  `@ optimal MHz` there, or the clock in force stated as what it is;
+- `INFO`, which prints the kHz from SYS $00/01 — fine as the clock in
+  force, but if it says "40.5 MHz" as a headline it should say "clock
+  setting" or "measured".
+
+Also still open from the policy doc: `core/ui/settings.c:34` comments
+"the Pi defaults to 20 MHz" while the code says 15. And the book now says
+"the design's direction is for the machine to measure that itself at
+boot" — that sentence is a promise on your behalf; if the policy is
+rejected, tell me and it comes out.
+
+
 **The clock sweep, three hosts (2026-08-27) — Doc asked that you have
 these.** `test/bench` now takes `K4510_CPU_HZ=` and calls
 `sid_set_cpu_hz()` (it did not, so a sounding SID at any clock but 40.5
