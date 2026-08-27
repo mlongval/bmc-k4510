@@ -23,6 +23,7 @@ int main(int argc, char **argv)
      * the question is where THIS host stops fitting a frame in 16.67 ms */
     unsigned cpu_hz = getenv("K4510_CPU_HZ") ? (unsigned)atol(getenv("K4510_CPU_HZ")) : 40500000u;
     int cyc_line = (int)(cpu_hz / 60 / 480);
+    sid_set_cpu_hz((double)cpu_hz);        /* reSID's 1 MHz is measured against the CPU clock: keep it honest at any clock */
     uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) return 1; fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) return 1;
     io_reset(); cpu65_reset();
