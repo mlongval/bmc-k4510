@@ -58,3 +58,7 @@ fs/EDITTMP.BAS
 doc/guide/version.tex
 doc/guide/generated/
 core/build.h
+
+# dependency files the compiler writes beside objects; a stale one
+# naming a renamed header broke the Pi build once
+*.d

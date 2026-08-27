@@ -38,7 +38,9 @@ memory:  FILL from.to value
          COPY from.to dest
 system:  INFO
          TIME
-         MODE [0-2] [0|1]
+         MODE [0-4] [0|1]
+         (0 640x480, 1 640x240, 2 320x240,
+         3 320x200, 4 160x200)
          COLOR fg [bg]
          ECHO
          CLS
@@ -53,6 +55,10 @@ system:  INFO
          (toggle; letters typed come up uppercase --
          *CAPSLOCK in a BASIC)
          DUMP [note|ON|OFF]
+         LOGO (clear the screen, redraw the banner)
+         BUG (asks you about a fault and writes the
+         report to /SYSTEM/BUGREPORTS -- INFO -v
+         names the build it happened on)
 tongues: BBC (BBC BASIC on the Tube)
          CPM [command] (CP/M 2.2 on the Z80)
          (K: is the machine's own filesystem, so
@@ -81,8 +87,11 @@ terminal: JIM at $DA00, a VT100/ANSI in hardware:
          CP/M programs and BBC BASIC draw through it
          (install CP/M programs for VT100 or ANSI);
          TELNET too
-host:    F7 opens the settings menu
-         (border, font, volume, keys, reset);
+host:    F7 opens the settings menu (border, font,
+         resolution, scanlines, scaling, volume,
+         keys, reset, Run STARTUP.BAT);
          Super+PgUp resets
 boot:    /STARTUP.BAT runs as an EXEC script at
-         power-on; hold a key to skip it
+         power-on.  If it wedges the machine,
+         turn it off in F7 > Run STARTUP.BAT, or
+         start with --no-startup.bat
