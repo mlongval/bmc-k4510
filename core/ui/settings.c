@@ -42,14 +42,19 @@ static const set_desc desc[SET_COUNT] = {
 #else
     { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_40_5, 0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
 #endif
+    /* ...and those defaults are only where a host starts before it has been
+     * measured.  With cpu.auto on, the frontend runs core/calib.c at power-on
+     * and sets cpu.clock to the highest step the host holds with margin; the
+     * result is kept here with the host it was taken on, so it is paid once.
+     * Choosing a clock in the menu turns auto off: an explicit setting wins. */
+    { "cpu.auto",            "Auto clock",     ST_BOOL,  1, 0, 1, 1, 0, 0, SF_RESTART },
+    { "cpu.measured",        "Measured clock", ST_ENUM,  CPUCLK_15, 0, 0, 0, cpu_names, CPUCLK_COUNT, 0 },
+    { "cpu.host",            "Measured on",    ST_INT,   0, 0, 0x7FFFFFFF, 1, 0, 0, 0 },
 };
-unsigned settings_cpu_hz(void)
-{
-    static const unsigned hz[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
-                                               40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
-    int v = settings_get(SET_CPU_CLOCK); if (v < 0 || v >= CPUCLK_COUNT) v = 0;
-    return hz[v];
-}
+static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
+                                                     40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
+unsigned settings_cpu_hz_of(int step) { if (step < 0 || step >= CPUCLK_COUNT) step = 0; return cpu_hz_table[step]; }
+unsigned settings_cpu_hz(void) { return settings_cpu_hz_of(settings_get(SET_CPU_CLOCK)); }
 static int value[SET_COUNT];
 static int changed;
 

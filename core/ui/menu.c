@@ -48,7 +48,8 @@ static const item_t machine_items[] = {
     { "Quit the emulator", MI_ACTION, ACT_QUIT },
 #endif
     { "",                  MI_SEP },
-    { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* 40.5 / 30 / 20 / 10 MHz; the Pi defaults to 20. Last, so uitest's walk to Reset is unchanged */
+    { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* the ladder, 202.5 down to 10; after Reset so uitest's walk to it is unchanged */
+    { "Auto clock",        MI_SETTING, SET_CPU_AUTO },    /* measured at boot (core/calib.c); choosing a clock above turns this off */
 };
 static const item_t shell_items[] = {
     { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },

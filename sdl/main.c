@@ -17,6 +17,7 @@
 #include "../core/sid.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
+#include "../core/calib.h"
 #include "../core/ui/menu.h"
 #include "../core/ui/ui_draw.h"
 #include "../core/state.h"
@@ -40,6 +41,12 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
 /* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on
  * the Pi by default, where the whole machine would otherwise run at 20 fps */
 static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGHT;
+/* for core/calib.c: the SDL performance counter in milliseconds, and how much
+ * of a frame the chosen clock may use.  0.7 leaves room for a program heavier
+ * than the workload and for the frontend's own share of the frame -- the
+ * texture and the present are outside what calibration times. */
+static double sdl_now_ms(void) { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
+#define CALIB_MARGIN 0.7
 #define CYCLES_PER_LINE  cycles_per_line
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
@@ -226,7 +233,39 @@ int k4510_frontend_main(int argc, char **argv)
 #endif
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
+    /* ---- the clock: measured, not guessed (docs/CPU-CLOCK-POLICY.md) ------
+     * With cpu.auto on, the first boot on a host runs the real core over a
+     * fixed workload with sound on, fits the line, and sets cpu.clock to the
+     * highest step that leaves margin; the answer is kept in k4510.cfg with
+     * the host it was measured on, so later boots pay nothing.  A clock
+     * chosen in the menu turns auto off: an explicit setting always wins.
+     * The machine is power-cycled afterwards, SIDs included -- a chip once
+     * written is rendered until reset, sounding or not. */
+    if (settings_get(SET_CPU_AUTO)) {
+        int hash = calib_host_hash();
+        if (settings_get(SET_CPU_HOST) == hash) {
+            settings_set(SET_CPU_CLOCK, settings_get(SET_CPU_MEASURED));
+        } else {
+            calib_result cr; unsigned ladder[CPUCLK_COUNT]; static char host_line[96];
+            for (int i = 0; i < CPUCLK_COUNT; i++) ladder[i] = settings_cpu_hz_of(i);
+            int rc = calib_run(sdl_now_ms, ladder, CPUCLK_COUNT, 1000.0 / 60.0, CALIB_MARGIN, &cr);
+            settings_set(SET_CPU_MEASURED, cr.step); settings_set(SET_CPU_HOST, hash); settings_set(SET_CPU_CLOCK, cr.step);
+            settings_save(cfg);
+            fprintf(stderr, "clock: %.3f ms/MHz + %.2f ms fixed -> holds ~%.0f MHz; %s %.1f MHz%s\n",
+                    cr.ms_per_mhz, cr.ms_fixed, cr.ceiling_mhz, rc ? "too slow even for" : "chosen", cr.step_hz / 1e6,
+                    rc ? " (the lowest step)" : "");
+#ifdef K4510_PI
+            snprintf(host_line, sizeof host_line, "Raspberry Pi 3B+, Circle -- holds ~%.0f MHz", cr.ceiling_mhz);
+#else
+            snprintf(host_line, sizeof host_line, "desktop, SDL2 -- holds ~%.0f MHz", cr.ceiling_mhz);
+#endif
+            menu_info(INFO_HOST, host_line);
+            host_zero(k4510_ram, 0x10000); io_reset(); cpu65_reset();     /* the workload and the sounding SIDs go */
+        }
+    }
     int running = 1;
+    int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
+    unsigned gaps_seen = 0, gap_frames = 0;        /* the step-down: gaps in the last window, and its length */
     /* ---- where the frame goes -------------------------------------------
      * The Pi runs at about a tenth of the speed it was measured at on 22
      * August and nothing in the shared code is slower on the desktop, so
@@ -473,7 +512,25 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
         } }
-        if (menu_closed_pending()) { if (settings_changed()) settings_save(cfg); }
+        if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
+        if (menu_closed_pending()) {
+            if (clock_at_open >= 0 && settings_get(SET_CPU_CLOCK) != clock_at_open && settings_get(SET_CPU_AUTO))
+                settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
+            clock_at_open = -1;
+            if (settings_changed()) settings_save(cfg);
+        }
+        /* The measurement is a guess about programs it has not seen.  When a
+         * real one starves the sound -- three empty callbacks in two seconds
+         * -- the clock steps down one, and that becomes the measured value,
+         * so the next boot starts there.  Never up: BENCH says where up is. */
+        if (settings_get(SET_CPU_AUTO) && !open && ++gap_frames >= 120) {
+            unsigned g = io_audio_gaps - gaps_seen; gaps_seen = io_audio_gaps; gap_frames = 0;
+            int s = settings_get(SET_CPU_CLOCK);
+            if (g >= 3 && s < CPUCLK_COUNT - 1) {
+                settings_set(SET_CPU_CLOCK, s + 1); settings_set(SET_CPU_MEASURED, s + 1); settings_save(cfg);
+                fprintf(stderr, "clock: %u audio gaps in 2 s at %.1f MHz, stepping down to %.1f\n", g, settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(s + 1) / 1e6);
+            }
+        }
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
             io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);

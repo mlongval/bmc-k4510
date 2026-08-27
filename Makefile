@@ -22,7 +22,7 @@ FORCE:
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/calib.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)

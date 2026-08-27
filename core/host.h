@@ -14,6 +14,10 @@ void  host_poll_input(void);
 /* for PERF.TXT: the host's own account of clock, temperature, throttling and
  * memory speed, as text; empty where the host has nothing to say */
 void  host_perf_probe(char *out, unsigned n);                    /* once per frame: the Pi scans the C64 keyboard here */
+/* what this host is, as text -- CPU model and count, a board revision --
+ * so a clock measured on it (core/calib.c) is trusted only on it.  A weak
+ * default in calib.c answers "unknown host" where the host has not said. */
+void  host_fingerprint(char *out, unsigned n);
 #ifdef __cplusplus
 }
 #endif
