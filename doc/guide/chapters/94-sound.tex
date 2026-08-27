@@ -1,0 +1,242 @@
+\chapter{The Sound, and What It Took}\label{cha:sound}
+
+Every other chapter of this book describes the machine as it is. This
+one describes how it got that way, because the sound took longer to get
+right than anything else in it and the route was instructive. Nothing
+here is needed to use the machine. It is here because a fantasy computer
+is a series of decisions, and the decisions about sound were the ones
+that most often turned out to be about something else.
+
+It has one thesis, and it is worth stating before the evidence rather
+than after: \textbf{the sound was hard because keeping a real-time audio
+ring fed from a machine that runs in bursts is hard, not because
+emulating a SID is expensive.} Every fault the sound reported turned out
+to be somewhere else, and the chip emulation --- the part everyone
+suspects --- has never once been on the critical path.
+
+If you are reading it to find out whether the machine keeps its four SID
+chips, look at the last section: at the time of this printing that is an
+open question, and it is not the question this appendix is mostly
+about.
+
+\section{Four chips, because it is a fantasy}
+The C64 had one SID. The plan for this machine was four, at
+\texttt{\$D400} and every \texttt{\$20} after it, for no better reason
+than that a machine which never existed may have whatever its author
+thinks it should have and four is a chord. Dag Lem's reSID --- the
+emulation that has been the reference for thirty years --- was vendored
+unchanged from VICE~3.3, wrapped in \pth{core/sid.cc}, and mixed to
+16-bit mono. The frontend fed a ring buffer a scanline at a time and an
+audio callback drained it at 48\,kHz.
+
+That took an afternoon and it worked. Everything after this section is
+the six weeks of it not quite working.
+
+\section{A SID is not a CPU}
+The first mistake was in the first version and is the kind only a
+fantasy machine can make: the SIDs were clocked at the CPU's clock.
+
+On a C64 the two are the same crystal, so the question never comes up.
+
+Here the CPU runs at 40.5\,MHz and the SID is a 1\,MHz part, and
+clocking reSID at 40.5 million cycles a second cost \textbf{21
+milliseconds a frame} --- more than the whole frame --- and put every
+pitch out by a factor of forty-one. The fix was one line and the lesson
+outlived it: \emph{the SID's clock is not the CPU's}, and every later
+change that touched the clock had to be told so again. The most recent
+time was in August 2026, in a benchmark that swept the CPU clock and
+forgot to tell reSID, and rendered every note at the wrong rate.
+
+\section{``Choppy choppy choppy'' --- which was not the sound}
+The machine's first outing on real hardware, a Raspberry Pi 3B+ on a
+television, produced the report that named the problem for the rest of
+the project: \emph{the SID sounds on the RPi3 are very very bad, choppy
+choppy choppy}.
+
+It was not an audio bug. The Pi was running the machine at about
+17\,ms against a 16.7\,ms frame, and two recent changes had spent that
+slack --- a debug recorder storing every instruction fetch, and a rule
+that made the I/O page win on every memory access, which put an extra
+comparison on every read and write in the machine. Neither was visible
+on a desktop. Both were fatal on the Pi, and what they broke was the
+sound, because the sound is the first thing that breaks when a frame
+runs long.
+
+That is the pattern the rest of this appendix is about. \textbf{The
+sound is the machine's alarm bell.} Almost every time it rang, the fault
+was somewhere else.
+
+\section{Silence is not free}
+With a clean power supply and honest measurements, the Pi at 20\,MHz sat
+1.6\,ms over its frame budget. Of the 18.3\,ms, \textbf{3.4 was the
+SIDs} --- all four of them, three of them silent.
+
+reSID costs the same for silence as for sound: a chip that has been
+written to is a chip that must be clocked, whether or not anything is
+audible. So a chip is now clocked and mixed only once the machine has
+written to it since reset, which at the prompt is three chips' worth of
+frame given back. Note what that 3.4\,ms was --- four chips
+\emph{clocked}, not four chips playing --- and that it is the largest
+figure the sound has ever cost anywhere in this project.
+
+That fix has a tail which is still in the machine: the cost is latched
+by the \emph{first write}, not by whether anything is sounding. A
+program that pokes a SID register during setup and then goes quiet pays
+the full price for the rest of the session. On a desktop that is half a
+millisecond of sixteen and nobody notices. On a Pi with no slack it is
+worth knowing.
+
+\section{The ring that started empty}
+On the Pi the audio callback is served by the same core that runs the
+machine, once a frame, a block at a time. A frame makes 800 samples; the
+block was 1024; the ring started empty. So the ring's level lived
+between nothing and one frame, and a callback regularly found 800 real
+samples and 224 of silence --- a gap, on a steady beat, at a frame rate
+the machine was comfortably holding.
+
+Smaller blocks and a lead of three of them --- 32\,ms, which a music
+player does not feel --- and the level never touches the floor.
+
+\textbf{It made things worse.} At 15\,MHz the gap count went from 40--48
+in two seconds to 52--62.
+
+\section{Chips that play on without the machine}
+The lead failed because the model behind it was wrong, and the numbers
+said so plainly. At 15\,MHz the Pi ran at 58--60 frames a second, not a
+locked 60. Audio was made only by the machine's frames, 800 samples
+each. At 58 frames that is 46,400 samples a second against the 48,000
+the device consumes. \emph{Any} shortfall drains the ring and then gaps
+for ever after; a lead only postpones the first one. Even rounding the
+cycles per scanline down from 520.83 to 520 is a 0.16\,\% deficit on its
+own.
+
+So the machine stopped tying its sound to its frames. Real hardware does
+not stop its sound chips because the processor stalled --- a SID keeps
+oscillating whatever the 6502 is doing --- and now nor does this one:
+after a frame, if the ring is below its target, the SIDs are clocked on
+\emph{without the CPU} until it is full. The SID clock does not move, so
+pitch does not move; a slow frame sustains a note a fraction longer
+rather than cutting it.
+
+This is the most important decision in the whole story, and it is the
+one that came back.
+
+\section{The meter that read zero}
+With the chips decoupled, and with the Pi's callback served every 128
+lines rather than once a frame, the gap counter read \textbf{zero}, on
+three boots, at the default clock. By every instrument the project had,
+the sound was clean.
+
+Doc: \emph{both say 0 drops but I still can hear them.}
+
+He was right and the meter was wrong. The gap counter counts callbacks
+that found the ring \emph{empty} --- it counts silence. And the
+decoupling exists precisely to ensure the ring is never empty. So across
+the entire band where a host is merely losing rather than drowning, the
+counter reads zero and there is nothing wrong with the sound except that
+a growing fraction of it was not made by the program. The SIDs were
+playing on without the machine. That is what he was hearing.
+
+It is now counted. Beside the gaps there is a second number: how many
+samples the machine did not make and the chips supplied. On one host,
+at rows both instruments had called clean:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l l r@{}}
+\toprule
+\textbf{Clock} & \textbf{Frames} & \textbf{Gaps} & \textbf{Filled in} \\
+\midrule
+30\,MHz & 53 fps & 0 & 36{,}464 \\
+20\,MHz & 60 fps & 0 & 16{,}818 \\
+10\,MHz & 60 fps & 0 & 1{,}609 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent of 96{,}000 samples in the two seconds measured. At 30\,MHz
+\emph{more than a third of the sound was not the program's}, and every
+meter said clean.
+
+\emph{Clean} now means three things at once, because any two of them can
+be true while the sound is wrong: sixty frames a second, no gaps, and
+under two per cent filled in.
+
+\begin{aside}
+\textbf{The moral, three times over.} A performance regression that
+presented as an audio bug. An audio fix that made the gap count worse. A
+gap counter that read zero because an earlier fix had guaranteed it
+would. Each time, the instrument was measuring something adjacent to the
+fault --- and each time, the person listening to the machine was right
+before the numbers were.
+\end{aside}
+
+\section{A machine keeping somebody else's time}
+The newest finding, and the one that reframes the rest: on the desktop
+the machine was not keeping its own time at all.
+
+The Pi has always paced itself against the wall clock, because its
+graphics layer blocks until the display flips and a frame that overran
+by a millisecond would wait for the next one and halve the frame rate.
+The desktop did the opposite --- it left the pacing to the display's
+vertical sync and did none of its own, so the machine ran at whatever
+the compositor handed it. On one host, a 60\,Hz display, that was
+\textbf{51.8 frames a second}, with the act of putting the picture on
+the glass taking 16.9\,ms of a 19.3\,ms frame.
+
+A machine at 51.8 frames a second makes 51.8 frames of sound where the
+device wants 60. The chips filled in the missing seventh, exactly as
+designed, and it was audible --- and the new counter measured it at
+17\,\%. The machine now keeps its own 60\,Hz on the desktop as it always
+has on the Pi, and presents when it is ready:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l r r@{}}
+\toprule
+& \textbf{Whole frame} & \textbf{Onto the glass} \\
+\midrule
+before & 19.294\,ms (51.8 fps) & 16.867\,ms \\
+after  & 16.668\,ms (60.0 fps) & 0.260\,ms \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Where it stands}
+At the time of this printing the machine has four reSID chips in it, and
+whether it keeps them is an open question --- but not the question it
+first looked like.
+
+It was raised as a performance question, after a Raspberry Pi that would
+hold only 15\,MHz. On that ground it is settled, and against
+replacement. \textbf{reSID is not the cost.} One chip sounding measures
+\textbf{0.039\,ms of a 16.67\,ms frame} on a desktop --- a quarter of one
+per cent --- and four chips written since reset come to about half a
+millisecond. The largest the sound has ever cost is the 3.4\,ms of §C.4,
+on the Pi, before silent chips stopped being clocked, and that was a
+bookkeeping fault rather than a fidelity one. Nothing measurable is
+bought by removing them. (What four \emph{sounding} chips cost on the Pi
+has never been measured --- the card is bare metal and the desktop
+figure does not transfer to an A53. If it were half a millisecond it
+would be some three per cent of that frame, which would still not be the
+bottleneck; but that is an estimate, and it is flagged as one.)
+
+Where the question is real is identity, and there it deserves both
+sides. The SID is a part this machine inherited rather than chose: it is
+in here because the C64 had one, in the same way the \texttt{*} prefix
+is in here because Acorn had it. A machine that never existed is
+entitled to a voice its author picked on purpose --- and the original
+specification for this one read \emph{4 SIDs\slash OPL2}, so a
+synthesiser of the other tradition would not be a betrayal of the plan
+but the rest of it. Against that: four SIDs are what the machine has
+sounded like since its first afternoon, they cost almost nothing, and
+the entire body of C64 music plays on them, which is not a small thing
+to hand back.
+
+So the honest statement is that the chips are cheap, the case for
+changing them is about what the machine wants to be rather than what it
+can afford, and that case has not been decided. If it is, this appendix
+will say what replaced them and why, and will keep everything above it
+--- because the route matters more than the destination, and a book that
+quietly rewrote its own history would be worth less than one that admits
+what it tried.
