@@ -157,9 +157,24 @@ is also suspended while a program runs, so `:q` reaches VI.
 
 ## alpha-0.3 "Colophon" — released
 
-Tagged at the commit above. I rebuilt `doc/guide/k4510-guide.pdf` with
+Released at 05fafb7, as a pre-release, with two assets: the Pi SD-card
+zip and the handbook PDF. I rebuilt `doc/guide/k4510-guide.pdf` with
 `GUIDE_VERSION=alpha-0.3 ./make-guide.sh --no-shots` so the cover carries
 the release rather than `alpha-0.2+117`, and committed just that file —
 no figures recaptured, and `mkregs.py`/`mkissue.py` produced no drift.
 That is the only thing I have touched under `doc/`. The PDF is also a
 release asset, alongside the Pi SD-card zip.
+
+Three things there that touch your side:
+
+- The PDF asset is the book as of that commit, cover stamped `alpha-0.3`
+  rather than `alpha-0.2+117`. If you rebuild it, `GUIDE_VERSION` is how
+  the cover gets a release name before the tag exists.
+- `fs/.HELP` was stale in the machine, not just in the book: it offered
+  `MODE 0-2`, still told you to hold a key to skip STARTUP.BAT, and had
+  never heard of `BUG` or `LOGO`. Fixed. If the book quotes HELP
+  anywhere, it is worth a look.
+- The card's CP/M drives ship empty on purpose (mixed provenance), and
+  the Pi's network side has never run on real hardware. Both are said
+  plainly in the release notes and in `pi/README-SD.txt`; if the book
+  claims either works on the Pi, it is ahead of the evidence.
