@@ -1041,12 +1041,11 @@ void io_reset(void)
 {
     sys_frames = 0;
     net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from /SID came back in /SID, where there is no STARTUP.BAT (Doc) */
-#ifdef K4510_PI
-    dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
-                                                            costs a store per instruction the Pi cannot spare (DUMP ON arms it) */
-#else
-    dbg_auto = 1; dbg_auto_next = 900; dbg_rec = 1;      /* auto dump on by default (Doc, 2026-08-23): every 15 s, 100 files rotating */
-#endif
+    /* Off by default on BOTH now (Doc, 2026-08-27): auto-dump every 15 s was
+       intrusive, and dbg_rec -- the PC recorder -- costs a store per emulated
+       instruction whether or not a dump is ever written.  DUMP ON re-arms both
+       when you actually want to debug; DUMP writes state on demand without it. */
+    dbg_auto = 0; dbg_rec = 0;
     memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
     memset(seq_q, 0, sizeof seq_q); memset(seq_head, 0, sizeof seq_head); memset(seq_len, 0, sizeof seq_len);
     memset(seq_reg, 0, sizeof seq_reg); memset(seq_left, 0, sizeof seq_left);
