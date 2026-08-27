@@ -418,6 +418,29 @@ int k4510_frontend_main(int argc, char **argv)
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
         }
+        /* The SIDs keep sounding when the CPU is late.  Audio was made only by
+         * the machine's frames -- 800 samples each -- so a machine at 58 fps
+         * made 46,400 a second against the 48,000 the device consumes, and any
+         * shortfall at all drained the ring and gapped for ever after (a lead
+         * only delayed the first gap; BENCH went from 45 gaps to 55).  Real
+         * hardware does not stop its sound chips because the CPU stalled: here
+         * they are clocked on without it until the ring holds a target again.
+         * Pitch is the SID clock's and does not move; a slow frame sustains a
+         * note a fraction longer instead of cutting it.  Only after a frame the
+         * machine ran -- frozen under the menu, it is silent, as before. */
+        if (!open || mode_pending) {
+            int vol = settings_get(SET_AUDIO_VOLUME);
+#ifdef K4510_PI
+            const unsigned target = 1536 + 800;               /* the lead, plus a frame */
+#else
+            const unsigned target = 1024 + 800;               /* one callback, plus a frame */
+#endif
+            int guard = 4096;                                 /* never more than a few frames of sound ahead */
+            while (((ring_w - ring_h) & RING_MASK) < target && guard--) {
+                int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+                for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
+            }
+        }
         p_mach += SDL_GetPerformanceCounter() - p_a;
         /* what the menu asked for */
         { int act = menu_take_action();
