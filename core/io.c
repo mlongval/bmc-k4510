@@ -1010,7 +1010,25 @@ void io_reset(void)
     sid_reset();
 }
 
+/* ---- I/O profile: how often the CPU touches the I/O page, at what cost, and
+ * where.  Read by the frontend for SYSTEM/PERF.TXT.  On the Pi the clock is
+ * the ARM generic timer (a register); elsewhere only the counts are kept. */
+uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* hist: (addr >> 4) & 255, 16-byte groups */
+uint64_t io_prof_cycles;
+#if defined(K4510_PI)
+static inline uint64_t io_prof_clk(void) { uint64_t v; __asm__ volatile("mrs %0, cntvct_el0" : "=r"(v)); return v; }
+#else
+static inline uint64_t io_prof_clk(void) { return 0; }
+#endif
+void io_prof_reset(void) { io_prof_reads = io_prof_writes = 0; io_prof_cycles = 0; memset(io_prof_hist, 0, sizeof io_prof_hist); }
+static uint8_t io_read_inner(uint16_t addr);
 uint8_t io_read(uint16_t addr)
+{
+    uint64_t t = io_prof_clk(); uint8_t v = io_read_inner(addr);
+    io_prof_cycles += io_prof_clk() - t; io_prof_reads++; io_prof_hist[(addr >> 4) & 255]++;
+    return v;
+}
+static uint8_t io_read_inner(uint16_t addr)
 {
     switch (addr & 0xFF00) {
     case IO_VICKY:

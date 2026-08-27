@@ -223,6 +223,7 @@ int k4510_frontend_main(int argc, char **argv)
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
           if (p_last) { p_tot += c - p_last; p_n++; }
+          if (p_n == 1) io_prof_reset();                    /* the window starts at the second frame */
           p_last = c;
           if (p_n == PERF_FRAMES) {
               char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
@@ -248,6 +249,17 @@ int k4510_frontend_main(int argc, char **argv)
                   fprintf(pf, "  onto the glass   %8.3f ms   %5.1f%%\n", pr, tot > 0 ? 100.0 * pr / tot : 0.0);
                   fprintf(pf, "  everything else  %8.3f ms   %5.1f%%\n", tot - ma - tx - pr,
                           tot > 0 ? 100.0 * (tot - ma - tx - pr) / tot : 0.0);
+                  { double ph = (double)PCLK_HZ();
+                    fprintf(pf, "\nI/O page, per frame: %.0f reads, %.3f ms inside io_read\n",
+                            (double)io_prof_reads / f, (double)io_prof_cycles * 1000.0 / ph / f);
+                    fprintf(pf, "  hottest register groups (16-byte, reads per frame):\n");
+                    for (int k = 0; k < 6; k++) {                       /* top six, by selection */
+                        int best = -1; uint32_t bv = 0;
+                        for (int i = 0; i < 256; i++) if (io_prof_hist[i] > bv) { bv = io_prof_hist[i]; best = i; }
+                        if (best < 0 || !bv) break;
+                        fprintf(pf, "    $D%02X0-$D%02XF  %10.0f\n", best, best, (double)bv / f);
+                        io_prof_hist[best] = 0;
+                    } }
                   fprintf(pf, "\n(events, the menu overlay and the settings poll are 'everything else')\n");
                   fclose(pf);
               }

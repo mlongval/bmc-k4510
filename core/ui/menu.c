@@ -42,7 +42,11 @@ static const item_t machine_items[] = {
     { "Power cycle",       MI_ACTION, ACT_POWER_CYCLE },
     { "Stop the Tube",     MI_ACTION, ACT_TUBE_STOP },
     { "",                  MI_SEP },
+#ifdef K4510_PI
+    { "Power off",         MI_ACTION, ACT_QUIT },   /* the Pi halts: nothing to quit to */
+#else
     { "Quit the emulator", MI_ACTION, ACT_QUIT },
+#endif
 };
 static const item_t shell_items[] = {
     { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },

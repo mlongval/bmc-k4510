@@ -35,8 +35,10 @@ void CK4510Cores::Run(unsigned nCore)
         static char a0[] = "k4510", a1[] = "rom/kernal.bin", a2[] = "fs";
         char *argv[] = { a0, a1, a2, nullptr };
         int rc = k4510_frontend_main(3, argv);
-        SDL2Circle_Log(From, SDL2CIRCLE_LOG_NOTICE, "emulator returned %d; rebooting", rc);
-        SDL2Circle_CallOn0([](void *) { reboot(); }, nullptr);
+        // Doc: on the Pi, "Quit" should just power the machine down. There is
+        // no operating system to return to; a reboot only put the banner back.
+        SDL2Circle_Log(From, SDL2CIRCLE_LOG_NOTICE, "emulator returned %d; powering off", rc);
+        SDL2Circle_CallOn0([](void *) { halt(); }, nullptr);
         ParkCore();
         break; }
     case 2:
