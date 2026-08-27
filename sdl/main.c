@@ -32,7 +32,9 @@ static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
-    for (int i = 0; i < n; i++) out[i] = (ring_h != ring_w) ? ring[ring_h++ & RING_MASK] : 0;
+    int gap = 0;
+    for (int i = 0; i < n; i++) { if (ring_h != ring_w) out[i] = ring[ring_h++ & RING_MASK]; else { out[i] = 0; gap = 1; } }
+    if (gap && io_audio_gaps != 0xFFFF) io_audio_gaps++;     /* one per callback that ran dry: what "choppy" is, counted */
 }
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 /* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on

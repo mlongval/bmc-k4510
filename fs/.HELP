@@ -57,9 +57,10 @@ system:  INFO
          *CAPSLOCK in a BASIC)
          DUMP [note|ON|OFF]
          LOGO (clear the screen, redraw the banner)
-         BENCH (12 s: measures the machine and writes
-         /SYSTEM/BENCH-<when>.TXT -- frames a second
-         is the machine's speed)
+         BENCH (25 s: measures the machine, sweeps
+         the CPU clocks with a note on SID 0, and
+         writes /SYSTEM/BENCH-NN.TXT -- a clock is
+         right when it holds 60 fps with 0 gaps)
          BUG (asks you about a fault and writes the
          report to /SYSTEM/BUGREPORTS -- INFO -v
          names the build it happened on)

@@ -1,4 +1,5 @@
 #include "io.h"
+#include "ui/settings.h"      /* the CPU clock request at $D523 */
 #include "mem.h"
 #include "xemu/emutools_basicdefs.h"
 #include "xemu/cpu65.h"
@@ -554,6 +555,7 @@ static void sys_latch(void)
     sys_reg[12] = m->tm_wday;
 }
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
+uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
@@ -567,6 +569,9 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
     if (r == 0x22) return K4510_HOST_KIND;       /* which machine this is, for BUG and INFO */
+    if (r == 0x23) return (uint8_t)settings_get(SET_CPU_CLOCK);   /* the clock index in force (0 = 40.5 MHz ... 4 = 10 MHz) */
+    if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
+    if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     if (r == 0xF3) return sid_clock_sel;
@@ -1104,6 +1109,8 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
         if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
+        if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
+        if ((addr & 0xFF) == 0x24) io_audio_gaps = 0;                 /* any write clears the gap count */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
                                    /* the guest acknowledging a video-mode request: it has performed it,
                                     * so the request goes away at once instead of standing for frames

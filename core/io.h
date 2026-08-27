@@ -131,6 +131,9 @@ int     io_mode_acked(void);      /* 1 once: the guest performed the video-mode 
  *   $F1     write: append a byte to the shell log (the ROM logs command lines and DUMP notes)
  *   $F2     write 1/0: automatic dump every 900 frames (15 s) on/off (on at reset on the desktop,
  *           off on the Pi; DUMP or DUMP ON also arms the per-instruction PC recorder); read: the setting
+ *   $23     read: the CPU clock setting in force (0 = 40.5 MHz, 1 = 30, 2 = 20, 3 = 15, 4 = 10);
+ *           write: ask for one -- the host applies it next frame (BENCH sweeps them)
+ *   $24,25  audio gaps LE: callbacks that found the ring empty since last cleared; any write clears
  *   $F3     SID clock: 0 = 1 MHz (default), 1 = PAL C64 (985248 Hz), 2 = NTSC (1022730 Hz); read/write
  * SID registers $00-$18 read back the last value written (a shadow; real
  * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
@@ -209,7 +212,8 @@ const char *fs_get_cwd(void);
 
 uint8_t io_read(uint16_t addr);
 void    io_frame_tick(void);
-void    io_set_cpu_khz(unsigned khz);            /* what SYS $00/01 report */
+void    io_set_cpu_khz(unsigned khz);
+extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
 extern uint64_t io_prof_cycles;
 void    io_prof_reset(void);                 /* called by VICKY at vblank */

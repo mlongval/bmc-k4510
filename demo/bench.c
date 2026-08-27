@@ -89,11 +89,12 @@ static void line(const char *label, unsigned long v, const char *unit)
 
 void main(void)
 {
-    unsigned long fps, cpu, chr, dma, f0;
-    uint8_t s0, s, i;
+    unsigned long fps, cpu, chr, dma, f0, sweep_fps[5]; unsigned sweep_gap[5];
+    uint8_t s0, s, i, clk0;
+    static const char *const clk_names[5] = { "40.5 MHz", "30 MHz  ", "20 MHz  ", "15 MHz  ", "10 MHz  " };
 
     { volatile uint8_t d = REG(SYS + 4); (void)d; }
-    say("\nBENCH -- measuring, about 12 seconds.\n\n");
+    say("\nBENCH -- measuring, about 25 seconds.\n\n");
 
     /* 1. frames per second: the one that says whether the host keeps up */
     s0 = edge(); f0 = fcount();
@@ -109,6 +110,31 @@ void main(void)
 
     /* 4. the DMA engine: 4 KB far to far */
     MEASURE(dma, { dma_copy(0x0E000000UL, 0x0E100000UL, 4096UL); });
+
+    /* 5. the clock sweep: every CPU clock the host offers, two seconds each,
+     *    with a note sounding on SID 0 the whole time. The host counts the
+     *    audio callbacks that found nothing to play -- that is what "choppy"
+     *    is -- so each line says whether the machine kept up AND whether the
+     *    sound did. The clock in force before is put back at the end. */
+    say("\nclock sweep, with a note on SID 0 (10 s)...\n");
+    clk0 = REG(SYS + 0x23);
+    REG(SID0 + 0x18) = 0x0F;                                      /* volume */
+    REG(SID0 + 0x05) = 0x00; REG(SID0 + 0x06) = 0xF0;             /* attack/decay, sustain/release */
+    REG(SID0 + 0x00) = 0x45; REG(SID0 + 0x01) = 0x1D;             /* A-440 at 1 MHz */
+    for (i = 0; i < 5; i++) {
+        REG(SYS + 0x23) = i;
+        { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }   /* two frames to settle */
+        REG(SID0 + 0x04) = 0x11;                                  /* triangle, gate on */
+        REG(SYS + 0x24) = 0;                                      /* clear the gap count */
+        s0 = edge(); f0 = fcount();
+        do { s = now(); } while (since(s0, s) < 2);
+        sweep_fps[i] = (fcount() - f0) / 2;
+        sweep_gap[i] = (unsigned)REG(SYS + 0x24) | ((unsigned)REG(SYS + 0x25) << 8);
+        REG(SID0 + 0x04) = 0x10;                                  /* gate off */
+        say("  "); say(clk_names[i]); say(": "); sayn(sweep_fps[i]); say(" fps, "); sayn(sweep_gap[i]); say(" audio gaps\n");
+    }
+    REG(SYS + 0x23) = clk0;
+    REG(SID0 + 0x18) = 0x00;
 
     rom_shell("CLS");
     say("\nBENCH results\n\n");
@@ -137,6 +163,14 @@ void main(void)
     line("CPU loops per second", cpu, "");
     line("Console lines/second", chr, "");
     line("DMA 4K copies/second", dma, "");
+    nl();
+    add("Clock sweep, a note sounding on SID 0, 2 s each:\n");
+    for (i = 0; i < 5; i++) {
+        add("  "); add(clk_names[i]); add("  "); addn(sweep_fps[i], 2); add(" fps   ");
+        addn(sweep_gap[i], 0); add(" audio gaps"); add(sweep_gap[i] ? "" : "   (clean)"); nl();
+    }
+    add("  A clock is right for this host when it holds 60 fps with 0 gaps.\n");
+    add("  (the clock in force before the sweep was put back)\n");
     nl();
     add("The frame rate is the machine's speed: the emulator runs its cycle\n");
     add("budget inside the host's frame loop, so 60 fps is 40.5 MHz and half\n");
