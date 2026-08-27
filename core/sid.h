@@ -5,6 +5,13 @@
 #define K4510_SID_H
 #include <stdint.h>
 #define K4510_SIDS 4
+#ifdef __cplusplus
+extern "C" {
+#endif
+void sid_set_max(int n);   /* clock/mix only the first n chips: the Machine menu's Active SIDs */
+#ifdef __cplusplus
+}
+#endif
 void    sid_init(double cpu_hz, int sample_rate);
 void    sid_set_clock(int sel);     /* 0 = 1 MHz (default), 1 = PAL C64 (985248), 2 = NTSC (1022730) */
 void    sid_reset(void);

@@ -7,6 +7,9 @@ extern "C" {
 static reSID::SID chips[K4510_SIDS];
 static double cpu_hz = 40500000.0; static int rate = 48000;
 static bool active[K4510_SIDS];                  /* written since reset: clocked and mixed */
+static int  sid_max = K4510_SIDS;                /* the menu caps how many chips are clocked: on the Pi four sounding
+                                                    chips are ~3.4 ms of a 16.7 ms frame, so dropping to one buys it back */
+extern "C" void sid_set_max(int n) { sid_max = n < 1 ? 1 : n > K4510_SIDS ? K4510_SIDS : n; }
 /* The SIDs run at SID_HZ like the real chip, whatever the CPU clock: the
  * frequency/ADSR registers keep their C64 meaning (f = reg * SID_HZ / 2^24)
  * and reSID does 1/40th of the work. sid_render receives CPU cycles. */
@@ -49,7 +52,7 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
      * was 2.5 ms of every 16.7 ms frame. The mix and its headroom are
      * unchanged, so a tune sounds exactly as it did. */
     for (int c = 0; c < K4510_SIDS; c++) {
-        if (!active[c]) continue;
+        if (c >= sid_max || !active[c]) continue;
         reSID::cycle_count dt = sid_cycles;
         int got = chips[c].clock(dt, tmp[c], max < 4096 ? max : 4096);
         if (got > n) n = got;
@@ -61,7 +64,7 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
     }
     for (int i = 0; i < n; i++) {
         int v = 0;
-        for (int c = 0; c < K4510_SIDS; c++) if (active[c]) v += tmp[c][i];
+        for (int c = 0; c < K4510_SIDS; c++) if (c < sid_max && active[c]) v += tmp[c][i];
         v /= 2;                                   /* 4 chips: headroom */
         out[i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
     }
