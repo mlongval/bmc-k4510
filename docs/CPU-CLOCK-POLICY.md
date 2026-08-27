@@ -1,6 +1,7 @@
 # The CPU clock is a policy, not a constant
 
-Status: proposal. Nothing here is built.
+Status: proposal 1 is built (`core/calib.c`, 2026-08-27, handbook session at
+Doc's request); proposal 2 is not.
 Written 2026-08-27, from Doc's design thinking plus the three-host clock
 sweep of the same day. Owner when built: the coding session (`core/`,
 `core/ui/settings.c`). Filed under `docs/` by a third session at Doc's

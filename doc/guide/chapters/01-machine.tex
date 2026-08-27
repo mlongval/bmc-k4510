@@ -17,10 +17,14 @@ the SID sound chip --- it borrows openly and then outgrows.
   sound. A desktop of the last ten years holds a hundred megahertz or
   more; a Raspberry Pi 3B+ holds fifteen. Today the clock is a setting
   (F7, under Machine --- the desktop starts at 40.5\,MHz, the MEGA65's
-  number, and the Pi at 15) and \verb|BENCH| measures which one your
-  host can hold. (Having the machine measure that itself at boot is
-  proposed in \pth{docs/CPU-CLOCK-POLICY.md}, and not built.)
-  \verb|INFO| reports the clock in force, read live, which is the only
+  number, and the Pi at 15) --- but the first time the machine boots on
+  a host it measures that host, a third of a second with the SIDs
+  sounding, and sets the clock to the highest step it can hold with
+  room to spare. The answer is kept, so later boots pay nothing; a
+  clock you choose yourself in the menu is never second-guessed; and if
+  a program starves the sound anyway, the clock steps down one and
+  stays there. \verb|BENCH| measures every step, for when you want the
+  whole picture. \verb|INFO| reports the clock in force, read live, which is the only
   honest number --- and the banner names none, because the machine no
   longer has one speed.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
@@ -146,9 +150,12 @@ page on the right, the screen-font list open over them.}
   beside the settings file; the row shows when the slot was written;
   the Tube co-processor is not in the file and is stopped by a load);
   \emph{CPU clock} --- ten steps from 202.5\,MHz down to 10, live
-  (202.5, 162, 121.5, 81, 60, 40.5, 30, 20, 15, 10); the desktop starts
-  at 40.5 and the Pi at 15, and both are starting points rather than
-  facts about the machine. A clock is right for a host when it
+  (202.5, 162, 121.5, 81, 60, 40.5, 30, 20, 15, 10), measured for this
+  host at its first boot; choosing one here switches \emph{Auto clock}
+  off, because a clock chosen by hand is not to be second-guessed.
+  \emph{Auto clock} --- on, the machine measures the host at boot and
+  steps down if the sound starves; off, the clock is whatever the row
+  above says. The Info page names what the host measured. A clock is right for a host when it
   holds 60 frames a second with no gaps in the sound; above that the
   programs run faster than the host keeps up with, the frame rate falls
   and the music slows with it. \verb|BENCH| measures every step

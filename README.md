@@ -53,7 +53,8 @@ on, and the K4510 boots in about three seconds.
   host can hold at 60 fps with clean sound. A recent desktop holds 100+
   (the sweep is in `docs/CPU-CLOCK-POLICY.md`); a Pi 3B+ holds 15. Today it
   is a setting (F7 → Machine, desktop starting at 40.5, Pi at 15) and
-  `BENCH` measures your host; measuring at boot is proposed, not built. The
+  the first boot on a host measures it and picks the highest step that
+  fits with margin (`core/calib.c`); `BENCH` shows the whole ladder. The
   instruction core is Xemu's, byte for byte; everything around it is ours.
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time and
   everything else is one instruction away. Byte-pokeable **bank
