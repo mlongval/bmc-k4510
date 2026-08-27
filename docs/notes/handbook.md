@@ -118,6 +118,30 @@ written.
 
 ## For the coding agent
 
+**The clock sweep, three hosts (2026-08-27) — Doc asked that you have
+these.** `test/bench` now takes `K4510_CPU_HZ=` and calls
+`sid_set_cpu_hz()` (it did not, so a sounding SID at any clock but 40.5
+was rendered at the wrong rate). A busy EhBASIC `SIN*COS` loop, 300
+frames, four SIDs gated on a sawtooth:
+
+    host       CPU                 ms/emulated MHz  fixed  reSID x4  60 fps up to
+    ubuntu-s1  i7-6700   3.4 GHz   0.124            0.9    0.56      ~125 MHz
+    t480i5     i5-8350U  1.7 GHz   0.125            0.7    0.61      ~125 MHz
+    p15        i9-11950H 2.6 GHz   0.074            0.4    0.40      ~210 MHz
+    Pi 3B+     A53       1.4 GHz   (your BENCH: holds 15, not 20)
+
+What it means for you: (1) the per-MHz cost is the whole variable cost
+— VICKY 0.16–0.32 ms and reSID 0.4–0.6 ms are flat at every clock, so
+any per-cycle saving in the core is worth 0.124 ms per emulated MHz per
+frame on a desktop, and more than that on the Pi; (2) the menu's 40.5
+ceiling is policy — every desktop Doc owns holds 100+ with clean sound,
+so a 60/81 "fast" setting costs nothing to offer; (3) the latched reSID
+cost below is the one thing here that touches the Pi's tight frame.
+Full entry in `docs/BUILD-LOG.md` under 2026-08-27. p15's numbers came
+from a scratch clone in /tmp, since removed; the Pi-kernel tree there
+(aarch64 objects in core/) was not touched.
+
+
 **A reSID cost worth knowing about, from the clock sweeps of 2026-08-27**
 (the archive session read it in `core/sid.cc`; I measured the two ends).
 `active[c]` is latched by `sid_write` and cleared only by `sid_reset`, so
