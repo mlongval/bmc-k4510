@@ -47,6 +47,10 @@ static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGH
  * texture and the present are outside what calibration times. */
 static double sdl_now_ms(void) { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
 #define CALIB_MARGIN 0.7
+/* the governor steps down above this much of the frame spent inside the
+ * machine: 14 ms of 16.67 leaves the frontend its texture and its present,
+ * and a machine costing more than that is not holding 60 frames a second */
+#define GOV_LATE_MS 14.0
 /* The next step down the ladder, by clock rather than by index: the enum's
  * order is the menu's business and has been changed once already. */
 static int clock_step_below(int cur)
@@ -278,7 +282,9 @@ int k4510_frontend_main(int argc, char **argv)
     }
     int running = 1;
     int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
-    unsigned gaps_seen = 0, gap_frames = 0;        /* the step-down: gaps in the last window, and its length */
+    /* the governor's window: how long the machine's own half of the frame has
+     * been costing, and how many callbacks ran dry, since it last decided */
+    Uint64 gov_t0 = 0, gov_mach = 0; unsigned gov_frames = 0, gaps_seen = 0;
     /* ---- where the frame goes -------------------------------------------
      * The Pi runs at about a tenth of the speed it was measured at on 22
      * August and nothing in the shared code is slower on the desktop, so
@@ -511,7 +517,7 @@ int k4510_frontend_main(int argc, char **argv)
                 for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
             }
         }
-        p_mach += SDL_GetPerformanceCounter() - p_a;
+        { Uint64 d = SDL_GetPerformanceCounter() - p_a; p_mach += d; gov_mach += d; gov_frames++; }
         /* what the menu asked for */
         { int act = menu_take_action();
           if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }
@@ -532,23 +538,43 @@ int k4510_frontend_main(int argc, char **argv)
             clock_at_open = -1;
             if (settings_changed()) settings_save(cfg);
         }
-        /* The measurement is a guess about programs it has not seen.  When a
-         * real one starves the sound -- three empty callbacks in a window --
-         * the clock steps down one, and that becomes the measured value, so
-         * the next boot starts there.  Never up: BENCH says where up is.
+        /* ---- the governor -------------------------------------------------
+         * The measurement is a guess about programs it has not seen, so the
+         * machine watches itself and steps down when the guess was wrong.
          *
-         * The window is three seconds and it restarts whenever the clock
-         * changes, which is what keeps this out of BENCH's way: BENCH sweeps
-         * the ladder two seconds a step and *means* to starve the sound at
-         * the top of it, so a window that could close inside one of its
-         * dwells would step the clock down under it and persist the result. */
-        if (settings_get(SET_CPU_AUTO) && !open && ++gap_frames >= 180) {
-            unsigned g = io_audio_gaps - gaps_seen; gaps_seen = io_audio_gaps; gap_frames = 0;
-            int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
-            if (g >= 3 && down >= 0) {
-                settings_set(SET_CPU_CLOCK, down); settings_set(SET_CPU_MEASURED, down); settings_save(cfg);
-                fprintf(stderr, "clock: %u audio gaps in 3 s at %.1f MHz, stepping down to %.1f\n",
-                        g, settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(down) / 1e6);
+         * What it watches is how long the machine's own half of the frame
+         * takes -- CPU, VICKY, the SIDs -- against the 16.67 ms it has.  The
+         * first version of this counted audio gaps instead, and the archive
+         * session found it useless on Doc's laptop: the machine sat at 38
+         * frames a second with the sound perfectly clean and the governor
+         * content.  That is 952daa6 working as designed -- the SIDs were
+         * deliberately decoupled from a late CPU so a slow frame sustains a
+         * note instead of cutting it -- and it means the gap counter says
+         * nothing at all across the whole band where a host is merely losing,
+         * rather than drowning.  Reading it was reading the one meter that
+         * fix insulated from the fault.
+         *
+         * Frame time is the direct measure, it is what calibration predicted,
+         * and unlike a frames-per-second floor it does not mistake a 50 Hz
+         * display for a slow machine.  Gaps stay as a second trigger, for the
+         * drowning case.  The window is three seconds and restarts whenever
+         * the clock changes or the menu opens -- which is also what keeps the
+         * governor out of BENCH's way, since BENCH sweeps the ladder two
+         * seconds a step and means to starve the sound at the top of it. */
+        if (!settings_get(SET_CPU_AUTO) || open) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
+        else {
+            Uint64 nowc = SDL_GetPerformanceCounter(), hzc = SDL_GetPerformanceFrequency();
+            if (!gov_t0) { gov_t0 = nowc; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
+            else if (nowc - gov_t0 >= hzc * 3 && gov_frames >= 30) {
+                double ms = (double)gov_mach * 1000.0 / (double)hzc / gov_frames;
+                unsigned g = io_audio_gaps - gaps_seen;
+                int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
+                if ((ms > GOV_LATE_MS || g >= 3) && down >= 0) {
+                    settings_set(SET_CPU_CLOCK, down); settings_set(SET_CPU_MEASURED, down); settings_save(cfg);
+                    fprintf(stderr, "clock: %.1f ms a frame%s at %.1f MHz, stepping down to %.1f\n",
+                            ms, g >= 3 ? " and the sound starving" : "", settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(down) / 1e6);
+                }
+                gov_t0 = 0;
             }
         }
         if (settings_cpu_hz() != cpu_hz_now) {
@@ -558,7 +584,7 @@ int k4510_frontend_main(int argc, char **argv)
              * and append it.  This is how the Pi gets swept -- there is no
              * K4510_CPU_HZ on the card, only the menu. */
             p_n = 0; p_last = 0;
-            gaps_seen = io_audio_gaps; gap_frames = 0;   /* and a new machine to judge: the step-down window restarts */
+            gov_t0 = 0;                                  /* and a new machine to judge: the governor's window restarts */
         }
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
