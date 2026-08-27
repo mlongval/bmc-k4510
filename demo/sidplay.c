@@ -193,10 +193,17 @@ static uint8_t play_file(uint16_t n)
     for (;;) {
         uint8_t f = REG(SYS + 0x0D);
         if (f != last) {                                   /* a new frame */
-            last = f;
-            acc += rate;
-            while (acc >= 60) { acc -= 60; tune_call(play_addr); restore_video(); }
-            if (++frames == 60) { frames = 0; show_time(7, ++sec); }
+            /* Advance one tune-frame per frame ELAPSED, not per pass: at a low clock
+             * one pass (meters + the tune) can outlast a frame, so SYS+$0D ticks
+             * more than once between reads. Counting passes lost the rest -- the
+             * tune ran at 40% (tune 0:17 vs real 0:43 at 15 MHz). A loop over the
+             * elapsed count catches up with no multiply. f-last wraps as a byte. */
+            uint8_t d = (uint8_t)(f - last); last = f;
+            while (d--) {
+                acc += rate; if (acc >= 60) { acc -= 60; tune_call(play_addr); }
+                if (++frames == 60) { frames = 0; ++sec; }
+            }
+            restore_video(); show_time(7, sec);
             rt_tick(); show_time(8, rt_secs);
             show_meters();
         }
