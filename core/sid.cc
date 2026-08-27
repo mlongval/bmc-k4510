@@ -6,6 +6,7 @@ extern "C" {
 
 static reSID::SID chips[K4510_SIDS];
 static double cpu_hz = 40500000.0; static int rate = 48000;
+static bool active[K4510_SIDS];                  /* written since reset: clocked and mixed */
 /* The SIDs run at SID_HZ like the real chip, whatever the CPU clock: the
  * frequency/ADSR registers keep their C64 meaning (f = reg * SID_HZ / 2^24)
  * and reSID does 1/40th of the work. sid_render receives CPU cycles. */
@@ -30,8 +31,8 @@ extern "C" void sid_init(double hz, int sample_rate)
     }
 }
 extern "C" void sid_set_cpu_hz(double hz) { cpu_hz = hz; }   /* the CPU clock changed: same SID clock, different ratio */
-extern "C" void sid_reset(void) { sid_acc = 0; for (int i = 0; i < K4510_SIDS; i++) chips[i].reset(); }
-extern "C" void sid_write(int c, uint8_t r, uint8_t v) { if (c >= 0 && c < K4510_SIDS) chips[c].write(r & 0x1F, v); }
+extern "C" void sid_reset(void) { sid_acc = 0; for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; } }
+extern "C" void sid_write(int c, uint8_t r, uint8_t v) { if (c >= 0 && c < K4510_SIDS) { chips[c].write(r & 0x1F, v); active[c] = true; } }
 extern "C" uint8_t sid_read(int c, uint8_t r) { return (c >= 0 && c < K4510_SIDS) ? chips[c].read(r & 0x1F) : 0xFF; }
 extern "C" void sid_set_model(int c, int m8580) { if (c >= 0 && c < K4510_SIDS) chips[c].set_chip_model(m8580 ? reSID::MOS8580 : reSID::MOS6581); }
 
@@ -42,14 +43,25 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
     sid_acc += (double)cycles * SID_HZ / cpu_hz;
     int sid_cycles = (int)sid_acc; sid_acc -= sid_cycles;
     if (sid_cycles <= 0) return 0;
+    /* Only chips the machine has written since reset are clocked. reSID costs
+     * the same for silence as for sound, and at the prompt -- or in SIDPLAY,
+     * which uses one chip -- three of the four are silent: on a Pi 3B+ that
+     * was 2.5 ms of every 16.7 ms frame. The mix and its headroom are
+     * unchanged, so a tune sounds exactly as it did. */
     for (int c = 0; c < K4510_SIDS; c++) {
+        if (!active[c]) continue;
         reSID::cycle_count dt = sid_cycles;
         int got = chips[c].clock(dt, tmp[c], max < 4096 ? max : 4096);
         if (got > n) n = got;
     }
+    if (!n) {                                     /* nothing active: silence at the rate the chips would have given */
+        n = (int)((double)sid_cycles * rate / SID_HZ); if (n > max) n = max;
+        for (int i = 0; i < n; i++) out[i] = 0;
+        return n;
+    }
     for (int i = 0; i < n; i++) {
         int v = 0;
-        for (int c = 0; c < K4510_SIDS; c++) v += tmp[c][i];
+        for (int c = 0; c < K4510_SIDS; c++) if (active[c]) v += tmp[c][i];
         v /= 2;                                   /* 4 chips: headroom */
         out[i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
     }

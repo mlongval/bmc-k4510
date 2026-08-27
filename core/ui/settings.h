@@ -29,7 +29,7 @@ typedef enum {
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
-enum { CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_10, CPUCLK_COUNT };
+enum { CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_15, CPUCLK_10, CPUCLK_COUNT };
 unsigned settings_cpu_hz(void);                /* the emulated clock, from SET_CPU_CLOCK */
 #define SF_LIVE     1        /* takes effect at once */
 #define SF_RESTART  2        /* needs a power cycle */
