@@ -64,11 +64,15 @@ extern "C" void host_perf_probe(char *out, unsigned n)
         "  ARM clock now  %5u MHz   (maximum %u MHz)\n"
         "  SoC temperature %4.1f C\n"
         "  throttle flags  $%05X   (bit0 under-voltage, bit1 freq capped, bit2 throttled, bit3 soft temp limit; <<16 = ever since boot)\n"
+        "  in words: %s%s%s%s%s\n"
         "The Pi, measured on the emulator's core:\n"
         "  spin-loop clock %5.0f MHz   (register-only loop; ~2 cycles an iteration)\n"
         "  machine RAM read %6.0f MB/s   (cached: thousands; uncached: tens)\n"
         "  static data read %6.0f MB/s\n%s",
         s_arm_hz / 1000000u, s_arm_max_hz / 1000000u, s_temp_mc / 1000.0, s_throttled,
+        (s_throttled & 0x1) ? "UNDER-VOLTAGE NOW. " : "", (s_throttled & 0x4) ? "THROTTLED NOW. " : "",
+        (s_throttled & 0x10000) ? "under-voltage has occurred since boot. " : "", (s_throttled & 0x40000) ? "throttling has occurred since boot. " : "",
+        s_throttled ? "The power supply or its cable is not holding 5 V under load." : "power is clean.",
         spin_mhz, ram_mbs, bss_mbs, s_mbox_ok ? "" : "  (the mailbox did not answer)\n");
     (void)sum;
 }

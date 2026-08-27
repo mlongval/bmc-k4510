@@ -235,7 +235,7 @@ int k4510_frontend_main(int argc, char **argv)
           /* the window opens 20 s after start, so it measures the machine at
            * the prompt rather than BENCH, whose clock reads are dear on the Pi */
           if (p_last && SDL_GetTicks() > 20000) { p_tot += c - p_last; p_n++; }
-          if (p_n == 1) io_prof_reset();                    /* the window starts at the second frame */
+          if (p_n == 1) { io_prof_reset(); p_mach = p_tex = p_pres = p_cpu = p_vic = p_sid = 0; }   /* the window opens: every sum starts here */
           p_last = c;
           if (p_n == PERF_FRAMES) {
               char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
