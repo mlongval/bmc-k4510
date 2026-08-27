@@ -109,7 +109,9 @@ from. The lineage, briefly:
   `NEG NEG` opcode prefix, 32-bit flat zero-page-indirect addressing
   through a `NOP` prefix, a 28-bit address space via extended `MAP`,
   hypervisor mode, and assorted new opcodes (`LDZ`, `PHX/PHY/PHZ`,
-  `TAB`, `BRA`, two-byte branch offsets). It runs at ~40.5 MHz.
+  `TAB`, `BRA`, two-byte branch offsets). It runs at *optimal MHz*: the clock is whatever the host can hold at
+  60 fps with clean sound (see `CPU-CLOCK-POLICY.md`); 40.5 MHz, the
+  MEGA65's number, is the desktop's starting point and nothing more.
 
 The extensions are prefix-based, so they are invisible to 4502/4510
 code: backward compatibility holds by construction. Five reasons this

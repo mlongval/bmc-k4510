@@ -11,11 +11,16 @@ the SID sound chip --- it borrows openly and then outgrows.
 \item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
   4510 with the Q pseudo-register and 32-bit flat addressing) plus this
   machine's own memory management: bank registers, a far-call gate, and RAM
-  under the ROM. On the desktop it runs at 40.5\,MHz; on the
-  Raspberry Pi 3B+ at 15\,MHz, which is what that Pi emulates in real
-  time. The clock is a setting (F7, under Machine), and the machine is
-  a fantasy: its timings are suggestions, and \verb|INFO| and the
-  banner report the clock in force.
+  under the ROM. It runs \emph{at optimal MHz}: the machine is a
+  fantasy, its timings are suggestions, and the clock is whatever the
+  host it runs on can hold at sixty frames a second with no gaps in the
+  sound. A desktop of the last ten years holds a hundred megahertz or
+  more; a Raspberry Pi 3B+ holds fifteen. Today the clock is a setting
+  (F7, under Machine --- the desktop starts at 40.5\,MHz, the MEGA65's
+  number, and the Pi at 15) and \verb|BENCH| measures which one your
+  host can hold; the design's direction is for the machine to measure
+  that itself at boot. \verb|INFO| and the banner report the clock in
+  force, which is the only honest number.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
 \item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
@@ -137,12 +142,13 @@ page on the right, the screen-font list open over them.}
   banks and MAP, VICKY, the devices, JIM --- to \texttt{k4510-slotN.k4s}
   beside the settings file; the row shows when the slot was written;
   the Tube co-processor is not in the file and is stopped by a load);
-  \emph{CPU clock} --- 40.5, 30, 20, 15 or 10\,MHz, live, the desktop
-  starting at 40.5 and the Pi at 15: a clock is right for a host when it
-  holds 60 frames a second with no gaps in the sound, and above that the
+  \emph{CPU clock} --- 40.5, 30, 20, 15 or 10\,MHz, live; the desktop
+  starts at 40.5 and the Pi at 15, and both are starting points rather
+  than facts about the machine. A clock is right for a host when it
+  holds 60 frames a second with no gaps in the sound; above that the
   programs run faster than the host keeps up with, the frame rate falls
-  and the music slows with it (\verb|BENCH| measures all five,
-  Chapter~\ref{cha:shell}); reset; power cycle (memory cleared, ROM
+  and the music slows with it. \verb|BENCH| measures all five
+  (Chapter~\ref{cha:shell}); reset; power cycle (memory cleared, ROM
   reloaded, back at \texttt{/} with \texttt{STARTUP.BAT} run again);
   stop the Tube co-processor; quit --- \emph{Power off} on the Pi.
 \item[Shell] whether an unknown word at the prompt may run a CP/M

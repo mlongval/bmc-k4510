@@ -5,6 +5,7 @@ Raspberry Pi SD-card image and the handbook.
 
 A fantasy 8/16-bit computer, built from scratch in August 2026 and running
 **bare metal on a Raspberry Pi 3B+** (and on a Linux desktop under SDL2).
+Project orchestrator: Michael Longval.
 It is not an emulation of any real machine: its CPU, video chip, sound and
 operating system are its own, and the parts it borrows — a 6502-family
 instruction set, the SID — it borrows openly and then outgrows.
@@ -47,10 +48,13 @@ on, and the K4510 boots in about three seconds.
 
 - **CPU: the 45GS10** — the MEGA65's 45GS02 instruction set (Q register,
   32-bit flat addressing, 28-bit MAP) plus the K4510 MMU: bank registers,
-  a far-call gate, RAM under the ROM — at 40.5 MHz on the desktop, 15 MHz
-  on the Pi 3B+ (a setting, F7 → Machine; `BENCH` finds the right one for
-  a host). The instruction core is Xemu's, byte for byte; everything
-  around it is ours.
+  a far-call gate, RAM under the ROM — **@ optimal MHz**: the machine is a
+  fantasy and its timings are suggestions, so the clock is whatever the
+  host can hold at 60 fps with clean sound. A recent desktop holds 100+
+  (the sweep is in `docs/CPU-CLOCK-POLICY.md`); a Pi 3B+ holds 15. Today it
+  is a setting (F7 → Machine, desktop starting at 40.5, Pi at 15) and
+  `BENCH` measures your host; measuring at boot is the direction. The
+  instruction core is Xemu's, byte for byte; everything around it is ours.
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time and
   everything else is one instruction away. Byte-pokeable **bank
   registers** ($D600) and a **far-call gate** ($DF00) make programs
