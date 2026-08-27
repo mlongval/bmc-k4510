@@ -156,7 +156,8 @@ The register map is in
 Chapter~\ref{cha:io} and \texttt{core/net.h}. On the Pi the network is
 the Ethernet port (DHCP); without a cable the device answers ``not
 fitted'' and URLs are simply absent names. The Pi has no TLS, so
-\texttt{https://} works on the desktop only.
+\texttt{https://} works on the desktop only, and its network wakes on
+first use rather than at boot.
 
 So that there is no guessing, this is the whole list of what the machine
 speaks, and where:
@@ -226,6 +227,15 @@ the colour bars and the machine's own description --- which is a tidy way
 to end a session or start a screenshot.
 \verb|RESET| restarts the machine from the shell, the same cold start the
 reset chord performs.
+
+\verb|BENCH| measures the machine: how many frames a second this host
+manages at the clock in force, then each of the five clocks for two
+seconds with a note sounding on SID~0, reporting frames and gaps in the
+sound for each, and the clock is put back. About 25 seconds; the report
+goes to \pth{/SYSTEM/BENCH-NN.TXT}. A clock is right for this host when
+it holds 60 frames a second with no gaps --- which is 40.5\,MHz on a
+desktop and 15\,MHz on a Pi~3B+, and the figure to quote when a program
+seems slow.
 
 Several commands answer to more than one name, so that habits from
 another machine mostly work: \verb|CD| is also \verb|CHDIR|, \verb|RM|

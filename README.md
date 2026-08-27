@@ -38,15 +38,19 @@ yourself, or:
     ./install-sd.sh bmc-k4510-pi3.zip /media/$USER/CARD     # mounted card
     ./install-sd.sh bmc-k4510-pi3.zip /dev/sdX --format     # wipe + FAT32 + install
 
-The machine needs ~5 MB. Insert, power on, and the K4510 boots in about
-three seconds.
+The machine needs ~5 MB. **Use the official 5.1 V / 2.5 A supply**: a
+phone charger sags under three busy cores, the firmware caps the clock,
+and the machine crawls while looking like a software fault. Insert, power
+on, and the K4510 boots in about three seconds.
 
 ## The machine
 
 - **CPU: the 45GS10** — the MEGA65's 45GS02 instruction set (Q register,
   32-bit flat addressing, 28-bit MAP) plus the K4510 MMU: bank registers,
-  a far-call gate, RAM under the ROM — at 40.5 MHz. The instruction core is
-  Xemu's, byte for byte; everything around it is ours.
+  a far-call gate, RAM under the ROM — at 40.5 MHz on the desktop, 15 MHz
+  on the Pi 3B+ (a setting, F7 → Machine; `BENCH` finds the right one for
+  a host). The instruction core is Xemu's, byte for byte; everything
+  around it is ours.
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time and
   everything else is one instruction away. Byte-pokeable **bank
   registers** ($D600) and a **far-call gate** ($DF00) make programs
