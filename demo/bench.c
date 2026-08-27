@@ -29,6 +29,8 @@
 void __fastcall__ rom_chrout(unsigned char c);
 unsigned char __fastcall__ rom_shell(const char *line);
 static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }
+static unsigned char rom_load(void) { return ((unsigned char (*)(void))0xFF89)(); }
+#define SCRATCH 0x0E800000UL          /* somewhere to land a probe read */
 static void zp16(uint8_t a, uint16_t v) { REG(a) = v; REG(a + 1) = v >> 8; }
 static void zp32(uint8_t a, uint32_t v) { REG(a)=v; REG(a+1)=v>>8; REG(a+2)=v>>16; REG(a+3)=v>>24; }
 
@@ -143,19 +145,21 @@ void main(void)
     add("(Written by BENCH on the machine itself.)\n");
 
     rom_shell("MKDIR /SYSTEM");
-    { const char *p = "/SYSTEM/BENCH-"; uint8_t n = 0;
-      unsigned long y = REG(SYS + 0x0A) | ((unsigned long)REG(SYS + 0x0B) << 8);
-      while (*p) name[n++] = *p++;
-      name[n++] = (char)('0' + (uint8_t)((y / 1000) % 10)); name[n++] = (char)('0' + (uint8_t)((y / 100) % 10));
-      name[n++] = (char)('0' + (uint8_t)((y / 10) % 10));   name[n++] = (char)('0' + (uint8_t)(y % 10));
-      name[n++] = (char)('0' + REG(SYS + 9) / 10); name[n++] = (char)('0' + REG(SYS + 9) % 10);
-      name[n++] = (char)('0' + REG(SYS + 8) / 10); name[n++] = (char)('0' + REG(SYS + 8) % 10);
-      name[n++] = '-';
-      name[n++] = (char)('0' + REG(SYS + 7) / 10); name[n++] = (char)('0' + REG(SYS + 7) % 10);
-      name[n++] = (char)('0' + REG(SYS + 6) / 10); name[n++] = (char)('0' + REG(SYS + 6) % 10);
-      name[n++] = (char)('0' + REG(SYS + 5) / 10); name[n++] = (char)('0' + REG(SYS + 5) % 10);
-      { const char *e = ".TXT"; while (*e) name[n++] = *e++; }
-      name[n] = 0; }
+    /* The Pi has no clock of its own: every boot reports the same date, so a
+     * name built from it overwrote the previous run -- and comparing runs is
+     * the whole point. Take the first free number instead, found by trying to
+     * open each one. The date and time are inside the file either way. */
+    { uint8_t k;
+      for (k = 1; k < 100; k++) {
+          const char *p = "/SYSTEM/BENCH-"; uint8_t n = 0;
+          while (*p) name[n++] = *p++;
+          name[n++] = (char)('0' + k / 10); name[n++] = (char)('0' + k % 10);
+          { const char *e = ".TXT"; while (*e) name[n++] = *e++; }
+          name[n] = 0;
+          zp16(0xF0, (uint16_t)name); zp32(0xF2, SCRATCH);
+          if (rom_load()) break;                    /* will not open: free */
+      }
+    }
 
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)BUF); zp32(0xF6, (uint32_t)len);
     if (rom_save()) { say("\nBENCH: could not write "); say(name); say("\n"); return; }

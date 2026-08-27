@@ -36,6 +36,16 @@ unsigned tube_cp_ticks(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC
 void tube_cp_usleep(unsigned us) { usleep(us); }
 #endif
 
+/* How often the co-processor's core looks for work. It is idle from power-on
+ * until the ROM runs BBC or CPM, which on most sessions is never, so on the Pi
+ * -- where this core is a real core and the wait is a spin -- it should look
+ * rarely. 20 ms is imperceptible against starting an interpreter. */
+#ifdef K4510_PI
+#define TUBE_IDLE_US 20000
+#else
+#define TUBE_IDLE_US 1000
+#endif
+
 int tube_cp_start(int prog)
 {
     if (prog != 1 && prog != 3) return -1;   /* 1 = BBC BASIC, 3 = CP/M */
@@ -120,7 +130,7 @@ void tube_cp_run(void)
 {
     for (;;) {
         int prog;
-        while (!(prog = atomic_load(&cp_req))) tube_cp_usleep(1000);
+        while (!(prog = atomic_load(&cp_req))) tube_cp_usleep(TUBE_IDLE_US);
         atomic_store(&cp_req, 0);
         atomic_store(&cp_alive, 1);
         int rc;
