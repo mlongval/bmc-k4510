@@ -109,18 +109,31 @@ The state as of 2026-08-27, after installing what was absent:
 | SDL2 dev | the desktop emulator | yes | yes | yes | yes |
 | nasm | `tube/bbcbasic` | `~/.local/bin` 2.16.03 | `/usr/bin` 2.16.03 | `/usr/bin` 3.02 | `/usr/bin` 3.02 |
 | ACME 0.97 | `rom/wozmon.bin`, `rom/demo.bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` |
-| 64tass | `fs/FORTH/forth.prg` | **MISSING** | `/usr/local/bin` | `/usr/bin` | **MISSING** |
-| Mad Pascal | `demo/pas/*.pas` | **MISSING** | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | **MISSING** |
-| Mad Assembler | the same | **MISSING** | `~/Projects/neo6502_dev/` | symlink to `~/src/` | **MISSING** |
+| 64tass 1.60.3243 | `fs/FORTH/forth.prg` | `~/.local/bin` | `/usr/local/bin` | `/usr/bin` | `/usr/bin` |
+| Mad Pascal 1.7.8 | `demo/pas/*.pas` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` |
+| Mad Assembler 2.1.8 | the same | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | symlink to `~/src/` | `~/Projects/neo6502_dev/` |
 | aarch64 15.2 | the Pi kernel | - | - | - | `~/opt/arm-gnu-...` |
 | XeLaTeX | the handbook | `/usr/bin` | **MISSING** | **MISSING** | **MISSING** |
 
-Still to close: 64tass and Mad Pascal/Assembler on ubuntu-s1 and p15.
-Mad Pascal is a clone away — the upstream repo ships
-`bin/linux_x86_64/mp`, so it needs no Free Pascal; then
-`make pascal-install`. XeLaTeX is the open question: it is a large
-install for a document that only ubuntu-s1 has ever built, and it is the
-one line of this table worth asking Doc about rather than assuming.
+Closed 2026-08-27. Ubuntu has no 64tass 1.60 and ubuntu-s1 has no
+passwordless sudo, so it is built from the SourceForge source into
+`~/.local/bin`; Fedora's package is the same version. XeLaTeX is the one
+open line: a large install for a document only ubuntu-s1 has ever built,
+and worth asking Doc about rather than assuming either way.
+
+**Mad Pascal cannot be installed from a clone.** I tried, and it is a
+trap: `make pascal-install` runs `pascal/install.py`, which PATCHES the
+Mad Pascal source (`src/include/syntax.inc` gains `-target:k4510`,
+`src/mp.pas` moves the stack, `lib/system.pas` puts the transcendentals
+on the MATH unit) and then rebuilds `mp` with Free Pascal — which is on
+no host. On a stock clone the rebuild fails and leaves no working
+compiler at all. Worse, a stock `bin/linux_x86_64/mp` is 1.7.5-Test and
+generates DIFFERENT CODE from the patched 1.7.8: `demo/pas/pgraph.lst`
+came out 1023 lines different on hdieu before I noticed. **Copy the whole
+patched tree** (`rsync -a --exclude=.git`, 72 MB) from a host that has
+one; the patches live in the tree, not only in the binary. All four now
+reproduce `hello.prg`, `pgraph.prg`, the listings and `forth.prg` byte
+for byte.
 
 **Version pins that matter**, learned the hard way: ACME must be 0.97 or
 later (0.96.4 does not know `--cpu m65`, which `rom/wozmon.a` needs, and
