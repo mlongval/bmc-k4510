@@ -4899,3 +4899,46 @@ alpha-0.3 "Colophon" is published; the handbook asset was rebuilt with
 one. The README was rewritten to match the machine as released — it
 still announced alpha-0.2, a held key at the banner, the `@` escape, and
 the Tube as desktop-only.
+
+## 2026-08-27 — how fast could it go? Three hosts, one line each
+
+Doc: "the cpu speed has been 40.5 from the outset. my impression is that
+was set because of the mega 65" — right; `sdl/main.c` says "MEGA65-class;
+the ceiling is ours, per the design". He asked for a test that ramps the
+clock and watches what happens to sound and video. `test/bench` already
+measured the right thing (host ms per emulated frame, split cpu / VICKY /
+reSID / palette, headless); it gained `K4510_CPU_HZ=` to sweep past the
+menu's ceiling, and a call to `sid_set_cpu_hz()` it had been missing —
+without it a sounding SID at a swept clock was rendered at the wrong
+rate, by exactly the clock multiple.
+
+What ramping the clock does: nothing to sound or video until the host
+cannot finish a frame in 16.67 ms. The SID is 1 MHz and VICKY is 60 Hz
+whatever the CPU clock; raising it only means more cycles per frame. So
+the measurement is a straight line — a fixed cost plus a cost per
+emulated MHz — and the knee is where the line crosses the budget.
+
+A busy EhBASIC `SIN*COS` loop, 300 frames, four SIDs gated on a sawtooth
+("sounding") or never written ("silent"):
+
+    host                          ms/MHz   fixed   reSID x4   ceiling
+    ubuntu-s1  i7-6700  3.4 GHz    0.124    0.9     0.56       ~125 MHz
+    t480i5     i5-8350U 1.7 GHz    0.125    0.7     0.61       ~125 MHz
+    p15        i9-11950H 2.6 GHz   0.074    0.4     0.40       ~210 MHz
+    Pi 3B+     A53 1.4 GHz         (BENCH: holds 15 MHz, not 20)
+
+reSID does not move with the clock — by construction, the archive session
+confirmed in `core/sid.cc`: `sid_acc += cycles * SID_HZ / cpu_hz`. It is
+a fixed cost, and the largest of them. But it is paid from the first
+write to a chip until reset, sounding or not (`active[c]` is latched by
+`sid_write`): 0.02 ms with no SID touched, 0.56 with all four written
+once. Nothing on a desktop; half a millisecond of a tight frame on the
+Pi, for a program that set up a chip and went quiet. Left for the coding
+session in the handbook note.
+
+So the desktop runs 40.5 at under 40% of a frame, and the i9 could hold
+five times the MEGA65's clock. Whether the menu should offer more than
+40.5 is policy; the design record's line is that the timings are
+suggestions. p15's numbers were taken in a scratch clone in /tmp: its
+working tree holds the aarch64 objects of the Pi kernel build and was
+not touched.
