@@ -34,7 +34,34 @@ extern "C" void k4510_net_start(void)          // core 0, once the shim has brou
     if (net && net->Initialize(FALSE)) { s_started = true; SDL2Circle_Log(From, SDL2CIRCLE_LOG_NOTICE, "Ethernet up, DHCP running"); }
     else SDL2Circle_Log(From, SDL2CIRCLE_LOG_NOTICE, "no network device: the N: device is not fitted");
 }
-extern "C" int plat_net_ready(void) { return s_started && CNetSubSystem::Get()->IsRunning(); }
+// The network starts when the machine first asks for it, not at power-on.
+//
+// It used to start at boot, and that is what made the Pi ten times slower
+// than the card before it: Circle's net task polls the USB Ethernet adapter
+// continuously from core 0 -- USB DMA and controller MMIO on the bus the
+// emulator core reads its memory across -- cable or no cable, DHCP bound or
+// not, for ever. The 22 August kernel measured 60 fps; the network arrived on
+// the 24th; BENCH on the card then read 0.8 fps. Most sessions never touch
+// N:, a URL or TNFS, and a card without a cable never can, so the ordinary
+// machine now pays nothing for a network it is not using.
+//
+// The first request starts the stack (on core 0, where Circle's subsystems
+// live) and then waits up to eight seconds for DHCP to bind, so `TYPE
+// http://...` works first time with a cable in. Without one it comes back 6
+// after that one wait, and instantly ever after -- but it keeps looking, so a
+// cable plugged in later is found.
+static bool s_requested;
+extern "C" int plat_net_ready(void)
+{
+    if (!s_requested) {
+        s_requested = true;
+        auto f = [&]() { k4510_net_start(); };
+        on0(f);
+        unsigned end = SDL_GetTicks() + 8000;
+        while (s_started && !CNetSubSystem::Get()->IsRunning() && (int)(SDL_GetTicks() - end) < 0) SDL_Delay(10);
+    }
+    return s_started && CNetSubSystem::Get()->IsRunning();
+}
 extern "C" unsigned plat_ticks(void) { return SDL_GetTicks(); }
 
 static bool resolve(const char *host, CIPAddress &ip)   // on core 0

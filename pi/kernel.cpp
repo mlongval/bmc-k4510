@@ -18,7 +18,6 @@
 extern "C" int  k4510_frontend_main(int argc, char **argv);
 extern "C" void c64kbd_init(void);
 extern "C" void tube_cp_run(void);
-extern "C" void k4510_net_start(void);
 
 static const char From[] = "k4510";
 static std::atomic<int> s_AppGate{0};
@@ -86,7 +85,9 @@ TShutdownMode CKernel::Run(void)
     if (!ok) { m_Logger.Write(From, LogError, "no SD:/k4510 directory on the card"); return ShutdownHalt; }
     c64kbd_init();                              // GPIO pins are plain MMIO: core 1 may poll them directly
     SDL2Circle_SplitInit();
-    k4510_net_start();                          // Ethernet + DHCP on core 0's scheduler; the machine polls readiness
+    // The network is NOT started here. pi/net_pi.cpp starts it on the machine's
+    // first request: started at boot it cost the emulator core nine tenths of
+    // its speed, cable or no cable.
     s_AppGate.store(1, std::memory_order_release);
     PublishToOtherCores();
     for (;;) m_Scheduler.Yield();               // core 0 gives the servo its time
