@@ -162,8 +162,11 @@ still does: the editor holds it for half a second waiting for the
 \verb|k|, and hands it over when nothing comes. \verb|<CR>| is the other
 spelt-out key; everything else in the result is literal.
 
-Mappings last for the session --- there is no startup file for
-\verb|VI| yet --- so this is a line to type once each time you open it.
+To have it every time, put the same line, without the colon, in
+\pth{/SYSTEM/VI.RC}: \verb|VI| runs that file once the text is loaded,
+one ex command per line, a line starting with \verb|"| being a comment.
+\pth{/SYSTEM/VI.SAMPLE} is one to copy, the way \texttt{STARTUP.SAMPLE}
+is, and the file is yours --- it is not in the repository.
 
 \begin{aside}
 \textbf{Where the file lives.} Nothing of it is in the 64\,KB. Every line
