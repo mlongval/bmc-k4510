@@ -1434,7 +1434,9 @@ static void banner(void)
         pad(20);
         switch (r) {
         case 0: fg = C_HI;  puts_("BMC-K4510 -- A FANTASY 8/16-bit COMPUTER"); break;
-        case 2: { unsigned k = r16(SYS); fg = C_FG; puts_("CPU: 45GS10 at "); putdec(k / 1000); if ((k % 1000) / 100) { k_chrout('.'); putdec((k % 1000) / 100); } puts_(" MHz + runCPM Tube"); } break;
+        /* No clock here: the machine has no one speed any more.  The clock in
+         * force is INFO's business, and it says it in kHz. */
+        case 2: fg = C_FG; puts_("CPU: 45GS10"); break;
         case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
         case 4: fg = C_FG;  puts_("CHIPS: 4 reSID, VICKY, SHEILA, FRED, JIM"); break;
         }

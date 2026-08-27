@@ -39,7 +39,7 @@ void main(void)
     static const char *const say[5] = {
         "BMC-K4510 -- A FANTASY 8/16-bit COMPUTER",
         "",
-        "CPU: 45GS10 at 40.5 MHz + runCPM Tube",
+        "CPU: 45GS10",
         "RAM: 256 000 000 bytes",
         "CHIPS: 4 reSID, VICKY, SHEILA, FRED, JIM" };
     uint8_t r, i, bg0;
