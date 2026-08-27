@@ -1459,7 +1459,7 @@ int main(void)
      * --no-startup.bat skips one run, so a half-second wait at every power-on
      * was buying a third way in that nobody needed. */
     if (!(REG(SYS + 0x21) & 4)) {
-        strcpy(line, "STARTUP.BAT"); fs_name(line);   /* (the fs device reads names from RAM) */
+        strcpy(line, "/STARTUP.BAT"); fs_name(line);   /* absolute: a power cycle used to come back in the old directory */   /* (the fs device reads names from RAM) */
         if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {

@@ -10,7 +10,10 @@ extern "C" {
 #endif
 void *host_alloc_zeroed(size_t bytes);          /* NULL on failure; may be lazily committed */
 void  host_zero(void *p, size_t bytes);         /* back to all-zero, releasing pages if it can */
-void  host_poll_input(void);                    /* once per frame: the Pi scans the C64 keyboard here */
+void  host_poll_input(void);
+/* for PERF.TXT: the host's own account of clock, temperature, throttling and
+ * memory speed, as text; empty where the host has nothing to say */
+void  host_perf_probe(char *out, unsigned n);                    /* once per frame: the Pi scans the C64 keyboard here */
 #ifdef __cplusplus
 }
 #endif

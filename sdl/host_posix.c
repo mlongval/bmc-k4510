@@ -8,3 +8,4 @@ void *host_alloc_zeroed(size_t bytes)
 }
 void host_zero(void *p, size_t bytes) { madvise(p, bytes, MADV_DONTNEED); }
 void host_poll_input(void) { }
+void host_perf_probe(char *out, unsigned n) { if (n) out[0] = 0; }

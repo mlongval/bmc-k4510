@@ -260,6 +260,7 @@ int k4510_frontend_main(int argc, char **argv)
                         fprintf(pf, "    $D%02X0-$D%02XF  %10.0f\n", best, best, (double)bv / f);
                         io_prof_hist[best] = 0;
                     } }
+                  { static char hp[1200]; host_perf_probe(hp, sizeof hp); fputs(hp, pf); }
                   fprintf(pf, "\n(events, the menu overlay and the settings poll are 'everything else')\n");
                   fclose(pf);
               }

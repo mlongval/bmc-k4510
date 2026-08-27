@@ -57,7 +57,10 @@ int tube_cp_start(int prog)
         atomic_store(&in_w, 0);  atomic_store(&in_r, 0);
     }
     atomic_store(&cp_kill, 0);
-    atomic_store(&cp_req, prog);          /* the co-processor picks this up (after quitting, if it is still running) */
+    atomic_store(&cp_req, prog);
+#if defined(K4510_PI) && defined(__aarch64__)
+    __asm__ volatile("sev" ::: "memory");     /* wake the co-processor's core */
+#endif          /* the co-processor picks this up (after quitting, if it is still running) */
     return 0;
 }
 void tube_cp_stop(void)
@@ -130,7 +133,14 @@ void tube_cp_run(void)
 {
     for (;;) {
         int prog;
+#if defined(K4510_PI) && defined(__aarch64__)
+        /* the co-processor's core sleeps until an event: tube_cp_start sends
+         * one.  A spinning core heats the SoC, and Circle pulls the clock to
+         * idle above 60 C -- so the spin was making the whole machine slow. */
+        while (!(prog = atomic_load(&cp_req))) __asm__ volatile("wfe" ::: "memory");
+#else
         while (!(prog = atomic_load(&cp_req))) tube_cp_usleep(TUBE_IDLE_US);
+#endif
         atomic_store(&cp_req, 0);
         atomic_store(&cp_alive, 1);
         int rc;

@@ -993,7 +993,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
-    net_reset(); fs_remote[0] = 0; fs_net_drop(); term_reset();
+    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from /SID came back in /SID, where there is no STARTUP.BAT (Doc) */
 #ifdef K4510_PI
     dbg_auto = 0; dbg_rec = 0;                           /* the desktop emulator only (Doc): no SD wear, and the PC recorder
                                                             costs a store per instruction the Pi cannot spare (DUMP ON arms it) */
