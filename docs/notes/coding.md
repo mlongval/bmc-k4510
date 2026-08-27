@@ -112,6 +112,7 @@ The state as of 2026-08-27, after installing what was absent:
 | 64tass 1.60.3243 | `fs/FORTH/forth.prg` | `~/.local/bin` | `/usr/local/bin` | `/usr/bin` | `/usr/bin` |
 | Mad Pascal 1.7.8 | `demo/pas/*.pas` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` |
 | Mad Assembler 2.1.8 | the same | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | symlink to `~/src/` | `~/Projects/neo6502_dev/` |
+| Free Pascal | rebuilding `mp` | `~/opt/fpc` 3.2.2 | `/usr/bin` 3.2.2 | `/usr/bin` 3.2.3 | `/usr/bin` 3.2.3 |
 | aarch64 15.2 | the Pi kernel | - | - | - | `~/opt/arm-gnu-...` |
 | XeLaTeX | the handbook | `/usr/bin` | **MISSING** | **MISSING** | **MISSING** |
 
@@ -121,7 +122,36 @@ passwordless sudo, so it is built from the SourceForge source into
 open line: a large install for a document only ubuntu-s1 has ever built,
 and worth asking Doc about rather than assuming either way.
 
-**Mad Pascal cannot be installed from a clone.** I tried, and it is a
+**Mad Pascal is no longer a precious binary (2026-08-27, second pass).**
+Free Pascal is now on all four, so `pascal/install.py` does the whole job
+and the compiler can be rebuilt anywhere. The recipe, in full:
+
+    git clone https://github.com/tebe6502/Mad-Pascal.git DIR
+    git -C DIR checkout 4a0e5bcd          # the pin: upstream 1.7.8 "optimizations"
+    python3 pascal/install.py DIR         # patches the source, copies pascal/mp/*, builds mp
+
+Nothing in it is unbackupable: the K4510 half (`lib/k4510.pas`,
+`graph_k4510.inc`, `base/k4510/`, `rtl6502_k4510.asm` and the rest) is
+copied out of `pascal/mp/` in THIS repository, and the eleven upstream
+files it edits are edited by that script. Only the upstream commit needed
+pinning, and 4a0e5bcd is it.
+
+**Tested, because the fpc versions differ**: p15 built `mp` with Fedora's
+fpc 3.2.3 and ubuntu-s1 with the official 3.2.2 tarball, and both produce
+`hello.prg` and `pgraph.prg` BYTE-IDENTICAL to what is committed. So the
+fpc version does not reach the generated 6502 code, and needs no pin of
+its own.
+
+One wrinkle: `demo/pas/*.lst` records mads's `-i:` path in its second
+line, so the listings only reproduce when Mad Pascal sits at the canonical
+`~/Projects/neo6502_dev/Mad-Pascal`. Build it elsewhere and you get a
+one-line diff that is not a code difference.
+
+ubuntu-s1 has no passwordless sudo, so its fpc is the official
+`fpc-3.2.2.x86_64-linux.tar` installed into `~/opt/fpc`, with a symlink at
+`~/.local/bin/fpc` so a non-interactive shell finds it.
+
+**Historical, and still true of a stock clone:** I tried, and it is a
 trap: `make pascal-install` runs `pascal/install.py`, which PATCHES the
 Mad Pascal source (`src/include/syntax.inc` gains `-target:k4510`,
 `src/mp.pas` moves the stack, `lib/system.pas` puts the transcendentals
