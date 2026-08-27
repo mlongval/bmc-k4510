@@ -48,6 +48,40 @@ If any of it is ever vendored: the MIT header covers rsta2's code only.
 `ccp.hex` and `bdos.hex` are DRI binaries under the Caldera/Lineo grant
 and would need their own line in `THIRD_PARTY_SOURCES.md`.
 
+## Every machine current, on binaries as well as the tree (2026-08-27)
+
+Doc, today: "I move around a lot from machine to machine, thus all
+machines must be in sync on repo and binaries."
+
+He sits down at whichever machine is nearest and runs what is on it. A
+`git pull` leaves a host looking current while its `sdl/k4510`,
+`rom/kernal.bin` and `fs/PRG/*.prg` are from whenever it last built.
+Three separate faults today came from exactly that: he tested a reported
+regression against an emulator thirty commits old; p15's `rom/kernal.bin`
+was a day behind and would have gone onto an SD card; and thirteen tracked
+`.prg` files were stale on every host at once because `make` skipped them.
+
+So, for both of us:
+
+- **Pulled is not built.** After a change lands, rebuild every host that
+  can build, not just the one you are sitting at. A host left
+  pulled-but-unbuilt is worse than one left behind, because it lies.
+- **`rom/kernal.bin` is untracked and needs cc65.** It does not arrive with
+  a pull. p15 has no cc65, so it must be sent the binary; `pi/make-sd.sh`
+  now refuses a card whose ROM is older than `rom/kernal.c`.
+- **`rm -f demo/*.o` before trusting a rebuild**, and before believing
+  `make check-artifacts`. An intermediate that looks newer than its source
+  is skipped, and the guard then compares a stale artifact against itself.
+- **Tracked artifacts get built once and confirmed twice**: build on one
+  host, verify byte-identical on a second, then commit.
+- **Say which hosts are current** when you report, and which are not. "It
+  is pushed" is not the same statement as "it runs there".
+
+Toolchains count as machine state too: cc65 on ubuntu-s1, t480i5 and
+hdieu; the aarch64 15.2 toolchain on p15; ACME being installed on
+ubuntu-s1 and hdieu today. A host that cannot build a thing should be
+written down as such rather than discovered at the moment it matters.
+
 ## For the handbook agent — user-visible, shipped today, undocumented
 
 **The "hold a key to skip STARTUP.BAT" message is gone**, and so is the
