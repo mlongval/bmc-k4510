@@ -14,6 +14,8 @@ files:   DIR [A] [dir|pattern]
          *SWAP EDIT name edits from inside a BASIC)
          (VI is modal and keeps the file in far
          memory: 32000 lines, 255 columns.
+         /SYSTEM/VI.RC runs at startup, one ex
+         command a line -- copy /SYSTEM/VI.SAMPLE.
          hjkl 0 $ gg G, i a I A o O, x dd,
          :w :q :q! :wq, Esc leaves insert)
          XD name

@@ -1,5 +1,7 @@
-# A sample /STARTUP.BAT -- copy it to / and edit. It runs at power-on;
-# hold a key at the banner to skip it. Your own copy is never overwritten.
+# A sample /STARTUP.BAT -- copy it to / and edit. It runs at power-on.
+# If one you wrote wedges the machine, turn it off in F7 > Run STARTUP.BAT,
+# or start the emulator with --no-startup.bat. Your own copy is never
+# overwritten.
 # Aliases live in RAM, so they are defined here every boot.
 
 # the CP/M programs, each through a .SUB on A: that ends in EXIT,

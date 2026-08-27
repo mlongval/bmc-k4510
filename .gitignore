@@ -52,6 +52,8 @@ fs/SYSTEM/chargen.bin
 
 # your own startup script: yours, not the repo's (see /SYSTEM/STARTUP.SAMPLE)
 fs/STARTUP.BAT
+# and your own VI startup file (see /SYSTEM/VI.SAMPLE)
+fs/SYSTEM/VI.RC
 
 # the temp file *VI / *EDIT save the BASIC program through
 fs/EDITTMP.BAS

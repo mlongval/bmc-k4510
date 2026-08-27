@@ -639,6 +639,36 @@ static void do_cmd(void)
     mode = 0; cmdlen = 0; cmd[0] = 0;
 }
 
+/* ---- the startup file ----------------------------------------------------- */
+/* /SYSTEM/VI.RC, one ex command to a line, run once the file is in: the place
+ * for `imap jk <Esc>` and the other mappings, which otherwise have to be typed
+ * again every session. A line beginning with " is a comment, as in vi. Having
+ * no VI.RC is the ordinary case and costs one failed open. */
+static const char rcname[] = "/SYSTEM/VI.RC";
+static void run_rc(void)
+{
+    uint32_t l, off = 0; unsigned chunk, i; const char *keep = note;
+    zp16(0xF0, (uint16_t)rcname); zp32(0xF2, FLAT);
+    if (rom_load()) return;
+    l = zpr32(0xF6);
+    cmdlen = 0; cprompt = ':';
+    while (off < l) {
+        chunk = (l - off) > 128 ? 128 : (unsigned)(l - off);
+        far_get(FLAT + off, tmp, chunk);
+        for (i = 0; i < chunk; i++) {
+            if (tmp[i] == '\n') {
+                cmd[cmdlen] = 0;
+                if (cmdlen && cmd[0] != '"') do_cmd();
+                cmdlen = 0; cmd[0] = 0; cprompt = ':';
+            } else if (tmp[i] != '\r' && cmdlen < NAMEMAX - 2) cmd[cmdlen++] = (char)tmp[i];
+        }
+        off += chunk;
+    }
+    cmd[cmdlen] = 0;                                       /* a last line with no newline */
+    if (cmdlen && cmd[0] != '"') do_cmd();
+    mode = 0; cmdlen = 0; cmd[0] = 0; cprompt = ':'; note = keep;
+}
+
 void main(void)
 {
     uint8_t k, i; unsigned n; uint8_t na = rom_args(); const char *a = *(const char **)0xF0; uint8_t j = 0;
@@ -649,6 +679,7 @@ void main(void)
     if (!cols) cols = 80;
     if (!rows) rows = 30;
     load_file();
+    run_rc();                                              /* after the file: a mapping applies to a real buffer */
     REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
     while (running) {
         scroll_fit();
