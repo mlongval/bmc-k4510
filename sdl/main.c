@@ -211,6 +211,14 @@ int k4510_frontend_main(int argc, char **argv)
      * glass, and everything else (events, the menu, settings). One counter
      * read per bucket per frame is nothing against a frame. */
     static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
+    static Uint64 p_cpu, p_vic, p_sid;            /* the machine, split three ways */
+#ifdef K4510_PI
+#define PCLK() ({ Uint64 v_; asm volatile("mrs %0, cntvct_el0" : "=r"(v_)); v_; })
+#define PCLK_HZ() ({ Uint64 f_; asm volatile("mrs %0, cntfrq_el0" : "=r"(f_)); f_; })
+#else
+#define PCLK() SDL_GetPerformanceCounter()
+#define PCLK_HZ() SDL_GetPerformanceFrequency()
+#endif
 #define PERF_FRAMES 300
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
@@ -231,6 +239,11 @@ int k4510_frontend_main(int argc, char **argv)
                   fprintf(pf, "Frames:  %d averaged\n\n", PERF_FRAMES);
                   fprintf(pf, "  whole frame      %8.3f ms   (%.1f fps)\n", tot, tot > 0 ? 1000.0 / tot : 0.0);
                   fprintf(pf, "  the machine      %8.3f ms   %5.1f%%\n", ma, tot > 0 ? 100.0 * ma / tot : 0.0);
+                  { double ph = (double)PCLK_HZ();
+                    double cu = (double)p_cpu * 1000.0 / ph / f, vi = (double)p_vic * 1000.0 / ph / f, si = (double)p_sid * 1000.0 / ph / f;
+                    fprintf(pf, "      CPU steps    %8.3f ms\n", cu);
+                    fprintf(pf, "      VICKY lines  %8.3f ms\n", vi);
+                    fprintf(pf, "      SID render   %8.3f ms\n", si); }
                   fprintf(pf, "  building texture %8.3f ms   %5.1f%%\n", tx, tot > 0 ? 100.0 * tx / tot : 0.0);
                   fprintf(pf, "  onto the glass   %8.3f ms   %5.1f%%\n", pr, tot > 0 ? 100.0 * pr / tot : 0.0);
                   fprintf(pf, "  everything else  %8.3f ms   %5.1f%%\n", tot - ma - tx - pr,
@@ -351,11 +364,16 @@ int k4510_frontend_main(int argc, char **argv)
             int vol = settings_get(SET_AUDIO_VOLUME);
             vicky_begin_frame(fb, VICKY_WIDTH);
             for (int y = 0; y < VICKY_HEIGHT; y++) {
+                Uint64 t0 = PCLK();
                 cpu65.irqLevel = vicky_irq() ? 1 : 0;
                 cpu65_step(CYCLES_PER_LINE);
+                Uint64 t1 = PCLK();
                 vicky_line(y);
+                Uint64 t2 = PCLK();
                 { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
                   for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
+                Uint64 t3 = PCLK();
+                p_cpu += t1 - t0; p_vic += t2 - t1; p_sid += t3 - t2;
             }
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
