@@ -18,9 +18,10 @@ the SID sound chip --- it borrows openly and then outgrows.
   more; a Raspberry Pi 3B+ holds fifteen. Today the clock is a setting
   (F7, under Machine --- the desktop starts at 40.5\,MHz, the MEGA65's
   number, and the Pi at 15) and \verb|BENCH| measures which one your
-  host can hold; the design's direction is for the machine to measure
-  that itself at boot. \verb|INFO| and the banner report the clock in
-  force, which is the only honest number.
+  host can hold. (Having the machine measure that itself at boot is
+  proposed in \pth{docs/CPU-CLOCK-POLICY.md}, and not built.)
+  \verb|INFO| and the banner report the clock in force, which is the
+  only honest number.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
 \item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
@@ -142,12 +143,13 @@ page on the right, the screen-font list open over them.}
   banks and MAP, VICKY, the devices, JIM --- to \texttt{k4510-slotN.k4s}
   beside the settings file; the row shows when the slot was written;
   the Tube co-processor is not in the file and is stopped by a load);
-  \emph{CPU clock} --- 40.5, 30, 20, 15 or 10\,MHz, live; the desktop
-  starts at 40.5 and the Pi at 15, and both are starting points rather
-  than facts about the machine. A clock is right for a host when it
+  \emph{CPU clock} --- ten steps from 202.5\,MHz down to 10, live
+  (202.5, 162, 121.5, 81, 60, 40.5, 30, 20, 15, 10); the desktop starts
+  at 40.5 and the Pi at 15, and both are starting points rather than
+  facts about the machine. A clock is right for a host when it
   holds 60 frames a second with no gaps in the sound; above that the
   programs run faster than the host keeps up with, the frame rate falls
-  and the music slows with it. \verb|BENCH| measures all five
+  and the music slows with it. \verb|BENCH| measures every step
   (Chapter~\ref{cha:shell}); reset; power cycle (memory cleared, ROM
   reloaded, back at \texttt{/} with \texttt{STARTUP.BAT} run again);
   stop the Tube co-processor; quit --- \emph{Power off} on the Pi.
