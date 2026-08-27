@@ -13,6 +13,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
+#include "../core/build.h"   /* K4510_BUILD, for the frame profile */
 #include "../core/sid.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
@@ -201,7 +202,44 @@ int k4510_frontend_main(int argc, char **argv)
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
     int running = 1;
+    /* ---- where the frame goes -------------------------------------------
+     * The Pi runs at about a tenth of the speed it was measured at on 22
+     * August and nothing in the shared code is slower on the desktop, so
+     * rather than guess a third time, the frame loop times itself and writes
+     * the answer to SYSTEM/PERF.TXT on the machine's own filesystem. Four
+     * buckets: the emulated machine, building the texture, putting it on the
+     * glass, and everything else (events, the menu, settings). One counter
+     * read per bucket per frame is nothing against a frame. */
+    static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
+#define PERF_FRAMES 300
     while (running) {
+        { Uint64 c = SDL_GetPerformanceCounter();
+          if (p_last) { p_tot += c - p_last; p_n++; }
+          p_last = c;
+          if (p_n == PERF_FRAMES) {
+              char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
+              FILE *pf = fopen(pp, "w");
+              if (pf) {
+                  Uint64 hz = SDL_GetPerformanceFrequency();
+                  double f = (double)PERF_FRAMES;
+                  double tot = (double)p_tot * 1000.0 / (double)hz / f;
+                  double ma  = (double)p_mach * 1000.0 / (double)hz / f;
+                  double tx  = (double)p_tex  * 1000.0 / (double)hz / f;
+                  double pr  = (double)p_pres * 1000.0 / (double)hz / f;
+                  fprintf(pf, "BMC-K4510 frame profile\n=======================\n\n");
+                  fprintf(pf, "Build:   %s\n", K4510_BUILD);
+                  fprintf(pf, "Frames:  %d averaged\n\n", PERF_FRAMES);
+                  fprintf(pf, "  whole frame      %8.3f ms   (%.1f fps)\n", tot, tot > 0 ? 1000.0 / tot : 0.0);
+                  fprintf(pf, "  the machine      %8.3f ms   %5.1f%%\n", ma, tot > 0 ? 100.0 * ma / tot : 0.0);
+                  fprintf(pf, "  building texture %8.3f ms   %5.1f%%\n", tx, tot > 0 ? 100.0 * tx / tot : 0.0);
+                  fprintf(pf, "  onto the glass   %8.3f ms   %5.1f%%\n", pr, tot > 0 ? 100.0 * pr / tot : 0.0);
+                  fprintf(pf, "  everything else  %8.3f ms   %5.1f%%\n", tot - ma - tx - pr,
+                          tot > 0 ? 100.0 * (tot - ma - tx - pr) / tot : 0.0);
+                  fprintf(pf, "\n(events, the menu overlay and the settings poll are 'everything else')\n");
+                  fclose(pf);
+              }
+          }
+        }
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
@@ -307,6 +345,7 @@ int k4510_frontend_main(int argc, char **argv)
                     | (mode_pending ? (uint8_t)(SYSOPT_MODEREQ
                                        | ((mode_pending - 1) << SYSOPT_MODE_SHIFT)) : 0));
 
+        Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();
         if (!open || mode_pending) {                         /* the machine runs; while the menu is open it is frozen and silent */
             int vol = settings_get(SET_AUDIO_VOLUME);
@@ -321,6 +360,7 @@ int k4510_frontend_main(int argc, char **argv)
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
         }
+        p_mach += SDL_GetPerformanceCounter() - p_a;
         /* what the menu asked for */
         { int act = menu_take_action();
           if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }
@@ -394,6 +434,7 @@ int k4510_frontend_main(int argc, char **argv)
         }
 
         void *pixels; int pitch;
+        p_a = SDL_GetPerformanceCounter();
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
         { int tall = scan_applied != SCAN_OFF;         /* two texture rows per line of the machine */
           for (int y = 0; y < VICKY_HEIGHT; y++) {
@@ -412,6 +453,8 @@ int k4510_frontend_main(int argc, char **argv)
               }
           } }
         SDL_UnlockTexture(tex);
+        p_tex += SDL_GetPerformanceCounter() - p_a;
+        p_a = SDL_GetPerformanceCounter();
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
@@ -425,6 +468,7 @@ int k4510_frontend_main(int argc, char **argv)
           SDL_RenderClear(ren);
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
+        p_pres += SDL_GetPerformanceCounter() - p_a;
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
           if (shot && --shot_fr == 0) {
