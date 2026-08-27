@@ -271,7 +271,7 @@ static void test_audio(void)
     uint8_t c, i;
     uint16_t sid;
     head("3 of 4  --  audio");
-    footer("four SIDs, one note each -- listen");
+    footer("each SID a note in turn -- listen");
     at(3, 3); say("The clock sweep counted audio gaps, which says the ring never ran");
     at(3, 4); say("dry.  It cannot say the sound reached the room.  That needs you.");
     for (c = 0; c < 4; c++) {

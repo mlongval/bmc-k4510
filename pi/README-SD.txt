@@ -6,7 +6,7 @@ WHAT IT IS
   MEGA65's 6502 descendant) at 40.5 MHz with 256 MB of memory, its own
   video chip "VICKY" (640x480, 256 colours, 4 layers, 128 sprites, a
   blitter with line and triangle ops, a display-list coprocessor called
-  SHEILA), four SID sound chips, a DMA engine, a floating-point math
+  SHEILA), one to four SID sound chips, a DMA engine, a floating-point math
   unit, a VT100/ANSI terminal chip called JIM, and a system ROM with a
   shell, editors and several languages.  The emulator is our own; the Pi
   runs it with no operating system (Circle + circle-libsdl2).
@@ -43,7 +43,7 @@ TRY
   BUG                  asks you about a fault and writes the report to
                        /SYSTEM/BUGREPORTS, build and machine filled in
   SIDPLAY              199 real C64 tunes: cursor keys, Enter plays, Esc leaves
-  RUN sid12            four SIDs, twelve voices; keys 1-9 0 A B mute voices
+  RUN sid12            up to four SIDs, twelve voices; keys 1-9 0 A B mute voices
   RUN balls / cube / mandel / romout / segdemo / logo
   EHBASIC              EhBASIC (RETURN at "Memory size ?"); then:
      RUN "DEMOS.BAS"           the demo menu (graphics, sound)

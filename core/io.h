@@ -12,7 +12,7 @@
 #define IO_INPUT       0xD100u   /* $D100-$D1FF  keyboard, joysticks     */
 #define IO_DMA         0xD200u   /* $D200-$D2FF  block DMA (C-18)        */
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
-#define IO_SID         0xD400u   /* $D400-$D47F  4 x SID                 */
+#define IO_SID         0xD400u   /* $D400-$D47F  4 x SID (1-4 clocked)   */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2, DigiMAX           */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
 #define IO_SYS_HOST    0xD522u   /* R: 0 = desktop, 1 = Raspberry Pi */

@@ -1,4 +1,5 @@
-/* K4510 sound: four reSID chips at IO_SID ($D400), $20 bytes each.
+/* K4510 sound: four reSID chips at IO_SID ($D400), $20 bytes each; the
+ * Audio menu clocks 1-4 of them (sid_set_max).
  * C wrapper over the vendored C++ reSID (core/resid/, Dag Lem, GPL2+).
  */
 #ifndef K4510_SID_H
