@@ -47,6 +47,17 @@ static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGH
  * texture and the present are outside what calibration times. */
 static double sdl_now_ms(void) { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
 #define CALIB_MARGIN 0.7
+/* The next step down the ladder, by clock rather than by index: the enum's
+ * order is the menu's business and has been changed once already. */
+static int clock_step_below(int cur)
+{
+    unsigned cur_hz = settings_cpu_hz_of(cur), best_hz = 0; int best = -1;
+    for (int i = 0; i < CPUCLK_COUNT; i++) {
+        unsigned h = settings_cpu_hz_of(i);
+        if (h < cur_hz && h > best_hz) { best_hz = h; best = i; }
+    }
+    return best;
+}
 #define CYCLES_PER_LINE  cycles_per_line
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
@@ -251,9 +262,11 @@ int k4510_frontend_main(int argc, char **argv)
             int rc = calib_run(sdl_now_ms, ladder, CPUCLK_COUNT, 1000.0 / 60.0, CALIB_MARGIN, &cr);
             settings_set(SET_CPU_MEASURED, cr.step); settings_set(SET_CPU_HOST, hash); settings_set(SET_CPU_CLOCK, cr.step);
             settings_save(cfg);
-            fprintf(stderr, "clock: %.3f ms/MHz + %.2f ms fixed -> holds ~%.0f MHz; %s %.1f MHz%s\n",
-                    cr.ms_per_mhz, cr.ms_fixed, cr.ceiling_mhz, rc ? "too slow even for" : "chosen", cr.step_hz / 1e6,
-                    rc ? " (the lowest step)" : "");
+            fprintf(stderr, "clock: interpreter %.3f ms/MHz + %.2f, i/o %.3f ms/MHz + %.2f"
+                            " -> holds ~%.0f MHz; %s %.1f MHz%s\n",
+                    cr.phase_per[CALIB_INTERP], cr.phase_fixed[CALIB_INTERP],
+                    cr.phase_per[CALIB_IO], cr.phase_fixed[CALIB_IO], cr.ceiling_mhz,
+                    rc ? "too slow even for" : "chosen", cr.step_hz / 1e6, rc ? " (the lowest step)" : "");
 #ifdef K4510_PI
             snprintf(host_line, sizeof host_line, "Raspberry Pi 3B+, Circle -- holds ~%.0f MHz", cr.ceiling_mhz);
 #else
@@ -520,15 +533,22 @@ int k4510_frontend_main(int argc, char **argv)
             if (settings_changed()) settings_save(cfg);
         }
         /* The measurement is a guess about programs it has not seen.  When a
-         * real one starves the sound -- three empty callbacks in two seconds
-         * -- the clock steps down one, and that becomes the measured value,
-         * so the next boot starts there.  Never up: BENCH says where up is. */
-        if (settings_get(SET_CPU_AUTO) && !open && ++gap_frames >= 120) {
+         * real one starves the sound -- three empty callbacks in a window --
+         * the clock steps down one, and that becomes the measured value, so
+         * the next boot starts there.  Never up: BENCH says where up is.
+         *
+         * The window is three seconds and it restarts whenever the clock
+         * changes, which is what keeps this out of BENCH's way: BENCH sweeps
+         * the ladder two seconds a step and *means* to starve the sound at
+         * the top of it, so a window that could close inside one of its
+         * dwells would step the clock down under it and persist the result. */
+        if (settings_get(SET_CPU_AUTO) && !open && ++gap_frames >= 180) {
             unsigned g = io_audio_gaps - gaps_seen; gaps_seen = io_audio_gaps; gap_frames = 0;
-            int s = settings_get(SET_CPU_CLOCK);
-            if (g >= 3 && s < CPUCLK_COUNT - 1) {
-                settings_set(SET_CPU_CLOCK, s + 1); settings_set(SET_CPU_MEASURED, s + 1); settings_save(cfg);
-                fprintf(stderr, "clock: %u audio gaps in 2 s at %.1f MHz, stepping down to %.1f\n", g, settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(s + 1) / 1e6);
+            int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
+            if (g >= 3 && down >= 0) {
+                settings_set(SET_CPU_CLOCK, down); settings_set(SET_CPU_MEASURED, down); settings_save(cfg);
+                fprintf(stderr, "clock: %u audio gaps in 3 s at %.1f MHz, stepping down to %.1f\n",
+                        g, settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(down) / 1e6);
             }
         }
         if (settings_cpu_hz() != cpu_hz_now) {
@@ -538,6 +558,7 @@ int k4510_frontend_main(int argc, char **argv)
              * and append it.  This is how the Pi gets swept -- there is no
              * K4510_CPU_HZ on the card, only the menu. */
             p_n = 0; p_last = 0;
+            gaps_seen = io_audio_gaps; gap_frames = 0;   /* and a new machine to judge: the step-down window restarts */
         }
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
