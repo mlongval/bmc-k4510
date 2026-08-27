@@ -177,7 +177,7 @@ fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pasca
 	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg
 demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s

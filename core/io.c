@@ -567,6 +567,13 @@ int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
 static int clock_measured, adopt_req;
 void io_set_clock_measured(int yes) { clock_measured = yes ? 1 : 0; }
 int  io_adopt_requested(void) { int a = adopt_req; adopt_req = 0; return a; }
+/* SETUP sweeps the ladder and starves the sound on purpose at the top of it.
+ * The governor's whole job is to step down when the sound starves, so left
+ * running it changes the clock under the program measuring it -- which it did,
+ * 2026-08-27: the sweep came out non-monotonic and nothing reached 60 fps.
+ * SYS+$29 says a measurement is in progress and the governor stands down. */
+static int measuring;
+int  io_measuring(void) { return measuring; }
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -587,7 +594,8 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
     if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);
-    if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */   /* how many steps the ladder has, so a guest need not probe for it */
+    if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */
+    if (r == 0x29) return (uint8_t)measuring;   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
@@ -1129,6 +1137,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
         if ((addr & 0xFF) == 0x24) io_audio_gaps = 0;                 /* any write clears the gap count */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
+        if ((addr & 0xFF) == 0x29) measuring = v ? 1 : 0;              /* SETUP: hold the governor off while the ladder is swept */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
                                    /* the guest acknowledging a video-mode request: it has performed it,
                                     * so the request goes away at once instead of standing for frames

@@ -589,7 +589,11 @@ int k4510_frontend_main(int argc, char **argv)
          * the clock changes or the menu opens -- which is also what keeps the
          * governor out of BENCH's way, since BENCH sweeps the ladder two
          * seconds a step and means to starve the sound at the top of it. */
-        if (!settings_get(SET_CPU_AUTO) || open) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
+        /* io_measuring(): SETUP is sweeping the ladder and starving the sound
+         * on purpose at the top of it.  Stepping down under the program that is
+         * measuring us corrupts its answer -- it did, 2026-08-27 -- so stand
+         * down entirely until it says it has finished. */
+        if (!settings_get(SET_CPU_AUTO) || open || io_measuring()) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
         else {
             Uint64 nowc = SDL_GetPerformanceCounter(), hzc = SDL_GetPerformanceFrequency();
             if (!gov_t0) { gov_t0 = nowc; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }

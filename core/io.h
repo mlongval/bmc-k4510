@@ -30,6 +30,7 @@ void    io_set_opts(uint8_t v);
 int     io_mode_acked(void);      /* 1 once: the guest performed the video-mode request */
 void    io_set_clock_measured(int yes);  /* the frontend: has this host a measured clock in k4510.cfg? */
 int     io_adopt_requested(void);        /* 1 once: the guest asked to keep the clock in force (SETUP) */
+int     io_measuring(void);              /* the guest is measuring: the governor must keep its hands off */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 /*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
