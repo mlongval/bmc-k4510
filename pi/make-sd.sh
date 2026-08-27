@@ -4,6 +4,33 @@
 set -e
 M="$1"; [ -d "$M" ] || { echo "usage: $0 /mounted/card"; exit 1; }
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd)
+# rom/kernal.bin is built by cc65 and is NOT in the repository, so it does not
+# arrive with a git pull, and it cannot be rebuilt on a host without cc65 --
+# which is p15, the host that writes the cards.  A card laid out with last
+# week's ROM boots and looks perfectly right, which is the worst kind of wrong:
+# it happened on 2026-08-27, when the ROM on the card was a day behind the ROM
+# in the repository and nothing said so.  Refuse instead.
+K="$REPO/rom/kernal.bin"
+[ -f "$K" ] || { echo "make-sd: $K is missing."; echo "  Build the ROM where cc65 lives (t480i5, ubuntu-s1) and copy it here."; exit 1; }
+for src in "$REPO"/rom/kernal.c "$REPO"/rom/*.s "$REPO"/rom/*.cfg; do
+    [ -f "$src" ] || continue
+    if [ -n "$(find "$src" -newer "$K" 2>/dev/null)" ]; then
+        echo "make-sd: rom/kernal.bin is older than $(basename "$src") -- the card would carry a stale ROM."
+        if command -v cc65 >/dev/null 2>&1; then
+            echo "  cc65 is on this host: run 'make' first."
+        else
+            echo "  There is no cc65 on this host, so 'make' cannot fix it here: build the"
+            echo "  ROM on t480i5 or ubuntu-s1 and copy rom/kernal.bin over."
+        fi
+        if [ "${MAKE_SD_STALE_ROM:-0}" = 1 ]; then
+            echo "  MAKE_SD_STALE_ROM=1: laying the card out with the stale ROM anyway."
+        else
+            echo "  To lay out the card anyway: MAKE_SD_STALE_ROM=1 $0 \"$M\""
+            exit 1
+        fi
+    fi
+done
+
 B="${SHIM:-$HOME/Projects/k4510-pi/circle-libsdl2}/circle-stdlib-rpi3/libs/circle/boot"
 cp "$B/bootcode.bin" "$B/start.elf" "$B/fixup.dat" "$M/"
 cp "$HERE/config.txt" "$M/config.txt"
