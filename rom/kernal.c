@@ -671,8 +671,12 @@ static void cmd_color(const char *p)
 #pragma rodata-name (pop)
 #pragma code-name (push, "SWCODE1")   /* sideways bank 1: INFO and TIME, called through sw_call() */
 #pragma rodata-name (push, "SWRODATA1")
-static const char *const daynames[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-static const char *const modenames[4] = { "bitmap", "tile", "text8", "text32" };
+/* Flat char arrays, NOT const char*[]: a pointer array in a sideways bank
+ * stores addresses the banking does not fix up, so puts_() reads the string
+ * from whatever bank is mapped when it runs -- garbage. INFO showed it on
+ * the layer-0 mode name for a long time. A char[] indexed in place is read
+ * from this bank directly and has no such pointer to go stale. */
+static const char daynames[] = "SunMonTueWedThuFriSat";   /* flat 3-char slots, indexed in place */
 
 static void info_version(void)
 {
@@ -726,7 +730,9 @@ static void info_video(void)
         L = 0x10 + n * 0x10; lc = REG(VICKY + L);
         pad(8); puts_("layer "); k_chrout('0' + n); puts_(": ");
         if (!(lc & 1)) { puts_("off"); newline(); continue; }
-        puts_(modenames[(lc >> 1) & 3]); k_chrout(' '); putdec(1 << ((lc >> 3) & 3)); puts_(" bpp");
+        switch ((lc >> 1) & 3) { case 0: puts_("bitmap"); break; case 1: puts_("tile"); break;
+                                 case 2: puts_("text8"); break; default: puts_("text32"); break; }
+        k_chrout(' '); putdec(1 << ((lc >> 3) & 3)); puts_(" bpp");
         if (((lc >> 1) & 3) == 1) { puts_(", "); putdec(8 << ((lc >> 5) & 3)); puts_("px tiles"); }
         if (((lc >> 1) & 3) >= 2) { puts_(", 8x"); putdec((lc & 0x20) ? 16 : 8); puts_(" cells"); }
         puts_(", stride "); putdec(r16(VICKY + L + 6)); puts_(", scroll "); putdec(r16(VICKY + L + 2)); k_chrout(','); putdec(r16(VICKY + L + 4)); newline();
@@ -772,7 +778,7 @@ static void info_time(void)
     { volatile uint8_t d = REG(SYS + 4); (void)d; }      /* latch the host clock */
     label("TIME"); putdec(r16(SYS + 0x0A)); k_chrout('-'); putdec2(REG(SYS + 9)); k_chrout('-'); putdec2(REG(SYS + 8));
     k_chrout(' '); putdec2(REG(SYS + 7)); k_chrout(':'); putdec2(REG(SYS + 6)); k_chrout(':'); putdec2(REG(SYS + 5));
-    k_chrout(' '); puts_(daynames[REG(SYS + 12) % 7]);
+    { uint8_t dd = (REG(SYS + 12) % 7) * 3; k_chrout(' '); k_chrout(daynames[dd]); k_chrout(daynames[dd + 1]); k_chrout(daynames[dd + 2]); }
     f = (uint32_t)REG(SYS + 0x0D) | ((uint32_t)REG(SYS + 0x0E) << 8) | ((uint32_t)REG(SYS + 0x0F) << 16);
     s = f / 60;
     puts_(", up "); putdec(s / 3600); k_chrout(':'); putdec2((s / 60) % 60); k_chrout(':'); putdec2(s % 60);
