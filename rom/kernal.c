@@ -1445,6 +1445,16 @@ static void banner(void)
         fg = ofg;
         newline();
     }
+    /* A machine nobody has measured runs at the compiled-in safe step.  Say so
+     * rather than let the user assume the number is the machine's: the boot
+     * does not stop to measure (that would cost every boot for an answer that
+     * changes once), so this line is the only thing that tells them SETUP has
+     * something to do. */
+    if (!REG(SYS + 0x28)) {
+        newline();
+        pad(2); fg = 8; puts_("Clock not measured on this machine -- run SETUP"); fg = ofg;
+        newline();
+    }
     newline();
 }
 

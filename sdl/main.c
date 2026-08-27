@@ -260,7 +260,8 @@ int k4510_frontend_main(int argc, char **argv)
         int hash = calib_host_hash();
         if (settings_get(SET_CPU_HOST) == hash) {
             settings_set(SET_CPU_CLOCK, settings_get(SET_CPU_MEASURED));
-        } else {
+            io_set_clock_measured(1);
+        } else if (0) {                 /* the boot probe: kept, not run.  See below. */
             calib_result cr; unsigned ladder[CPUCLK_COUNT]; static char host_line[96];
             for (int i = 0; i < CPUCLK_COUNT; i++) ladder[i] = settings_cpu_hz_of(i);
             int rc = calib_run(sdl_now_ms, ladder, CPUCLK_COUNT, 1000.0 / 60.0, CALIB_MARGIN, &cr);
@@ -278,6 +279,23 @@ int k4510_frontend_main(int argc, char **argv)
 #endif
             menu_info(INFO_HOST, host_line);
             host_zero(k4510_ram, 0x10000); io_reset(); cpu65_reset();     /* the workload and the sounding SIDs go */
+        } else {
+            /* No measured clock for this host, and we do not stop to find one.
+             * Doc's decision, 2026-08-27: the boot is instantaneous, always.
+             * A machine nobody has measured runs at the compiled-in safe step
+             * -- 40.5 MHz on the desktop, 15 on the Pi -- and the banner says
+             * so, because a quiet guess is worse than a stated one.  SETUP.prg
+             * measures the machine properly, with sound and video and the
+             * network, and writes the answer here through SYS+$28.
+             *
+             * calib.c is not deleted: it is still the honest two-phase engine,
+             * and the branch above is what would run it.  It is disabled rather
+             * than removed so that whoever wants a fast unattended measurement
+             * can turn it back on without rebuilding it from the design record.
+             * The engine leaves the machine dirty by contract, which is exactly
+             * why SETUP cannot call it from inside the machine and sweeps the
+             * ladder from the guest side instead. */
+            io_set_clock_measured(0);
         }
     }
     int running = 1;
@@ -532,6 +550,16 @@ int k4510_frontend_main(int argc, char **argv)
         case ACT_QUIT: running = 0; break;
         } }
         if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
+        /* SETUP has finished measuring and asks us to keep the clock it settled
+         * on.  The guest chose it; we supply the two things it cannot know --
+         * which host this is, and where the file lives. */
+        if (io_adopt_requested()) {
+            settings_set(SET_CPU_MEASURED, settings_get(SET_CPU_CLOCK));
+            settings_set(SET_CPU_HOST, calib_host_hash());
+            settings_save(cfg);
+            io_set_clock_measured(1);
+            fprintf(stderr, "clock: SETUP measured this machine at %.1f MHz; kept\n", settings_cpu_hz() / 1e6);
+        }
         if (menu_closed_pending()) {
             if (clock_at_open >= 0 && settings_get(SET_CPU_CLOCK) != clock_at_open && settings_get(SET_CPU_AUTO))
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
