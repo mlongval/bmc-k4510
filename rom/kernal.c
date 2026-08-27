@@ -1365,7 +1365,19 @@ static void cmd_bbcbasic(uint8_t prog)
             tube_keys();                                 /* JIM's answers (cursor position reports) go up */
             continue;                                    /* drain output before reading keys */
         }
-        if (REG(KBDST) & 0x80) { REG(TERM + 3) = caps(REG(KBD)); tube_keys(); }
+        if (REG(KBDST) & 0x80) {
+            uint8_t k = caps(REG(KBD));
+            /* CP/M's software is from 1984 and reads the WordStar diamond --
+             * ^E ^X ^S ^D -- not the VT100 sequences JIM would make of the
+             * arrow keys, so in WordStar and Turbo Pascal the arrows did
+             * nothing at all. Under CP/M they go down as the diamond,
+             * straight past JIM. BBC BASIC wants the VT sequences and is
+             * left alone. */
+            if (prog == 3 && k >= 0x80 && k <= 0x83) {
+                static const uint8_t ws[4] = { 0x05, 0x18, 0x13, 0x04 };   /* up down left right */
+                REG(TUBE + 2) = ws[k - 0x80];
+            } else { REG(TERM + 3) = k; tube_keys(); }
+        }
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
     REG(TERM + 0x0E) = 0;
