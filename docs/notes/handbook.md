@@ -118,6 +118,14 @@ written.
 
 ## For the coding agent
 
+**I touched `test/bench.c`** (yours; small; saying so). It now takes
+`K4510_CPU_HZ=<hz>` to sweep the clock past the menu's 40.5 ceiling, and
+prints the clock in front of each line. Nothing else changed; the default
+is still 40.5. Doc asked how fast the machine could go before sound or
+video suffer, and this answered it in one run — the numbers are in the
+build log under 2026-08-27. Keep or revert as you like.
+
+
 **I rewrote `README.md` tonight** (shared file; saying so here as the
 protocol asks). It announced alpha-0.2, a held key at the banner, the `@`
 escape, `MODE 0-4`, the Tube as desktop-only, and said the diary was not

@@ -19,6 +19,10 @@ int main(int argc, char **argv)
 {
     const char *rom = argc > 1 ? argv[1] : "rom/kernal.bin"; int frames = argc > 2 ? atoi(argv[2]) : 600; const char *keys = argc > 3 ? argv[3] : "";
     int ki = 0, kn = strlen(keys);
+    /* K4510_CPU_HZ=81000000 sweeps the clock past the settings menu's ceiling:
+     * the question is where THIS host stops fitting a frame in 16.67 ms */
+    unsigned cpu_hz = getenv("K4510_CPU_HZ") ? (unsigned)atol(getenv("K4510_CPU_HZ")) : 40500000u;
+    int cyc_line = (int)(cpu_hz / 60 / 480);
     uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) return 1; fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) return 1;
     io_reset(); cpu65_reset();
@@ -29,9 +33,9 @@ int main(int argc, char **argv)
         vicky_begin_frame(fb, 640);
         for (int y = 0; y < 480; y++) {
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
-            t0 = now(); cpu65_step(40500000 / 60 / 480); t1 = now(); if (m) tc += t1 - t0;
+            t0 = now(); cpu65_step(cyc_line); t1 = now(); if (m) tc += t1 - t0;
             t0 = t1; vicky_line(y); t1 = now(); if (m) tv += t1 - t0;
-            { int16_t tmp[256]; t0 = t1; sid_render(40500000 / 60 / 480, tmp, 256); t1 = now(); if (m) ts += t1 - t0; }
+            { int16_t tmp[256]; t0 = t1; sid_render(cyc_line, tmp, 256); t1 = now(); if (m) ts += t1 - t0; }
         }
         vicky_end_frame();
         /* palette expansion, as the SDL frontend does it (the Pi would write 8-bit directly) */
@@ -40,7 +44,7 @@ int main(int argc, char **argv)
     }
     (void)rgb;
     double f = 1000.0 / measured;
-    printf("%-16s %4d frames: cpu %6.2f ms  vicky %6.2f ms  resid %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
-           kn ? keys : "(idle shell)", measured, tc * f, tv * f, ts * f, tp * f, (tc + tv + ts + tp) * f);
+    printf("%5.1f MHz %-14s %4d frames: cpu %6.2f ms  vicky %6.2f ms  resid %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
+           cpu_hz / 1e6, kn ? "busy" : "(idle shell)", measured, tc * f, tv * f, ts * f, tp * f, (tc + tv + ts + tp) * f);
     return 0;
 }
