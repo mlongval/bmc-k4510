@@ -210,7 +210,20 @@ int k4510_frontend_main(int argc, char **argv)
 
     SDL_AudioSpec want = { 0 }, have;
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
+#ifdef K4510_PI
+    /* On the Pi the callback runs from this core's own event pump, once a
+     * frame, and asks for a block at a time; a frame makes 800 samples. With
+     * the ring starting empty, the level sat between zero and one frame, so
+     * a 1024-sample block found 800 and 224 of silence -- BENCH counted 40
+     * gaps in two seconds at a steady 60 fps. Smaller blocks, and a lead of
+     * three of them before the sound starts (32 ms, which the ear does not
+     * notice on a music player), so the level never touches the floor. */
+    want.samples = 512;
+#endif
     SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+#ifdef K4510_PI
+    for (int i = 0; i < 1536; i++) ring[ring_w++ & RING_MASK] = 0;
+#endif
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
     int running = 1;
