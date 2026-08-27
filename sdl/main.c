@@ -203,14 +203,16 @@ int k4510_frontend_main(int argc, char **argv)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
-#ifdef K4510_PI
-    /* No vsync on the Pi: the shim blocks the present until the flip, so a
-     * frame that overran by a millisecond waited for the next vsync and the
-     * machine ran at 30 or 20 fps in steps.  It paces itself below instead. */
-    SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-#else
-    SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-#endif
+/* No vsync, anywhere.  It was off on the Pi already, because the shim blocked
+ * the present until the flip and a frame that overran by a millisecond waited
+ * for the next one, stepping the machine down to 30 or 20 fps.  The desktop
+ * kept vsync and had no pacing of its own, so it ran at whatever the compositor
+ * gave it -- 51.8 fps on hdieu's 60 Hz display, with the present taking 16.9 ms
+ * of a 19.3 ms frame.  And a machine at 51.8 fps makes 51.8 frames of sound a
+ * second where the device wants 60, so the SIDs fill in the missing seventh and
+ * you hear it.  The machine is a 60 Hz design: it keeps its own time below and
+ * presents when it is ready, which is what the Pi has always done. */
+SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
     /* Two rows of texture per line of the machine, so scanlines cost a second
@@ -731,14 +733,12 @@ int k4510_frontend_main(int argc, char **argv)
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
-#ifdef K4510_PI
         { /* 60 frames a second, drift-free: sleep to the next deadline; if the
            * frame overran, the deadline just moves on -- no step down to 30 */
           static Uint64 next; Uint64 now = SDL_GetPerformanceCounter(), per = SDL_GetPerformanceFrequency() / 60;
           if (!next || now > next + 4 * per) next = now;
           next += per;
           if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency())); }
-#endif
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
           if (shot && --shot_fr == 0) {
