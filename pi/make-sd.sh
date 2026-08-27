@@ -11,7 +11,26 @@ cp "$HERE/kernel8.img" "$M/kernel8.img"
 mkdir -p "$M/k4510/rom" "$M/k4510/data" "$M/k4510/fs"
 cp "$REPO/rom/kernal.bin" "$REPO/rom/wozmon.bin" "$REPO/rom/demo.bin" "$M/k4510/rom/"
 cp "$REPO/data/font8.bin" "$M/k4510/data/"
-cp -rL "$REPO"/fs/* "$M/k4510/fs/"   # -L: fs/SID is a symlink; FAT32 needs real files
+# -L because FAT32 has no symlinks and fs/SID is one.  fs/CPM is the
+# exception and is done below: its drive letters are links that cannot be
+# followed -- K:/0 is deliberately cyclic (it *is* this filesystem) and
+# D:/P: point into a CP/M library that is installed but never committed.
+for d in "$REPO"/fs/*; do
+    [ "$(basename "$d")" = CPM ] || cp -rL "$d" "$M/k4510/fs/"
+done
+
+# The CP/M drives get exactly what the repository itself ships: our .SUB
+# launchers and the README.  The system disk (DRI's tools and friends),
+# WordStar and Turbo Pascal are installed by whoever has a licence for
+# them -- fs/CPM/.gitignore says how -- so the card leaves their drives
+# empty rather than redistributing them.
+mkdir -p "$M/k4510/fs/CPM/A/0" "$M/k4510/fs/CPM/D/0" \
+         "$M/k4510/fs/CPM/K/0" "$M/k4510/fs/CPM/P/0"
+git -C "$REPO" ls-files -z fs/CPM | while IFS= read -r -d "" f; do
+    [ -L "$REPO/$f" ] && continue
+    mkdir -p "$M/k4510/$(dirname "$f")"
+    cp "$REPO/$f" "$M/k4510/$f"
+done
 cp "$REPO/basic/README-EhBASIC.txt" "$M/k4510/"
 
 # The card says what it is and which build it carries.  core/build.h is
