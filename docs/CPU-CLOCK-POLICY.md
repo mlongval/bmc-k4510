@@ -99,6 +99,43 @@ worst case; a program doing heavy VICKY work has a different mix. A
 pessimistic workload risks leaving performance unclaimed, an optimistic
 one risks the choppiness this is meant to end.
 
+## What proposal 1 turned out to be, once built
+
+Three findings from the first days of it, all from runs on real hosts
+rather than from reasoning:
+
+**The governor must watch frame time, not audio gaps.** The first version
+counted empty audio callbacks. On Doc's laptop the machine sat at 38 frames
+a second with the sound perfectly clean and the governor content, because
+`952daa6` decoupled the SIDs from a late CPU on purpose -- a slow frame
+sustains a note instead of cutting it. Gaps therefore say nothing across the
+whole band where a host is merely losing rather than drowning. It now
+measures the machine's own half of the frame against the 16.67 ms it has.
+A frames-per-second floor was considered and rejected: it reads a 50 Hz or
+compositor-paced display as a slow machine, and it would ratchet the clock
+down against a slow *present*, which the CPU clock does not control.
+
+**The governor only has an opinion while a program is running.** An idle
+shell at 81 MHz genuinely costs under the threshold, so it holds there and
+is right to. It steps when a program works the machine hard -- which is the
+moment it matters, but it also means the machine cannot converge on its own
+while nobody is using it. Giving the governor its own load would be
+calibration again, later, and a machine that quietly benchmarks itself while
+you are trying to type is worse than one that is occasionally optimistic.
+Doc's call if it is ever wanted.
+
+**BENCH cannot evaluate the governor**, and this is a trap for whoever tries
+next. BENCH dwells two seconds a step; the governor's window is three and
+restarts on any clock change; so during a sweep the window never closes. A
+BENCH run can only ever show the governor's *first* step. Anything concluded
+about convergence from one is measuring the guard that keeps the two out of
+each other's way, not the governor.
+
+The last of these is the real argument for proposal 2 below. The honest
+clock is not one number per host: the shell is fine at 81 on a laptop where
+BENCH's polling loop starves at 60. No boot-time measurement can know which
+program is coming, and only the program can say what it needs.
+
 ## Proposal 2: let software ask for a clock
 
 A title should be able to say what it needs, and the machine should

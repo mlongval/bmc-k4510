@@ -21,10 +21,13 @@ the SID sound chip --- it borrows openly and then outgrows.
   a host it measures that host, a third of a second with the SIDs
   sounding, and sets the clock to the highest step it can hold with
   room to spare. The answer is kept, so later boots pay nothing; a
-  clock you choose yourself in the menu is never second-guessed; and if
-  a program starves the sound anyway, the clock steps down one and
-  stays there. \verb|BENCH| measures every step, for when you want the
-  whole picture. \verb|INFO| reports the clock in force, read live, which is the only
+  clock you choose yourself in the menu is never second-guessed; and
+  while a program is running, the machine keeps an eye on how much of
+  each frame it is taking, stepping the clock down if it is losing.
+  What a clock costs depends on what the program does with it --- an
+  arithmetic loop and a loop polling the raster differ by three to one
+  --- so the measurement is a fair guess rather than a promise, and
+  \verb|BENCH| is there for when you want the whole picture. \verb|INFO| reports the clock in force, read live, which is the only
   honest number --- and the banner names none, because the machine no
   longer has one speed.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
