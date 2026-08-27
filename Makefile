@@ -1,6 +1,11 @@
 # BMC-K4510 -- the machine, built without VICE.
 #   make            -> build everything
 #   make test       -> run the CPU wrapper test
+# `all` is below, after the variables it needs; say so here, because the
+# core/build.h rule comes first in the file and would otherwise become the
+# default goal -- which made a bare `make` build one header and stop.
+.DEFAULT_GOAL := all
+
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 # The exact build, stamped into the machine's version register so a BUG report
