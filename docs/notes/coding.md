@@ -82,6 +82,60 @@ hdieu; the aarch64 15.2 toolchain on p15; ACME being installed on
 ubuntu-s1 and hdieu today. A host that cannot build a thing should be
 written down as such rather than discovered at the moment it matters.
 
+## REQUIREMENT: every host carries every tool (2026-08-27)
+
+Doc: "all required tooling must be available on all hosts." A host that
+cannot build part of the tree is a host that will surprise someone, and
+since he sits down at whichever machine is nearest, the surprise is his.
+`make all` and `make test` must both complete on all four.
+
+Two ways a tool goes missing, and the second is the one that keeps
+catching us:
+
+1. **It is not installed.** hdieu had no Mad Pascal, so `make all` died on
+   `fs/PRG/hello.prg` there; p15 had no cc65, nasm or SDL2 until today.
+2. **It is installed somewhere a non-interactive shell cannot see.** cc65
+   lives in `~/opt/cc65/bin` on ubuntu-s1 and hdieu, ACME and nasm in
+   `~/.local/bin`, and none of those are on the PATH an `ssh host command`
+   gets. Every build on those hosts today needed the PATH set by hand.
+   **A tool off the PATH is a missing tool** as far as any script, cron
+   job or agent is concerned.
+
+The state as of 2026-08-27, after installing what was absent:
+
+| tool | what needs it | ubuntu-s1 | t480i5 | hdieu | p15 |
+|---|---|---|---|---|---|
+| cc65 / ca65 / ld65 | ROM, all `.prg` | `~/opt/cc65/bin` | `/usr/bin` | `~/opt/cc65/bin` | `/usr/bin` |
+| SDL2 dev | the desktop emulator | yes | yes | yes | yes |
+| nasm | `tube/bbcbasic` | `~/.local/bin` 2.16.03 | `/usr/bin` 2.16.03 | `/usr/bin` 3.02 | `/usr/bin` 3.02 |
+| ACME 0.97 | `rom/wozmon.bin`, `rom/demo.bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` |
+| 64tass | `fs/FORTH/forth.prg` | **MISSING** | `/usr/local/bin` | `/usr/bin` | **MISSING** |
+| Mad Pascal | `demo/pas/*.pas` | **MISSING** | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | **MISSING** |
+| Mad Assembler | the same | **MISSING** | `~/Projects/neo6502_dev/` | symlink to `~/src/` | **MISSING** |
+| aarch64 15.2 | the Pi kernel | - | - | - | `~/opt/arm-gnu-...` |
+| XeLaTeX | the handbook | `/usr/bin` | **MISSING** | **MISSING** | **MISSING** |
+
+Still to close: 64tass and Mad Pascal/Assembler on ubuntu-s1 and p15.
+Mad Pascal is a clone away — the upstream repo ships
+`bin/linux_x86_64/mp`, so it needs no Free Pascal; then
+`make pascal-install`. XeLaTeX is the open question: it is a large
+install for a document that only ubuntu-s1 has ever built, and it is the
+one line of this table worth asking Doc about rather than assuming.
+
+**Version pins that matter**, learned the hard way: ACME must be 0.97 or
+later (0.96.4 does not know `--cpu m65`, which `rom/wozmon.a` needs, and
+the GitHub mirror is stuck there); nasm 2.16.03 reproduces `tube/bbcbasic`
+byte-identically where 3.02 produces a different, working binary.
+
+## p15: the Pi kernel and the desktop build fight over the same objects
+
+`pi/Makefile` and the desktop Makefile both write `core/*.o`,
+`core/xemu/*.o`, `core/ui/*.o`, `core/resid/*.o` and `demo/*.o` — one set
+aarch64, the other x86-64. Whichever ran last owns them, and the other
+link fails or, worse, does not. **On p15, clean those before switching
+between `make -C pi` and a desktop `make`.** It is the only host where
+both are built.
+
 ## For the handbook agent — user-visible, shipped today, undocumented
 
 **The "hold a key to skip STARTUP.BAT" message is gone**, and so is the

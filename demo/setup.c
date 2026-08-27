@@ -94,8 +94,11 @@ static uint8_t  chosen = 0xFF;
 static uint8_t  vid_ok, aud_ok, net_ok;      /* 0 fail, 1 pass, 2 skipped, 3 not fitted */
 
 /* every road out of SETUP goes through here */
+static uint8_t opr[16], opg[16], opb[16], pal_saved;
+static void pal_restore(void) { uint8_t i; if (!pal_saved) return; for (i = 0; i < 16; i++) pal(i, opr[i], opg[i], opb[i]); }
 static void restore(void)
 {
+    pal_restore();
     sgr(0);
     REG(TERM + 0x15) = odefbg; REG(TERM + 0x0C) = ocurbg;
     sgr(0);                                       /* again, so SGR 0 lands on the restored default */
@@ -206,12 +209,22 @@ static void test_video(void)
     head("2 of 4  --  video");
     footer("VICKY: palette write/readback, then DMA over far memory");
     at(3, 3); say("Palette, 16 entries, written and read back ....... ");
+    /* Entries 0-15 ARE the text colours.  Writing a ramp over them and walking
+     * away leaves the machine green on green -- chip state, not screen state,
+     * so it outlives the program and the terminal reset that follows it.  Doc
+     * got exactly that, 2026-08-27.  Read them first, put them back after, and
+     * do it inside one frame so the ramp is never seen. */
+    for (i = 0; i < 16; i++) {
+        REG(V_PALIDX) = i; opr[i] = REG(V_PALR); opg[i] = REG(V_PALG); opb[i] = REG(V_PALB);
+    }
+    pal_saved = 1;
     for (i = 0; i < 16; i++) {
         r = (uint8_t)(i * 17); g = (uint8_t)(255 - i * 17); b = (uint8_t)(i * 5);
         pal(i, r, g, b);
         REG(V_PALIDX) = i;
         if (REG(V_PALR) != r || REG(V_PALG) != g || REG(V_PALB) != b) bad++;
     }
+    for (i = 0; i < 16; i++) pal(i, opr[i], opg[i], opb[i]);      /* the machine's colours, back */
     if (bad) { sgr(31); say("FAIL "); num(bad); say(" of 16"); sgr(0); }
     else     { sgr(32); say("pass"); sgr(0); }
 
