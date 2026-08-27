@@ -143,6 +143,7 @@ static void show_info(uint16_t n)
     text(11, 6, "init $", C_GREY); hex4(17, 6, init_addr);
     text(22, 6, "play $", C_GREY); hex4(28, 6, play_addr);
     dec(34, 6, rate, C_GREY); text(37, 6, "Hz", C_GREY); text(41, 6, clocksel == 2 ? "NTSC" : "PAL ", C_GREY);
+    text(66, 7, "tune", C_GREY); text(66, 8, "real", C_GREY);
     text(0, 9,  "voice 1", C_LBLUE); text(0, 11, "voice 2", C_LBLUE); text(0, 13, "voice 3", C_LBLUE);
     text(0, ROWS - 1, "+/- song   space next tune   Esc back to the list", C_GREY);
     if (is_rsid) text(0, 16, "RSID: needs a real C64 (KERNAL, CIA timers) -- not supported here", C_YEL);
@@ -151,6 +152,12 @@ static void show_info(uint16_t n)
 }
 static void show_song(void) { text(0, 7, "song", C_GREY); dec(5, 7, song, C_WHITE); text(9, 7, "of", C_GREY); dec(12, 7, nsongs, C_WHITE); }
 static void show_time(uint16_t sec) { dec2(72, 7, sec / 60, C_WHITE); put(74, 7, ':', C_WHITE); dec2(75, 7, sec % 60, C_WHITE); }
+/* Real wall-clock seconds, from the host: SYS+4 latches, then s/m/h. If the
+ * tune timer above lags this one, the machine is losing frames -- which is
+ * exactly what a slow tune looks like from the inside. */
+static uint32_t rt_start;
+static uint32_t rt_now(void) { volatile uint8_t d = REG(SYS + 4); (void)d; return (uint32_t)REG(SYS + 7) * 3600UL + (uint16_t)REG(SYS + 6) * 60 + REG(SYS + 5); }
+static void show_real(uint32_t s) { uint8_t c = s >= 6000 ? C_YEL : C_GREEN; dec2(72, 8, (uint8_t)(s / 60), c); put(74, 8, ':', c); dec2(75, 8, (uint8_t)(s % 60), c); }
 static void show_meters(void)
 {
     static const char *const wn[5] = { "   ", "tri", "saw", "pul", "noi" };
@@ -182,6 +189,7 @@ static uint8_t play_file(uint16_t n)
     REG(0xD5F3) = clocksel;                                /* the SID crystal this tune expects */
     save_video();
     start_song();
+    rt_start = rt_now(); show_real(0);
     for (;;) {
         uint8_t f = REG(SYS + 0x0D);
         if (f != last) {                                   /* a new frame */
@@ -189,14 +197,15 @@ static uint8_t play_file(uint16_t n)
             acc += rate;
             while (acc >= 60) { acc -= 60; tune_call(play_addr); restore_video(); }
             if (++frames == 60) { frames = 0; show_time(++sec); }
+            show_real(rt_now() - rt_start);
             show_meters();
         }
         k = key_get();
         if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); REG(0xD5F3) = 0; return 0; }
         if (k == ' ' || k == KEY_RIGHT || k == KEY_DOWN) { sid_silence(); REG(0xD5F3) = 0; return 1; }
         if (k == KEY_LEFT || k == KEY_UP) { sid_silence(); REG(0xD5F3) = 0; return 2; }
-        if (k == '+' || k == '=' || k == KEY_PGDN) { if (song < nsongs) song++; else song = 1; start_song(); show_song(); sec = 0; show_time(0); }
-        if (k == '-' || k == KEY_PGUP) { if (song > 1) song--; else song = nsongs; start_song(); show_song(); sec = 0; show_time(0); }
+        if (k == '+' || k == '=' || k == KEY_PGDN) { if (song < nsongs) song++; else song = 1; start_song(); show_song(); sec = 0; show_time(0); rt_start = rt_now(); show_real(0); }
+        if (k == '-' || k == KEY_PGUP) { if (song > 1) song--; else song = nsongs; start_song(); show_song(); sec = 0; show_time(0); rt_start = rt_now(); show_real(0); }
     }
 }
 
