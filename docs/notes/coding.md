@@ -15,6 +15,39 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   of us have now failed to reproduce it from a script, so if it persists
   it is something about the live session, not the launcher.
 
+## Parked for the Pi 4 / core-3 work — cpmemu (2026-08-27, added at Doc's request)
+
+Doc found <https://github.com/rsta2/cpmemu> — René Stange's own CP/M 2.2
+emulator. rsta2 wrote Circle, so this is the same two-target shape we
+have: `kernel.cpp` + `multicore.cpp` for bare-metal Pi via Circle, and a
+`Makefile.linux` for a plain Linux build from the same sources. MIT
+throughout, clean per-file headers.
+
+**Not a RunCPM replacement.** It runs the real DRI CCP/BDOS
+(`system/ccp.hex`, `system/bdos.hex`, assembled from the PL/M source with
+MAC) over rsta2's own `bios.asm`, on Lin Ke-Fong's `z80emu` core. Real
+BDOS means real sectors, so drives are CP/M disk images built with its
+`cpmdisk` tool. Our K:/P:/D: symlink drives, `CPM [command]` via
+AUTOEXEC.TXT and the `K-*.SUB` launchers all exist *because* RunCPM traps
+BDOS and points it at host directories — none of that survives a swap.
+Keep RunCPM.
+
+Worth reading anyway, for three things:
+
+- **`multicore.cpp`** — running the Z80 on its own Circle core, by the
+  person who wrote Circle. Same technique as SID on core 3.
+- A second, independent worked example of emulator-on-Circle bring-up.
+- **Real-BIOS fidelity.** If a CP/M program ever misbehaves under RunCPM
+  because it calls the BIOS jump table directly instead of going through
+  BDOS, this is the reference for what should happen.
+
+Its "no terminal control sequences, characters pass through unchanged"
+caveat does not apply to us — JIM at $DA00 already does VT100/ANSI.
+
+If any of it is ever vendored: the MIT header covers rsta2's code only.
+`ccp.hex` and `bdos.hex` are DRI binaries under the Caldera/Lineo grant
+and would need their own line in `THIRD_PARTY_SOURCES.md`.
+
 ## For the handbook agent — user-visible, shipped today, undocumented
 
 **The "hold a key to skip STARTUP.BAT" message is gone**, and so is the
