@@ -38,8 +38,6 @@ static const item_t machine_items[] = {
     { "Save state",        MI_SUBMENU, 0, &save_menu },
     { "Load state",        MI_SUBMENU, 0, &load_menu },
     { "",                  MI_SEP },
-    { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* 40.5 / 30 / 20 / 10 MHz; the Pi defaults to 20 */
-    { "",                  MI_SEP },
     { "Reset",             MI_ACTION, ACT_RESET },
     { "Power cycle",       MI_ACTION, ACT_POWER_CYCLE },
     { "Stop the Tube",     MI_ACTION, ACT_TUBE_STOP },
@@ -49,6 +47,8 @@ static const item_t machine_items[] = {
 #else
     { "Quit the emulator", MI_ACTION, ACT_QUIT },
 #endif
+    { "",                  MI_SEP },
+    { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* 40.5 / 30 / 20 / 10 MHz; the Pi defaults to 20. Last, so uitest's walk to Reset is unchanged */
 };
 static const item_t shell_items[] = {
     { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },
