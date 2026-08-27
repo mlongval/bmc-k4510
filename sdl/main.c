@@ -301,7 +301,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
     }
     int running = 1;
-    int paused = 0;                                 /* Ctrl+Pause: freeze the machine with the screen still showing */
+    int paused = 0;                                 /* Scroll Lock: freeze the machine with the screen still showing */
     int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
     /* the governor's window: how long the machine's own half of the frame has
      * been costing, and how many callbacks ran dry, since it last decided */
@@ -407,7 +407,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_PAGEUP) hit = (ch == CHORD_SUPER_PGUP && (m & KMOD_GUI)) || (ch == CHORD_CTRL_PGUP && (m & KMOD_CTRL)) || (ch == CHORD_ALT_PGUP && (m & KMOD_ALT));
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
-                if (k == SDLK_PAUSE && (m & KMOD_CTRL)) { paused = !paused; SDL_SetWindowTitle(win, paused ? "BMC-K4510  [PAUSED]" : "BMC-K4510"); break; }
+                if (k == SDLK_SCROLLLOCK) { paused = !paused; SDL_SetWindowTitle(win, paused ? "BMC-K4510  [PAUSED]" : "BMC-K4510"); break; }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;
