@@ -131,11 +131,19 @@ the shape where a page table of direct RAM pointers -- skipping the
 indirect call on every ordinary read and write -- has historically been
 worth 20-40%. So it is a plausible target, not a promise.
 
-**It cannot currently be measured.** `test/bench` is not in
-`pi/Makefile`'s OBJS, so there is no Pi build of it. Getting bench onto
-the card is step one; optimising a core whose Pi frame time nobody can
-measure would be guesswork, and the desktop numbers do not transfer --
-different cost mix, no palette pass, a much narrower budget.
+**It can now be measured, though not with `test/bench`.** That file is a
+second `main()` wanting argv and stdout, and a card has neither, so it
+will not be built for the Pi. It does not need to be: `sdl/main.c` *is*
+the Pi frontend, and its PERF window already carries the same CPU /
+VICKY / SID split, writing `SYSTEM/PERF.TXT` onto the card. As of
+`c25a295` changing `cpu.clock` reopens that window and appends a block
+headed by the new clock, so the Pi sweeps from the F7 menu the way the
+desktop sweeps from `K4510_CPU_HZ`. Procedure: boot, F7, pick a clock,
+wait 300 frames, repeat; carry the card off and read the file.
+
+The desktop numbers do not transfer -- different cost mix, no palette
+pass, a much narrower budget -- so the Pi ceiling has to come from the
+card itself.
 
 Also worth separating before blaming throughput: choppy sound on the Pi
 has had non-throughput causes already, including a marginal power

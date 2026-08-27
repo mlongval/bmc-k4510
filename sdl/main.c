@@ -236,6 +236,7 @@ int k4510_frontend_main(int argc, char **argv)
      * glass, and everything else (events, the menu, settings). One counter
      * read per bucket per frame is nothing against a frame. */
     static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
+    static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
     static Uint64 p_cpu, p_vic, p_sid;            /* the machine, split three ways */
 #ifdef K4510_PI
 #define PCLK() ({ Uint64 v_; asm volatile("mrs %0, cntvct_el0" : "=r"(v_)); v_; })
@@ -254,7 +255,7 @@ int k4510_frontend_main(int argc, char **argv)
           p_last = c;
           if (p_n == PERF_FRAMES) {
               char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
-              FILE *pf = fopen(pp, "w");
+              FILE *pf = fopen(pp, p_runs++ ? "a" : "w");
               if (pf) {
                   Uint64 hz = SDL_GetPerformanceFrequency();
                   double f = (double)PERF_FRAMES;
@@ -264,6 +265,7 @@ int k4510_frontend_main(int argc, char **argv)
                   double pr  = (double)p_pres * 1000.0 / (double)hz / f;
                   fprintf(pf, "BMC-K4510 frame profile\n=======================\n\n");
                   fprintf(pf, "Build:   %s\n", K4510_BUILD);
+                  fprintf(pf, "Clock:   %.1f MHz\n", cpu_hz_now / 1e6);
                   fprintf(pf, "Frames:  %d averaged\n\n", PERF_FRAMES);
                   fprintf(pf, "  whole frame      %8.3f ms   (%.1f fps)\n", tot, tot > 0 ? 1000.0 / tot : 0.0);
                   fprintf(pf, "  the machine      %8.3f ms   %5.1f%%\n", ma, tot > 0 ? 100.0 * ma / tot : 0.0);
@@ -475,6 +477,10 @@ int k4510_frontend_main(int argc, char **argv)
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
             io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);
+            /* A new clock is a new machine to measure: open another PERF window
+             * and append it.  This is how the Pi gets swept -- there is no
+             * K4510_CPU_HZ on the card, only the menu. */
+            p_n = 0; p_last = 0;
         }
         if (settings_get(SET_VIDEO_FONT) != font_applied) {
             font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
