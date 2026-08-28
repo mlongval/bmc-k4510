@@ -77,7 +77,8 @@ static int clampv(set_id id, int v)
 {
     const set_desc *d = &desc[id];
     if (d->type == ST_ENUM || d->type == ST_CHORD) { if (v < 0) v = 0; if (v >= d->nlabels) v = d->nlabels - 1; return v; }
-    if (v < d->min) v = d->min; if (v > d->max) v = d->max;
+    if (v < d->min) v = d->min;
+    if (v > d->max) v = d->max;
     return v;
 }
 void settings_set(set_id id, int v) { v = clampv(id, v); if (value[id] != v) { value[id] = v; changed = 1; } }

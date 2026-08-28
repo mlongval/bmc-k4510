@@ -133,6 +133,17 @@ static void apply_font(int which)
     if (which == FONT_KERNEL8 || n < 2048) memcpy(font, font_kernel8, 2048);
     else if (n == 4096) petscii_to_ascii(buf, font);
     else memcpy(font, buf, 2048);
+    /* An alternate font covers what it covers; every glyph it leaves blank is
+     * taken from the kernel font instead of showing as a hole.  A PETSCII
+     * chargen brings ~120 characters, a ZX font 96: without this, most of
+     * CP437 -- box drawing, shading, accents -- vanished with the font swap
+     * (a blank stays blank only where the kernel glyph is blank too: space). */
+    if (which != FONT_KERNEL8)
+        for (int c = 0; c < 256; c++) {
+            uint8_t *g = font + c * 8; int ink = 0;
+            for (int i = 0; i < 8; i++) if (g[i]) { ink = 1; break; }
+            if (!ink) memcpy(g, font_kernel8 + c * 8, 8);
+        }
     mem_load(K4510_FONT8_PHYS, font, 2048);
 }
 
@@ -333,7 +344,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           /* the window opens 20 s after start, so it measures the machine at
            * the prompt rather than BENCH, whose clock reads are dear on the Pi */
           if (p_last && SDL_GetTicks() > 20000) { p_tot += c - p_last; p_n++; }
-          if (p_n == 1) { io_prof_reset(); p_mach = p_tex = p_pres = p_cpu = p_vic = p_sid = 0; }   /* the window opens: every sum starts here */
+          if (p_n == 1) { io_prof_reset(); io_prof_on = 1; p_mach = p_tex = p_pres = p_cpu = p_vic = p_sid = 0; }   /* the window opens: every sum starts here */
           p_last = c;
           if (p_n == PERF_FRAMES) {
               char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
@@ -375,6 +386,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   fprintf(pf, "\n(events, the menu overlay and the settings poll are 'everything else')\n");
                   fclose(pf);
               }
+              io_prof_on = 0;                    /* the window closes: stop paying for the counters */
           }
         }
         SDL_Event e;

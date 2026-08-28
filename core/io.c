@@ -95,7 +95,7 @@ static void fs_casefix(char *path, size_t max)
     snprintf(dir, sizeof dir, "%s", path); base = strrchr(dir, '/'); if (!base) return;
     *base++ = 0;
     if (!(d = opendir(dir))) return;
-    while ((e = readdir(d))) if (!strcasecmp(e->d_name, base)) { snprintf(path, max, "%s/%s", dir, e->d_name); break; }
+    while ((e = readdir(d))) if (!strcasecmp(e->d_name, base)) { snprintf(path, max, "%.500s/%.255s", dir, e->d_name); break; }
     closedir(d);
 }
 static int fs_guest_str(uint32_t p, char *name, size_t max)
@@ -134,7 +134,7 @@ static int fs_path(char *out, size_t max, int search)
     if (search && stat(out, &sb) && !strchr(name, '/') && !strchr(name, '\\')) {
         static const char *dirs[] = { "PRG", "EHBASIC", "BBCBASIC", "FORTH" };
         for (int i = 0; i < 4; i++) {
-            char alt[128]; snprintf(alt, sizeof alt, "/%s/%s", dirs[i], name);
+            char alt[140]; snprintf(alt, sizeof alt, "/%s/%.127s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
             if (!stat(out, &sb)) return 0;
@@ -152,22 +152,36 @@ static int fs_dir_first(int all)
     fs_resolve("", rel, sizeof rel, path, sizeof path);
     if (!(d = opendir(path))) return 2;
     free(fs_list); free(fs_list_size); fs_list = malloc(cap * sizeof *fs_list); fs_list_size = malloc(cap * sizeof *fs_list_size);
+    if (!fs_list || !fs_list_size) { free(fs_list); free(fs_list_size); fs_list = NULL; fs_list_size = NULL; closedir(d); return 2; }
     while ((e = readdir(d))) {
         char full[1024]; struct stat sb;
         if (e->d_name[0] == '.' && (!all || !e->d_name[1] || (e->d_name[1] == '.' && !e->d_name[2]))) continue;
-        if (n == cap) { cap *= 2; fs_list = realloc(fs_list, cap * sizeof *fs_list); fs_list_size = realloc(fs_list_size, cap * sizeof *fs_list_size); }
-        snprintf(fs_list[n], 64, "%s", e->d_name);
+        if (n == cap) {
+            char (*nl_)[64] = realloc(fs_list, 2 * cap * sizeof *fs_list);
+            uint32_t *ns_ = realloc(fs_list_size, 2 * cap * sizeof *fs_list_size);
+            if (nl_) fs_list = nl_;
+            if (ns_) fs_list_size = ns_;
+            if (!nl_ || !ns_) break;                 /* out of memory: serve what we have */
+            cap *= 2;
+        }
+        snprintf(fs_list[n], 64, "%.63s", e->d_name);
         snprintf(full, sizeof full, "%s/%s", path, e->d_name);
         fs_list_size[n] = stat(full, &sb) ? 0 : S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size;
         n++;
     }
     closedir(d);
     /* sort names and sizes together: sort an index */
-    { int *idx = malloc(n * sizeof *idx); for (int i = 0; i < n; i++) idx[i] = i;
-      for (int i = 1; i < n; i++) { int k = idx[i], j = i; while (j > 0 && strcasecmp(fs_list[idx[j - 1]], fs_list[k]) > 0) { idx[j] = idx[j - 1]; j--; } idx[j] = k; }
+    if (n) {                                     /* sort names and sizes together -- but an unsorted
+                                                  * listing beats a dead emulator if memory is short */
+      int *idx = malloc(n * sizeof *idx);
       char (*nl)[64] = malloc(n * sizeof *nl); uint32_t *ns = malloc(n * sizeof *ns);
-      for (int i = 0; i < n; i++) { memcpy(nl[i], fs_list[idx[i]], 64); ns[i] = fs_list_size[idx[i]]; }
-      free(fs_list); free(fs_list_size); fs_list = nl; fs_list_size = ns; free(idx); }
+      if (idx && nl && ns) {
+          for (int i = 0; i < n; i++) idx[i] = i;
+          for (int i = 1; i < n; i++) { int k = idx[i], j = i; while (j > 0 && strcasecmp(fs_list[idx[j - 1]], fs_list[k]) > 0) { idx[j] = idx[j - 1]; j--; } idx[j] = k; }
+          for (int i = 0; i < n; i++) { memcpy(nl[i], fs_list[idx[i]], 64); ns[i] = fs_list_size[idx[i]]; }
+          free(fs_list); free(fs_list_size); fs_list = nl; fs_list_size = ns;
+      } else { free(nl); free(ns); }
+      free(idx); }
     (void)fs_cmp;
     fs_list_n = n; fs_list_i = 0;
     return 0;
@@ -210,7 +224,8 @@ static void fs_run(uint8_t cmd)
         uint32_t done = 0; int c;
         if (fs_netbuf) { while (done < len && fs_netpos < fs_netlen) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = fs_netbuf[fs_netpos++]; fs_wr32(12, done); break; }
         if (!fs_file) { st = 2; break; }
-        while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); break; }
+        while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c;
+        fs_wr32(12, done); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
     case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } fs_net_drop(); break;
     case FS_DIR_FIRST: case FS_DIR_ALL:
@@ -219,6 +234,7 @@ static void fs_run(uint8_t cmd)
             if ((st = net_listdir(fs_remote, &e, &n))) { st = st == 6 ? 2 : st; break; }
             free(fs_list); free(fs_list_size);
             fs_list = calloc((size_t)(n ? n : 1), 64); fs_list_size = calloc((size_t)(n ? n : 1), sizeof *fs_list_size);
+            if (!fs_list || !fs_list_size) { free(fs_list); free(fs_list_size); fs_list = NULL; fs_list_size = NULL; free(e); st = 2; break; }
             for (int i = 0; i < n; i++) { snprintf(fs_list[i], 64, "%s", e[i].name); fs_list_size[i] = e[i].isdir ? 0xFFFFFFFFu : e[i].size; }
             fs_list_n = n; fs_list_i = 0; free(e);
             break;
@@ -688,8 +704,10 @@ static void tula_rect(int x0, int y0, int x1, int y1, uint8_t c)   /* pixel coor
     if (x0 > x1) { t = x0; x0 = x1; x1 = t; }
     if (y0 > y1) { t = y0; y0 = y1; y1 = t; }
     if (x1 < 0 || y1 < 0 || x0 >= TULA_W || y0 >= TULA_H) return;
-    if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0;
-    if (x1 >= TULA_W) x1 = TULA_W - 1; if (y1 >= TULA_H) y1 = TULA_H - 1;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= TULA_W) x1 = TULA_W - 1;
+    if (y1 >= TULA_H) y1 = TULA_H - 1;
     tula_vw32(0x70, tula_pix(c));
     tula_vw32(0x74, TULA_GFXB + (uint32_t)y0 * TULA_W + x0);
     tula_vw16(0x78, x1 - x0 + 1); tula_vw16(0x7A, y1 - y0 + 1); tula_vw16(0x7E, TULA_W);
@@ -950,7 +968,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             char *rroot = realpath (fs_root, NULL);
             if (rroot) setenv ("K4510_ROOT", rroot, 1);
             char *bin = realpath ("tube/bbcbasic", NULL);
-            char dir[600]; snprintf (dir, sizeof dir, "%s%s%s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
+            char dir[800]; snprintf (dir, sizeof dir, "%.511s%s%.255s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
             if (chdir (dir) != 0) { if (chdir (fs_root) != 0) { } }
             if (bin) execl (bin, "bbcbasic", (char *) NULL);
         }
@@ -1061,6 +1079,9 @@ void io_reset(void)
  * the ARM generic timer (a register); elsewhere only the counts are kept. */
 uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* hist: (addr >> 4) & 255, 16-byte groups */
 uint64_t io_prof_cycles;
+int io_prof_on;                                  /* set by the frontend only while its PERF window is open:
+                                                  * the counters (and on the Pi two timer reads) cost every
+                                                  * single I/O access, so they run only when someone is looking */
 #if defined(K4510_PI)
 static inline uint64_t io_prof_clk(void) { uint64_t v; __asm__ volatile("mrs %0, cntvct_el0" : "=r"(v)); return v; }
 #else
@@ -1070,9 +1091,12 @@ void io_prof_reset(void) { io_prof_reads = io_prof_writes = 0; io_prof_cycles = 
 static uint8_t io_read_inner(uint16_t addr);
 uint8_t io_read(uint16_t addr)
 {
-    uint64_t t = io_prof_clk(); uint8_t v = io_read_inner(addr);
-    io_prof_cycles += io_prof_clk() - t; io_prof_reads++; io_prof_hist[(addr >> 4) & 255]++;
-    return v;
+    if (io_prof_on) {
+        uint64_t t = io_prof_clk(); uint8_t v = io_read_inner(addr);
+        io_prof_cycles += io_prof_clk() - t; io_prof_reads++; io_prof_hist[(addr >> 4) & 255]++;
+        return v;
+    }
+    return io_read_inner(addr);
 }
 static uint8_t io_read_inner(uint16_t addr)
 {

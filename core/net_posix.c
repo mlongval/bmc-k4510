@@ -92,10 +92,10 @@ int plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len)
         _exit(127);
     }
     close(p[1]);
-    b = malloc(cap);
+    if (!(b = malloc(cap))) { close(p[0]); waitpid(pid, &st, 0); return 2; }
     for (;;) {
         ssize_t r;
-        if (n == cap) { cap *= 2; b = realloc(b, cap); }
+        if (n == cap) { uint8_t *nb; cap *= 2; if (!(nb = realloc(b, cap))) { free(b); close(p[0]); waitpid(pid, &st, 0); return 2; } b = nb; }
         r = read(p[0], b + n, cap - n);
         if (r <= 0) break;
         n += (uint32_t) r;

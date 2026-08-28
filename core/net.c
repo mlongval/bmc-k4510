@@ -38,7 +38,7 @@ void net_url_join(char *out, size_t max, const char *base, const char *name)
     if (net_is_url(name)) { snprintf(out, max, "%s", name); return; }
     if (url_parse(base, &u)) { snprintf(out, max, "%s", name); return; }
     if (name[0] == '/') snprintf(path, sizeof path, "%s", name);
-    else snprintf(path, sizeof path, "%s/%s", u.path, name);
+    else snprintf(path, sizeof path, "%.300s/%.200s", u.path, name);
     /* fold */
     { char tmp[512]; size_t o = 0; const char *s = path;
       while (*s) {
@@ -128,7 +128,7 @@ static int tnfs_fetch(const url_t *u, uint8_t **buf, uint32_t *len)
     if (n < 1) return 2;
     if (rep[0]) return 1;
     fd = rep[1];
-    b = malloc(cap);
+    if (!(b = malloc(cap))) return 2;
     for (;;) {
         req[0] = (uint8_t) fd; req[1] = 512 & 255; req[2] = 512 >> 8;
         n = tnfs_xfer(t, 0x21, req, 3, rep, sizeof rep);
@@ -136,7 +136,7 @@ static int tnfs_fetch(const url_t *u, uint8_t **buf, uint32_t *len)
         if (rep[0] == 0x21) break;                                        /* EOF */
         if (rep[0] || n < 3) { free(b); return 2; }
         { int k = rep[1] | (rep[2] << 8); if (k > n - 3) k = n - 3;
-          if (got + (uint32_t) k > cap) { cap *= 2; b = realloc(b, cap); }
+          if (got + (uint32_t) k > cap) { uint8_t *nb; cap *= 2; if (!(nb = realloc(b, cap))) { free(b); return 2; } b = nb; }
           memcpy(b + got, rep + 3, (size_t) k); got += (uint32_t) k;
           if (k == 0) break; }
     }
@@ -160,7 +160,7 @@ static int tnfs_listdir(const url_t *u, net_dirent **ents, int *count)
     if (n < 1) return 2;
     if (rep[0]) return 1;
     h = rep[1];
-    e = malloc(sizeof *e * (size_t) cap);
+    if (!(e = malloc(sizeof *e * (size_t) cap))) return 2;
     for (;;) {
         req[0] = (uint8_t) h;
         n = tnfs_xfer(t, 0x11, req, 1, rep, sizeof rep);
@@ -168,9 +168,9 @@ static int tnfs_listdir(const url_t *u, net_dirent **ents, int *count)
         if (rep[0]) break;                                                /* 0x21: no more */
         rep[n < (int) sizeof rep ? n : (int) sizeof rep - 1] = 0;
         if (!strcmp((char *) rep + 1, ".") || !strcmp((char *) rep + 1, "..")) continue;
-        if (cnt == cap) { cap *= 2; e = realloc(e, sizeof *e * (size_t) cap); }
+        if (cnt == cap) { net_dirent *ne; cap *= 2; if (!(ne = realloc(e, sizeof *e * (size_t) cap))) { free(e); return 2; } e = ne; }
         memset(&e[cnt], 0, sizeof e[cnt]);
-        snprintf(e[cnt].name, sizeof e[cnt].name, "%s", (char *) rep + 1);
+        snprintf(e[cnt].name, sizeof e[cnt].name, "%.63s", (char *) rep + 1);
         { char full[1024]; uint32_t sz = 0; int d = 0;
           snprintf(full, sizeof full, "%s%s%s", path, path[strlen(path) - 1] == '/' ? "" : "/", e[cnt].name);
           if (!tnfs_stat(t, full, &sz, &d)) { e[cnt].size = sz; e[cnt].isdir = d; } }

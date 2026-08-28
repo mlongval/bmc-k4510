@@ -222,6 +222,7 @@ void    io_set_cpu_khz(unsigned khz);
 void    io_set_sid_active(int n);   /* the Audio menu's Active SIDs, for INFO to report live */
 extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
+extern int      io_prof_on;                  /* frontend: profile only while the PERF window is open */
 extern uint64_t io_prof_cycles;
 void    io_prof_reset(void);                 /* called by VICKY at vblank */
 void    io_write(uint16_t addr, uint8_t v);

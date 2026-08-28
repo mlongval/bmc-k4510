@@ -232,7 +232,8 @@ static void blit(void)
         int py[3] = { (int16_t)rd16(&reg[VR_LY0]), (int16_t)rd16(&reg[VR_LY1]), (int16_t)rd16(&reg[VR_LY2]) };
         int ymin = py[0], ymax = py[0];
         for (int i = 1; i < 3; i++) { if (py[i] < ymin) ymin = py[i]; if (py[i] > ymax) ymax = py[i]; }
-        if (ymin < 0) ymin = 0; if (ymax >= h) ymax = h - 1;
+        if (ymin < 0) ymin = 0;
+        if (ymax >= h) ymax = h - 1;
         for (int y = ymin; y <= ymax; y++) {
             int xl = 0x7FFFFFFF, xr = -0x7FFFFFFF;
             for (int i = 0; i < 3; i++) {                  /* intersect the scanline with each edge */
@@ -240,10 +241,12 @@ static void blit(void)
                 if (ya == yb) { if (y == ya) { if (xa < xl) xl = xa; if (xb < xl) xl = xb; if (xa > xr) xr = xa; if (xb > xr) xr = xb; } continue; }
                 if (y < (ya < yb ? ya : yb) || y > (ya < yb ? yb : ya)) continue;
                 int x = xa + (int)((long)(xb - xa) * (y - ya) / (yb - ya));
-                if (x < xl) xl = x; if (x > xr) xr = x;
+                if (x < xl) xl = x;
+                if (x > xr) xr = x;
             }
             if (xl > xr) continue;
-            if (xl < 0) xl = 0; if (xr >= w) xr = w - 1;
+            if (xl < 0) xl = 0;
+            if (xr >= w) xr = w - 1;
             if (xl <= xr) memset(&ram_ptr(dst + (uint32_t)y * ds + xl), fill, xr - xl + 1);
         }
         return;

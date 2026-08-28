@@ -97,7 +97,8 @@ static void soft_reset(void)
 }
 static void clamp_geometry(void)
 {
-    if (T.cols < 1) T.cols = 1; if (T.rows < 1) T.rows = 1;
+    if (T.cols < 1) T.cols = 1;
+    if (T.rows < 1) T.rows = 1;
     if (T.stride < T.cols + T.ox) T.stride = (uint8_t)(T.cols + T.ox);
     if (T.cx >= T.cols) T.cx = (uint8_t)(T.cols - 1);
     if (T.cy >= T.rows) T.cy = (uint8_t)(T.rows - 1);
@@ -117,8 +118,10 @@ void term_reset(void)
 static void move(int x, int y)
 {
     int lo = T.origin ? T.top : 0, hi = T.origin ? T.bot : T.rows - 1;
-    if (x < 0) x = 0; if (x >= T.cols) x = T.cols - 1;
-    if (y < lo) y = lo; if (y > hi) y = hi;
+    if (x < 0) x = 0;
+    if (x >= T.cols) x = T.cols - 1;
+    if (y < lo) y = lo;
+    if (y > hi) y = hi;
     T.cx = (uint8_t) x; T.cy = (uint8_t) y; T.pending = 0;
 }
 static void index_down(void)
@@ -238,7 +241,8 @@ static void csi(uint8_t c)
     case 'c': if (!T.inter) reply("\033[?62;1;6;22c"); break;      /* a VT220 with 132 columns absent, selective erase, colour */
     case 'r': {
         int t = P(0, 1), b = P(1, T.rows);
-        if (t < 1) t = 1; if (b > T.rows) b = T.rows;
+        if (t < 1) t = 1;
+        if (b > T.rows) b = T.rows;
         if (t < b) { T.top = (uint8_t)(t - 1); T.bot = (uint8_t)(b - 1); move(0, T.origin ? T.top : 0); }
         break; }
     case 's': T.saved.cx = T.cx; T.saved.cy = T.cy; break;
