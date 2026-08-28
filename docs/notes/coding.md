@@ -438,7 +438,8 @@ they are bundled.
 Doc raised nine ideas at once (Turbo Pascal/VI, a TNFS server, hosting
 resources, a font tool, the codepage, HELP pages, USB, a mouse cursor, a
 GUI). Thought through in `docs/notes/roadmap-2026-08-28.md` — nothing built
-yet, no code touched.
+yet, no code touched. Audited against the tree the same day after Doc
+challenged one claim; seven corrections are marked in place there.
 
 **For the handbook agent — §6, HELP pages.** Doc would like `HELP DIR` to
 explain `DIR`. Proposal: pages as `/SYSTEM/HELP/<CMD>.TXT`, plain text, 80
@@ -448,6 +449,17 @@ compares the pages against the `is_cmd(&p, "…")` dispatch table in
 `rom/kernal.c` and fails on either kind of gap. Coding side owes the
 `HELP <topic>` dispatch and the directory. Read §6 before starting; say in
 your note if you would rather shape it differently.
+
+**Found by the audit, worth acting on — `petscii_to_ascii` blanks 136 glyph
+slots.** `sdl/main.c:79` fills 0x20-0x7F plus a hand table of 24 box glyphs
+and zeroes the rest, so selecting *any* 4096-byte chargen (open-roms, PXLfont,
+ZX Origins, a real C64 chargen.bin) loses 134 of the glyphs `data/font8.bin`
+carries — 27 of them in CP437's 0xB0-0xDF line/block range — and draws the
+double-line box with single-line glyphs. KOMMANDER happens to use only six
+glyphs, all mapped, which is why it has not shown. Fix planned: extend the
+table and fall back to the kernel font for unmapped slots. **Handbook: any
+figure shot with a non-default font may show blanks — worth knowing before
+recapturing.**
 
 **Decision that gates the font work — §5.** Recommendation: CP437 stays the
 machine's native codepage; PETSCII becomes a VICKY charset + screen-code
@@ -497,3 +509,36 @@ shipping program worth a short section (a file manager alongside EDIT/VI). It is
 keyboard-only, self-contained, and does not launch other programs (the $6000
 reason above). Recapture any figure that shows the program list — `KOMMANDER` is
 in `/PRG` now.
+
+**Roadmap §5b added (2026-08-28) — multicolour fonts.** Text/text32 are
+1 bpp hard-coded in `core/vicky.c:122`; only tile mode does 2/4/8 bpp.
+VICKY-SPEC §5 promises bpp-aware text; unbuilt. Proposal is bpp-aware
+text32 (pixel 0 = bg, 1 = fg, 2..N = palette). **Handbook:** the spec and
+Appendix A should not be read as describing shipped behaviour here —
+text mode is 1 bpp until this lands.
+
+## TINY — a scrolling tile map with sprites, 2026-08-28
+
+Doc: "a nice scrolling tile map demo with sprites -- check the internet for
+example and assets you can download freely". Built `demo/tiny.c` →
+`fs/PRG/tiny.prg`, typed `TINY`. Kenney's **Tiny Dungeon** (CC0) vendored in
+`data/tinydungeon/`; `tools/mktiny.py` turns the 132-tile sheet into VICKY
+16x16 8 bpp tiles and the Tiled sample map into a 64x40 tile map (the sample
+tiled 2x2, flip bits carried over); both ride in as a K4SG segment at
+$00110000, so the program is 4.6 KB of code and 38 KB of art. Layer 0 tile
+mode in 320x240, a text8 caption on layer 1, 41 sprites (a knight you steer
+plus 40 wanderers) — 8 bpp sprites and 8 bpp tiles share one layout, so the
+sprite DATA pointers aim straight into the tile set. Camera follows the
+knight; arrows turn him, space stops, Esc/Q leave. Walls are found by colour
+(`walkable[]` in the generated tiny.h). 60 fps on the desktop; not yet run on
+the Pi. kenney.nl itself refuses curl (403); the OpenGameArt mirror served
+the zip.
+
+**I edited three shared files — CREDITS.md, LICENSES.md,
+THIRD_PARTY_SOURCES.md — one row/record each for Tiny Dungeon.**
+
+**For the handbook agent:** a new program in `/PRG`, worth a figure — it is
+the machine's first tile-mode picture and the first sprites that are not
+drawn by code. Kenney asks for nothing (CC0) but a credit line is the decent
+thing: "Tiny Dungeon by Kenney (kenney.nl), CC0". Recapture any figure that
+lists `/PRG`. Capture recipe: `test/capture rom/kernal.bin 420 out.png "run tiny\n"`.

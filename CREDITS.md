@@ -27,6 +27,13 @@ Thank you:
 - **Scot W. Stevenson, Sam Colwell, Patrick Surry** —
   [Tali Forth 2](https://github.com/SamCoVT/TaliForth2).
 - **Steve Wozniak** — Wozmon, still the best 256 bytes ever written.
+- **Jim Butterfield** (1936–2007) — Supermon, the machine language
+  monitor a generation of Commodore programmers learned on, published in
+  *Compute!* for anyone to type in and given away all his life.
+  Supermon+64 V1.2 is `SUPERMON` here, ported and not rewritten; and
+  **J. B. Langston**, whose annotated restoration of the source
+  ([jblang/supermon64](https://github.com/jblang/supermon64)) is what
+  made that a day's work. Public domain, attribution given gladly.
 - **The cc65 project** — the compiler, assembler, and runtime the
   system ROM is built with.
 - **Tomasz Biela** ("tebe") — [Mad Pascal](https://github.com/tebe6502/Mad-Pascal)
@@ -46,6 +53,13 @@ Thank you:
 - **Retrofan** — PXLfont (included via open-roms, with permission).
 - **Damian Vila** — [BESCII](https://codeberg.org/Dmian/font-bescii),
   the PETSCII spirit with a clean pedigree, CC0.
+- **Damien Guard** — [ZX Origins](https://damieng.com/zx-origins),
+  hundreds of 8×8 faces refined over thirty-five years; a curated dozen
+  are in the F7 font menu. Free to use, *not* free to re-host, so the
+  machine names them and does not ship them — `tools/mkzxfonts.py`
+  builds them from your own download.
+- **Kenney** — [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon),
+  the tiles, the map and the little people of the TINY demo, CC0.
 
 ## The Raspberry Pi port
 
@@ -66,8 +80,9 @@ Thank you:
 
 ## The workshop
 
-The machine is built with **cc65**, **64tass**, **NASM**, **GCC** and
-**GNU Make**, and shows itself to you through **SDL2**. The guide is
+The machine is built with **cc65**, Marco Baye's **ACME** (Wozmon and
+the demos), Zsolt Soós's **64tass** (Tali Forth and Supermon), **NASM**,
+**GCC** and **GNU Make**, and shows itself to you through **SDL2**. The guide is
 set in **XeLaTeX** with **Clear Sans** (Intel) and **Iosevka**
 (Belleve Invis), and every screenshot in it is captured from the
 machine actually running — a picture that cannot be produced fails the
@@ -91,8 +106,11 @@ build.
   scans, music, and a forum that answers. Twenty-eight years of
   dedication to a machine's community, and a good half of the small
   facts this project needed.
-- **The Neo6502 handbook** and the **MEGA65 User's Guide** — the two
-  books the guide is modelled on, down to the page size.
+- **Paul Scott Robson** — the Neo6502's firmware, and the handbook
+  documenting it; that book and the **MEGA65 User's Guide** are the two
+  the guide is modelled on, down to the page size, and the rule that
+  every example must be run and photographed before it is printed is
+  his.
 - **The High Voltage SID Collection** and the composers in it, whose
   tunes are what `SIDPLAY` plays on a good evening. None of that music
   is distributed with this machine (see LICENSES.md); it is theirs.

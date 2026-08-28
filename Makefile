@@ -29,7 +29,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/kommander.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/kommander.prg fs/PRG/tiny.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -177,7 +177,7 @@ fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pasca
 	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/tiny.prg
 demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
@@ -188,6 +188,16 @@ fs/PRG/%.prg: demo/%.c demo/k4510.h demo/far.h demo/sidorch.h demo/prg0.o demo/r
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
 # EhBASIC 2.22 as a .prg at $7000 (basic/: Lee Davison's basic.asm + K4510 glue)
 # segmented program (K-03): own header + linker config, overlays at 000
+# tiny: Kenney's Tiny Dungeon (CC0, data/tinydungeon/) as a scrolling tile map
+# with sprites; tools/mktiny.py makes the tiles, the map and tiny.h from the
+# sheet and the Tiled sample map, and the K4SG header carries them
+demo/tiny.bin demo/tiny.h: tools/mktiny.py data/tinydungeon/tilemap_packed.png data/tinydungeon/sampleMap.tmx
+	python3 tools/mktiny.py >/dev/null
+fs/PRG/tiny.prg: demo/tiny.c demo/tiny.h demo/tiny.bin demo/tiny-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/tiny.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/tiny.s.tmp demo/tiny.c && mv demo/tiny.s.tmp demo/tiny_c.s
+	ca65 --cpu 65c02 -o demo/tiny_c.o demo/tiny_c.s
+	ca65 --cpu 65c02 -o demo/tiny_h.o demo/tiny-header.s
+	ld65 -C demo/tiny.cfg -o $@ demo/prg0.o demo/romcalls.o demo/tiny_c.o demo/tiny_h.o none.lib -m demo/tiny.map
 fs/PRG/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/seg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/segdemo.s.tmp demo/segdemo.c && mv demo/segdemo.s.tmp demo/segdemo_c.s
 	ca65 --cpu 65c02 -o demo/segdemo_c.o demo/segdemo_c.s

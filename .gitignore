@@ -28,6 +28,7 @@ test/woztest
 dumps/
 !demo/sidplay0.s
 !demo/sidplay-header.s
+!demo/tiny-header.s
 !demo/prg0.s
 !demo/romcalls.s
 doc/guide/shots/
@@ -75,3 +76,5 @@ core/build.h
 # re-hosting the files. Personal use only -- regenerate with tools/mkzxfonts.py
 # from your own download; the menu falls back to kernel8 when they are absent.
 data/fonts/zx/*.bin
+demo/tiny.bin
+demo/tiny.h
