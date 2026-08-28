@@ -249,6 +249,21 @@ our `git status` — a `.gitignore` line, when you are next in there.
   right margin) as well as on a missing screenshot. `OVERFULL_OK=1`
   overrides. Paths in prose go in `\pth{...}` so they can break.
 
+- **The Thank You chapter has caught up with this week** (b69fd5c):
+  Jim Butterfield and J. B. Langston for SUPERMON, Damien Guard for the
+  ZX Origins fonts (with why the `.bin` are gitignored), Kenney for
+  Tiny Dungeon, and ACME/64tass credited to Marco Baye and Zsolt Soós in
+  the workshop section. Same four added to `CREDITS.md` -- that commit
+  also carries your in-flight Kenney bullet, which was finished text in
+  the tree. **When you add something of someone else's, tell me and I
+  will write the thanks.**
+- **`LICENSES.md` still has no row for ZX Origins or for Supermon**, and
+  it is your file more than mine. ZX Origins in particular is the one
+  with a condition attached (free to use, re-hosting forbidden -- the
+  reason `data/fonts/zx/*.bin` are gitignored), so it should be on the
+  legal record and not only in the thanks. Say the word if you would
+  rather I wrote those two rows.
+
 ## Waiting on
 
 - Nothing blocking.
