@@ -3,11 +3,14 @@
  * the arrows walk it, Enter descends a directory or views a file, and the
  * function keys copy, move, make and delete.
  *
- * A .prg cannot launch another .prg -- both load at $6000, so running EDIT
- * would overwrite this program and crash on its return. So KOMMANDER speaks to
- * the host filesystem directly, through the storage device at $D300 (the same
- * chip LOAD and DIR ride on), and views files with its own pager. Everything
- * is here, nothing is shelled out.
+ * A .prg cannot simply jsr another .prg -- both load at $6000, so running EDIT
+ * over ourselves would crash on its return. File operations therefore go
+ * straight to the storage device at $D300 (the same chip LOAD and DIR ride on),
+ * and View is our own pager. But EDIT and VI we DO reach, through the shell's
+ * SWAP: it DMAs our whole $0000-$FFFF and the screen out to far memory, runs
+ * the editor over the top, and DMAs us back -- the same trick that lets EhBASIC
+ * run a program and return. So F4 hands the selected file to VI or EDIT and
+ * comes home with the panels intact.
  *
  * The screen is drawn straight into VICKY's text32 map at $030000: four bytes
  * a cell (glyph low, glyph high, foreground, background), so every cell gets
@@ -17,8 +20,9 @@
  *
  *   Tab            switch the active panel        Enter   descend / view
  *   arrows         move the selection             Esc     leave
- *   F3 View        page through a file            F5 Copy  to the other panel
- *   F6 Move        move / rename                  F9 MkDir F10 Del
+ *   F3 View        page through a file            F4 Edit  VI or EDIT (via SWAP)
+ *   F5 Copy        to the other panel             F6 Move  move / rename
+ *   F9 MkDir       make a directory               F10 Del  delete
  *   F2 Refresh     re-read both panels            .        show/hide dotfiles
  */
 #include "k4510.h"
@@ -241,15 +245,15 @@ static void draw_panel(uint8_t p)
 
 static void draw_bar(void)
 {
-    static const char *k[] = { "Tab", "F3", "F5", "F6", "F9", "F10", "Esc" };
-    static const char *l[] = { "Panel", "View", "Copy", "Move", "MkDir", "Del", "Quit" };
+    static const char *k[] = { "Tab", "F3", "F4", "F5", "F6", "F9", "F10", "Esc" };
+    static const char *l[] = { "Panel", "View", "Edit", "Copy", "Move", "MkDir", "Del", "Quit" };
     uint8_t y = (uint8_t)(rows - 1), x, i;
     int total = 0, startx;
     for (x = 0; x < cols; x++) putcell(x, y, ' ', FN_LFG, FN_BG);
-    for (i = 0; i < 7; i++) total += (int)strlen(k[i]) + 1 + (int)strlen(l[i]) + 1;   /* KEY:Label<sp> */
+    for (i = 0; i < 8; i++) total += (int)strlen(k[i]) + 1 + (int)strlen(l[i]) + 1;   /* KEY:Label<sp> */
     startx = ((int)cols - total) / 2; if (startx < 0) startx = 0;
     x = (uint8_t)startx;
-    for (i = 0; i < 7; i++) {
+    for (i = 0; i < 8; i++) {
         uint8_t kl = (uint8_t)strlen(k[i]), ll = (uint8_t)strlen(l[i]);
         if (x + kl + 1 + ll >= cols) break;
         draw_str(x, y, k[i], kl, FN_KFG, FN_BG); x += kl;
@@ -370,6 +374,38 @@ static void view_file(void)
     draw_all();
 }
 
+/* ---- edit, through the shell's SWAP (F4) ------------------------------- */
+/* SWAP saves our whole $0000-$FFFF and the screen to far memory, runs the
+ * editor over the top, and restores us. The selected file resolves against the
+ * device cwd, which we hold on the active panel, so a bare name is enough.
+ *
+ * The command line must NOT live in our own image: SWAP loads the editor over
+ * $6000, and the shell leaves args_tail pointing at the file name inside the
+ * line -- if that were our RAM, the editor's own bytes would land there and it
+ * would open a garbage name. So the line is built at $0300, the low page the
+ * ROM reserves for programs (k4510.cfg: "$0300-$043F belongs to programs"):
+ * below the editor's load, untouched by it, and carried across the swap. */
+#define CMDLINE ((char *)0x0300)
+static void do_edit(void)
+{
+    int s = cur[active];
+    uint8_t bw, bx, by, k;
+    if (!count[active] || is_dir(active, s)) { message("Select a file to edit"); return; }
+    bw = 44; if (bw > cols - 2) bw = (uint8_t)(cols - 2);
+    bx = (uint8_t)((cols - bw) / 2); by = (uint8_t)(rows / 2 - 2);
+    box(bx, by, bw, 4, " Edit ");
+    draw_str((uint8_t)(bx + 3), (uint8_t)(by + 1), names[active][s], (uint8_t)(bw - 4), FILEFG, CBG);
+    draw_str((uint8_t)(bx + 3), (uint8_t)(by + 2), "V) VI    E) EDIT    Esc) cancel", (uint8_t)(bw - 4), FN_KFG, CBG);
+    k = getkey();
+    if (k == 'v' || k == 'V' || k == K_ENTER) strcpy(CMDLINE, "SWAP VI ");
+    else if (k == 'e' || k == 'E')            strcpy(CMDLINE, "SWAP EDIT ");
+    else { draw_all(); return; }
+    strcat(CMDLINE, names[active][s]);
+    rom_shell(CMDLINE);                     /* out to the editor and back */
+    relist_both();                          /* the file may have changed size */
+    draw_all();
+}
+
 /* ---- operations -------------------------------------------------------- */
 static void other_dest(char *dst, const char *nm)     /* other panel's dir + name */
 {
@@ -469,6 +505,7 @@ void main(void)
         case K_RIGHT: if (!active) { active = 1; set_cwd(1); draw_panel(0); draw_panel(1); } break;
         case K_ENTER: enter(); break;
         case K_F1 + 2:  view_file(); break;           /* F3  */
+        case K_F1 + 3:  do_edit(); break;             /* F4  */
         case K_F1 + 4:  do_copy(); break;             /* F5  */
         case K_F1 + 5:  do_move(); break;             /* F6  */
         case K_F1 + 8:  do_mkdir(); break;            /* F9  */
