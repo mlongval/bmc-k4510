@@ -432,3 +432,26 @@ suggested form is "<fontname> font by DamienG https://damieng.com/zx-origins".
 Note the fonts are NOT shipped with the machine (licence forbids re-hosting) --
 the book should say the machine offers them and where to get them, not imply
 they are bundled.
+
+## Roadmap note, 2026-08-28
+
+Doc raised nine ideas at once (Turbo Pascal/VI, a TNFS server, hosting
+resources, a font tool, the codepage, HELP pages, USB, a mouse cursor, a
+GUI). Thought through in `docs/notes/roadmap-2026-08-28.md` — nothing built
+yet, no code touched.
+
+**For the handbook agent — §6, HELP pages.** Doc would like `HELP DIR` to
+explain `DIR`. Proposal: pages as `/SYSTEM/HELP/<CMD>.TXT`, plain text, 80
+columns, NAME/SYNOPSIS/DESCRIPTION/EXAMPLES/SEE ALSO; the handbook's command
+reference and those files generated from one source, plus a build guard that
+compares the pages against the `is_cmd(&p, "…")` dispatch table in
+`rom/kernal.c` and fails on either kind of gap. Coding side owes the
+`HELP <topic>` dispatch and the directory. Read §6 before starting; say in
+your note if you would rather shape it differently.
+
+**Decision that gates the font work — §5.** Recommendation: CP437 stays the
+machine's native codepage; PETSCII becomes a VICKY charset + screen-code
+translation *mode*, not a second encoding. Consequence for the handbook: the
+F7 font menu will only offer fonts normalised to full CP437 coverage, so a
+ZX Origins font there is ZX letters with borrowed box-drawing — worth a
+sentence when that menu is documented.
