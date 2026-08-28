@@ -628,6 +628,9 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);
     if (r == 0x2C) return (uint8_t)sys_sid_active;               /* SIDs the Audio menu is clocking now (1-4), for INFO */   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
+    if (r >= 0x30 && r <= 0x33) return (uint8_t)(dbg_watch_addr >> (8 * (r - 0x30)));
+    if (r == 0x34) return dbg_watch_ctl;
+    if (r == 0x35) return dbg_watch_hits;
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     if (r == 0xF3) return sid_clock_sel;
@@ -995,6 +998,16 @@ static void tube_start(int prog) { (void) prog; }
 static void tube_stop(void) {}
 #endif
 
+/* ---- WATCH: a write watchpoint on physical RAM (core/io.h) -------------- */
+uint32_t dbg_watch_addr;
+uint8_t  dbg_watch_ctl, dbg_watch_hits;
+void dbg_watch_hit(void)
+{
+    if (dbg_watch_hits != 255) dbg_watch_hits++;
+    dbg_watch_ctl = 0;                       /* one bug, one dump */
+    dbg_dump("watch");
+}
+
 /* ---- debug recorder and DUMP ------------------------------------------- */
 #define DBG_PCS 4096
 #define DBG_KEYS 256
@@ -1168,6 +1181,9 @@ void io_write(uint16_t addr, uint8_t v)
         math_write(addr & 0xFF, v); return;
     case IO_SYS:
         if ((addr & 0xFF) >= 0xE0 && (addr & 0xFF) <= 0xE3) seq_write((uint8_t)((addr & 0xFF) - 0xE0), v);
+        if ((addr & 0xFF) >= 0x30 && (addr & 0xFF) <= 0x33) { uint8_t sh = 8 * ((addr & 0xFF) - 0x30);
+            dbg_watch_addr = (dbg_watch_addr & ~(0xFFu << sh)) | ((uint32_t)v << sh); dbg_watch_addr &= K4510_PHYS_MASK; }
+        if ((addr & 0xFF) == 0x34) { dbg_watch_ctl = v ? 1 : 0; dbg_watch_hits = 0; dbg_rec = dbg_watch_ctl ? 1 : dbg_rec; }
         if ((addr & 0xFF) == 0xF0) { dbg_rec = 1; dbg_dump("DUMP register"); }
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }

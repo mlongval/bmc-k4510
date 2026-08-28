@@ -172,6 +172,8 @@ static uint8_t far_gate(uint16_t addr)
  * deadlock. The far gate is unreachable while block 6 is MAPped. */
 
 int dbg_rec;                             /* the PC recorder costs a store per instruction: armed by DUMP */
+/* the WATCH write hook (core/io.h): armed rarely, checked cheaply */
+#define WATCH_WR(phys) do { if (XEMU_UNLIKELY(dbg_watch_ctl && ((phys) & K4510_PHYS_MASK) == dbg_watch_addr)) dbg_watch_hit(); } while (0)
 Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
@@ -201,12 +203,13 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
     if (XEMU_LIKELY(base == UNMAPPED)) {
         if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return;               /* ROM (I/O page wins: the hole in a big ROM) */
+        WATCH_WR(addr);
         k4510_ram[addr] = data;
         return;
     }
     if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE) && bank_on[6]) { io_write(addr, data); return; }   /* K-01 banked: I/O wins; MAPped (K-06): RAM under the I/O */
     if (XEMU_UNLIKELY(addr >= 0xFF00)) return;                         /* the stub page: ROM even when banked */
-    k4510_ram[cpu_to_phys(addr)] = data;
+    { uint32_t phys = cpu_to_phys(addr); WATCH_WR(phys); k4510_ram[phys] = data; }
 }
 
 void cpu65_write_rmw_callback(Uint16 addr, Uint8 old_data, Uint8 new_data)
@@ -230,7 +233,7 @@ static Uint32 flat_address(Uint8 index)
 }
 
 Uint8  cpu65_read_linear_opcode_callback(void)             { return k4510_ram[flat_address(cpu65.z)]; }
-void   cpu65_write_linear_opcode_callback(Uint8 data)      { k4510_ram[flat_address(cpu65.z)] = data; }
+void   cpu65_write_linear_opcode_callback(Uint8 data)      { Uint32 a = flat_address(cpu65.z); WATCH_WR(a); k4510_ram[a] = data; }
 
 Uint32 cpu65_read_linear_long_opcode_callback(const Uint8 index)
 {
@@ -244,6 +247,7 @@ Uint32 cpu65_read_linear_long_opcode_callback(const Uint8 index)
 void cpu65_write_linear_long_opcode_callback(const Uint8 index, Uint32 data)
 {
     Uint32 a = flat_address(index);
+    WATCH_WR(a); WATCH_WR(a + 1); WATCH_WR(a + 2); WATCH_WR(a + 3);
     k4510_ram[(a    ) & K4510_PHYS_MASK] =  data        & 0xFF;
     k4510_ram[(a + 1) & K4510_PHYS_MASK] = (data >>  8) & 0xFF;
     k4510_ram[(a + 2) & K4510_PHYS_MASK] = (data >> 16) & 0xFF;

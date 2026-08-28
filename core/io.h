@@ -221,6 +221,22 @@ void    io_frame_tick(void);
 void    io_set_cpu_khz(unsigned khz);
 void    io_set_sid_active(int n);   /* the Audio menu's Active SIDs, for INFO to report live */
 extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
+/* --- WATCH ($D530-$D535): who is trampling this byte? ------------------
+ *   $30-$33  28-bit physical address to watch
+ *   $34      write 1 to arm; write 0 to disarm; reads back the armed state
+ *   $35      hits since last arm (saturates at 255)
+ * A CPU write to the watched byte -- normal, MAPped, banked or a flat
+ * 32-bit store -- fires a DUMP (dumps/dump-NNN.txt, tagged "watch") and
+ * disarms, so one bug produces one dump.  DMA and the host itself do not
+ * trip it: the question WATCH answers is "which instruction wrote this",
+ * and the dump's PC history is the answer. */
+#define IO_WATCH_ADDR  (IO_SYS + 0x30)
+#define IO_WATCH_CTL   (IO_SYS + 0x34)
+#define IO_WATCH_HITS  (IO_SYS + 0x35)
+extern uint32_t dbg_watch_addr;
+extern uint8_t  dbg_watch_ctl, dbg_watch_hits;
+void dbg_watch_hit(void);                    /* mem.c reports; io.c dumps and disarms */
+
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
 extern int      io_prof_on;                  /* frontend: profile only while the PERF window is open */
 extern uint64_t io_prof_cycles;
