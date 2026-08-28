@@ -34,7 +34,8 @@
  * banks 1+ are appended 8 KB images called through sw_call(). */
 static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
 static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
-static uint8_t OY, bband;                            /* status mode: top-band height (console origin) and bottom-band height; bband != 0 means status mode is on */
+static uint8_t OY;                                   /* status mode: top-band height (the console origin) */
+uint8_t bband;                                       /* bottom-band height; bband != 0 means status mode is on -- the IRQ (crt0.s) reads it to know whether to tick the clock */
 #define OX margin
 #define ROM_VERSION "stage 4"
 
@@ -125,17 +126,16 @@ static void draw_bands(void)
 }
 #pragma code-name (pop)
 
-/* The clock widget: HH:MM DD.MM.YYYY at the top-right, refreshed each minute
- * from the key poll.  The caller latches the RTC (a read of SYS+4) first;
- * we read the snapshot at SYS+5.. and note the minute we drew, so the poll
- * redraws only when it rolls.  In ROM2, called from ROM1C's draw_bands. */
-static uint8_t clk_min;
+/* The clock widget: HH:MM DD.MM.YYYY at the top-right.  This lays down the
+ * whole string once (separators and the year included); the machine's IRQ
+ * (crt0.s) then repaints the eight digits every minute, so it ticks even
+ * inside a program that never calls the console.  The caller latches the RTC
+ * (a read of SYS+4) first.  In ROM2, called from ROM1C's draw_bands. */
 static void draw_clock(void)
 {
     char b[17];
     uint8_t hh = REG(SYS + 7), mi = REG(SYS + 6), dd = REG(SYS + 8), mo = REG(SYS + 9);
     uint16_t yr = r16(SYS + 0x0A);
-    clk_min = mi;
     b[0]  = '0' + hh / 10; b[1]  = '0' + hh % 10; b[2]  = ':';
     b[3]  = '0' + mi / 10; b[4]  = '0' + mi % 10; b[5]  = ' ';
     b[6]  = '0' + dd / 10; b[7]  = '0' + dd % 10; b[8]  = '.';
@@ -250,7 +250,6 @@ static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
     if (REG(SYS + 0x21) & 0x10) mode_do();          /* rare: the F7 menu asked for a mode */
-    if (bband) { (void)REG(SYS + 4); if (REG(SYS + 6) != clk_min) draw_clock(); }   /* the status-bar clock, once a minute */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     /* Not while JIM is showing its own: a program that draws through the
      * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the

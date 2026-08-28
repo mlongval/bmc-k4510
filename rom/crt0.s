@@ -6,6 +6,7 @@
         .importzp sp
         .import   incsp4
         .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video, _k_args
+        .import   _bband                    ; nonzero in status mode: the IRQ ticks the clock
         .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _call_prog
 
         .zeropage
@@ -20,6 +21,7 @@ t0:           .res 1
 zp_rom:       .res 32          ; the ROM's zero page $02-$21 while a program runs
 zp_tmp:       .res 32
 zp_save:      .res 6           ; IRQ scratch
+irq_min:      .res 1           ; the minute the IRQ last painted into the status clock
 
         .segment "STARTUP"
 reset:  sei
@@ -37,6 +39,30 @@ reset:  sei
         jsr _main
 _exit:  jmp _exit
 
+; unsigned speed_loop(void): iterations of a fixed loop during one frame.
+; 18 cycles per iteration on the 40.5 MHz timing table (see INFO -c).  Kept
+; ahead of the IRQ and the clock painter so later additions there cannot
+; shift it across a page boundary -- the taken branch below costs a cycle
+; more when it does, and that cycle, times ~37000 iterations, moves the
+; measured MHz by ~5%.
+_speed_loop:
+        lda _ticks
+@w:     cmp _ticks              ; wait for a tick edge
+        beq @w
+        lda _ticks
+        sta t0
+        stz cnt
+        stz cnt+1
+@l:     inc cnt
+        bne @s
+        inc cnt+1
+@s:     lda t0
+        cmp _ticks
+        beq @l
+        lda cnt
+        ldx cnt+1
+        rts
+
 ; IRQ: pure assembly -- cc65 C code must never run here (it would clobber
 ; the zero-page temporaries of whatever was interrupted).
 ; The cursor cell is in far memory; the IRQ borrows $02-$05 for the flat
@@ -50,7 +76,19 @@ irq:    pha
         lda _ticks
         and #31
         bne @ack
-        lda _cursor_vis
+        ; --- the status-bar clock, the machine's own tick: when the minute
+        ; rolls, repaint the eight digit cells (in status mode only) ---
+        lda _bband
+        beq @curs
+        lda $D504               ; latch the RTC
+        lda $D506               ; the minute
+        cmp irq_min
+        beq @curs
+        sta irq_min
+        phy                     ; the stub saved A and X for us; Y is ours to keep
+        jsr clk_paint
+        ply
+@curs:  lda _cursor_vis
         beq @ack
         phx
         ldx #3
@@ -76,25 +114,76 @@ irq:    pha
         pla
         rts                     ; back to the stub (s_irq), which banks the ROM out again and RTIs
 
-; unsigned speed_loop(void): iterations of a fixed loop during one frame.
-; 18 cycles per iteration on the 40.5 MHz timing table (see INFO -c)
-_speed_loop:
-        lda _ticks
-@w:     cmp _ticks              ; wait for a tick edge
-        beq @w
-        lda _ticks
-        sta t0
-        stz cnt
-        stz cnt+1
-@l:     inc cnt
-        bne @s
-        inc cnt+1
-@s:     lda t0
-        cmp _ticks
-        beq @l
-        lda cnt
-        ldx cnt+1
+; The status clock's painter, run from the IRQ.  It rewrites the eight digit
+; cells of HH:MM DD.MM straight into the text map at $030100 (row 0, column
+; 64 = SCREEN + 64*4; status mode is always 80 columns).  The separators and
+; the year are the C code's (draw_clock); only the digits change each minute.
+; Borrows $02-$05 in zp_save, the way the cursor blink borrows them.  A and X
+; are the stub's to restore; the caller kept Y.
+clk_paint:
+        cld                     ; the sbc below must be binary, whatever ran before
+        ldx #3
+@sv:    lda $02,x
+        sta zp_save,x
+        dex
+        bpl @sv
+        lda #$00                ; $02-$05 = $00030100
+        sta $02
+        lda #$01
+        sta $03
+        lda #$03
+        sta $04
+        lda #$00
+        sta $05
+        lda $D507               ; hours
+        jsr cp_field
+        lda #':'
+        jsr cp_put
+        lda $D506               ; minutes
+        jsr cp_field
+        lda #' '
+        jsr cp_put
+        lda $D508               ; day
+        jsr cp_field
+        lda #'.'
+        jsr cp_put
+        lda $D509               ; month
+        jsr cp_field
+        ldx #3
+@rs:    lda zp_save,x
+        sta $02,x
+        dex
+        bpl @rs
         rts
+
+; A = 0..99 -> two cells: the tens digit, then (falling through) the ones.
+cp_field:
+        ldy #'0'
+@t:     cmp #10
+        bcc @d
+        sbc #10                 ; the cmp set carry when A >= 10
+        iny
+        bra @t
+@d:     ora #'0'                ; the ones digit, 0..9, to ASCII
+        pha
+        tya
+        jsr cp_put              ; the tens
+        pla                     ; the ones, then fall through
+; cp_put: write A (a glyph) to the cell at [$02], advance $02-$05 by four.
+cp_put:
+        .byte $EA               ; NOP prefix: 32-bit flat
+        sta ($02)               ; STA [$02],Z   (Z = 0, as the blink assumes)
+        clc
+        lda $02
+        adc #4
+        sta $02
+        bcc @d
+        inc $03
+        bne @d
+        inc $04
+        bne @d
+        inc $05
+@d:     rts
 
 ; void __fastcall__ far_poke(unsigned long a, unsigned char v)
 _far_poke:
