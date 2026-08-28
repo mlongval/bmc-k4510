@@ -78,3 +78,4 @@ core/build.h
 data/fonts/zx/*.bin
 demo/tiny.bin
 demo/tiny.h
+demo/bomber.h

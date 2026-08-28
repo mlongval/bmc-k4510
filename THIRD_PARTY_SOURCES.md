@@ -143,6 +143,18 @@ that the code is unknown; those are listed again at the end.
 | Licence | CC0-1.0 (`data/fonts/bescii/LICENCE`) |
 | Altered | No. |
 
+## Bomb Party
+
+| | |
+|---|---|
+| Role | Art for the BOMBER game: walls, crates, bombs, blasts and the four little people become VICKY tiles and sprites. |
+| Local path | `data/bombparty/` -- `bomb_party_v4.png` |
+| Upstream | https://opengameart.org/content/bomb-party-the-complete-set (devurandom, with richtaur and cemkalyoncu; fetched 2026-08-28) |
+| Version | v4, the "complete set" sheet; 15x19 cells of 16x16. |
+| Licence | CC-BY 3.0 -- attribution required, given in CREDITS.md. |
+| Altered | No. `tools/mkbomber.py` derives `demo/bomber.h` at build time; the derived file is not committed. |
+| Verify | `sha256 1635752a826c6d4b0d3a793e635d6675244d1590dfc88560da85a682036b9f56  bomb_party_v4.png` |
+
 ## Tiny Dungeon
 
 | | |

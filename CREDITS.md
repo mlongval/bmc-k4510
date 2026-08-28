@@ -60,6 +60,9 @@ Thank you:
   builds them from your own download.
 - **Kenney** — [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon),
   the tiles, the map and the little people of the TINY demo, CC0.
+- **devurandom, richtaur (Matt Hackett) and cemkalyoncu** —
+  [Bomb Party](https://opengameart.org/content/bomb-party-the-complete-set),
+  the arena, the bombs and the cast of the BOMBER game, CC-BY 3.0.
 
 ## The Raspberry Pi port
 

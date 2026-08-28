@@ -1,0 +1,14 @@
+Bomb Party (the complete set) -- bomb_party_v4.png
+==================================================
+
+Upstream:   https://opengameart.org/content/bomb-party-the-complete-set
+Fetched:    2026-08-28, https://opengameart.org/sites/default/files/bomb_party_v4.png
+Authors:    devurandom, with collaborators richtaur (Matt Hackett,
+            Lost Decade Games) and cemkalyoncu; an expansion of
+            richtaur's original Bomb Party set.
+Licence:    CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+            Attribution is REQUIRED: see CREDITS.md at the repo root.
+Altered:    No. tools/mkbomber.py derives demo/bomber.h from it at build
+            time; the derived file is not committed.
+Verify:     sha256 below matches the fetched file.
+1635752a826c6d4b0d3a793e635d6675244d1590dfc88560da85a682036b9f56

@@ -21,6 +21,7 @@ where each one came from and how to verify it):
 | `data/fonts/unscii/` | unscii-8, Viznut; `font8-unscii.bin` is a generated drop-in alternative to `data/font8.bin` (not yet wired) | public domain |
 | `data/fonts/bescii/` | BESCII v3 (Mono + source), Damian Vila | CC0-1.0 |
 | `data/tinydungeon/` | Tiny Dungeon tile sheet + Tiled sample map, Kenney (`demo/tiny.c` renders them; see `data/tinydungeon/VENDORED-FROM.txt`) | CC0-1.0 |
+| `data/bombparty/` | Bomb Party sprite sheet, devurandom/richtaur/cemkalyoncu (`demo/bomber.c` renders it; see `data/bombparty/VENDORED-FROM.txt`) | CC-BY-3.0 |
 | `basic/basic.asm` | EhBASIC 2.22, Lee Davison (ca65 form via jefftranter/6502) | **free for non-commercial use**; derivatives must carry "Derived from EhBASIC" — see `basic/README-EhBASIC.txt`. It is a separate program (`fs/ehbasic.prg`), not linked with the GPL code. |
 | `cpm/src/` | RunCPM (CP/M 2.2 environment with internal CCP), Marcelo Dantas "Mockba the Borg" (vendored unmodified; see `cpm/VENDORED-FROM.txt`) | MIT |
 | `forth/tali/` | Tali Forth 2, Scot W. Stevenson / Sam Colwell / Patrick Surry (vendored unmodified; see `forth/tali/VENDORED-FROM.txt`) | public domain |
