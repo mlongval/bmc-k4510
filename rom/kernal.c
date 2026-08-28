@@ -95,6 +95,7 @@ static void draw_cursor(uint8_t on)
  * blank spacer rows are where the widgets go later. */
 #define BAND_FG  C_HI                 /* white on grey: a status bar, ancient or modern */
 #define BAND_BG  0x0C
+static void draw_clock(void);         /* the top-right widget; lives in ROM2 (ROM1C has no room) */
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
@@ -117,11 +118,33 @@ static void draw_bands(void)
     fg = ofg; bg = obg;                                          /* the spacers, in the console's colours */
     for (i = 1; i < OY; i++) blank_row(i);
     for (i = OY + ROWS; i < last; i++) blank_row(i);
-    bar_str(1, 0, "BMC-K4510  K/OS");                            /* top bar: the machine */
+    bar_str(1, 0, "BMC-K4510  K/OS");                            /* top bar: the machine, and the clock at the right */
+    (void)REG(SYS + 4); draw_clock();
     bar_str(1, last, "status mode");                             /* bottom bar: the mode, and the live CPU clock */
     bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz);
 }
 #pragma code-name (pop)
+
+/* The clock widget: HH:MM DD.MM.YYYY at the top-right, refreshed each minute
+ * from the key poll.  The caller latches the RTC (a read of SYS+4) first;
+ * we read the snapshot at SYS+5.. and note the minute we drew, so the poll
+ * redraws only when it rolls.  In ROM2, called from ROM1C's draw_bands. */
+static uint8_t clk_min;
+static void draw_clock(void)
+{
+    char b[17];
+    uint8_t hh = REG(SYS + 7), mi = REG(SYS + 6), dd = REG(SYS + 8), mo = REG(SYS + 9);
+    uint16_t yr = r16(SYS + 0x0A);
+    clk_min = mi;
+    b[0]  = '0' + hh / 10; b[1]  = '0' + hh % 10; b[2]  = ':';
+    b[3]  = '0' + mi / 10; b[4]  = '0' + mi % 10; b[5]  = ' ';
+    b[6]  = '0' + dd / 10; b[7]  = '0' + dd % 10; b[8]  = '.';
+    b[9]  = '0' + mo / 10; b[10] = '0' + mo % 10; b[11] = '.';
+    b[12] = '0' + (uint8_t)(yr / 1000);     b[13] = '0' + (uint8_t)(yr / 100 % 10);
+    b[14] = '0' + (uint8_t)(yr / 10 % 10);  b[15] = '0' + (uint8_t)(yr % 10);
+    b[16] = 0;
+    bar_str(PCOLS - 16, 0, b);
+}
 
 static void cls(void)
 {
@@ -227,6 +250,7 @@ static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
     if (REG(SYS + 0x21) & 0x10) mode_do();          /* rare: the F7 menu asked for a mode */
+    if (bband) { (void)REG(SYS + 4); if (REG(SYS + 6) != clk_min) draw_clock(); }   /* the status-bar clock, once a minute */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     /* Not while JIM is showing its own: a program that draws through the
      * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the
