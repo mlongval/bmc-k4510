@@ -52,10 +52,21 @@ The built .prg is committed (like every .prg), so other machines need
 nothing but a pull. Not in the main Makefile: that would add a 64tass
 dependency to `make all` for one file that changes rarely.
 
+## The 45GS02 disassembler
+
+D decodes the full 256-opcode 45GS02/65CE02 map -- LDZ, INW/DEW, PHW,
+STA ($nn),Z, ($nn,SP),Y, 16-bit branches with computed targets, the
+RMB/SMB/BBR/BBS families with their bit digits.  The tables are
+generated from `core/xemu/cpu65ce02_disasm_tables.c`, the emulator's own
+opcode map, so the disassembler and the CPU cannot disagree.
+
+The in-place assembler (A) still speaks Butterfield's 6502 set only --
+extending its matcher to the new modes is a separate piece of work.
+
 ## Not yet
 
-- 45GS02 mnemonics: the disassembler/assembler tables are Butterfield's
-  6502 set; 65CE02 extensions (LDZ, INW, BRA rel16, the $EA-prefixed
-  flat forms) still show as ??? . Table extension is the planned next step.
+- A knows only 6502; D knows everything (above).
+- The $EA-prefixed flat forms disassemble as EOM + the base-page
+  instruction, not as one [ptr],Z line.
 - Breakpoints: the ROM's IRQ path does not yet distinguish BRK, so G into
   a BRK does not re-enter the monitor. J (JSR) returns on RTS.

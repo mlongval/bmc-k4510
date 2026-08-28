@@ -36,6 +36,7 @@
 ; temporary pointers, in the zero-page window a .prg owns ($40-$63)
 TMP0    = $40               ; used to return input, often holds end address
 TMP2    = $42               ; usually holds start address
+XPTR    = $44               ; the disassembler's pattern pointer
 
 ; -----------------------------------------------------------------------------
 ; the K4510 ROM's system calls and I/O
@@ -81,6 +82,9 @@ SAVY    = VARBASE+$90
 U9F     = VARBASE+$91
 SAVA    = VARBASE+$92
 SAVSP   = VARBASE+$93
+XOPC    = VARBASE+$94
+XMOD    = VARBASE+$95
+XOPN    = VARBASE+$96
 
 ; -----------------------------------------------------------------------------
 ; variables
@@ -710,73 +714,153 @@ DISGO   JSR CLINE           ; clear the current line
 DISEXIT JMP STRT            ; back to mainloop
 DERROR  JMP ERROR
 
-DSOUT1  LDA #"."            ; output ". " prefix to allow edit and reassemble
+DSOUT1  LDA #"."            ; output ". " prefix
         JSR MCHROUT
         JSR SPACE
 
-DISLIN  JSR SHOWAD          ; show the address of the instruction
-        JSR SPACE           ; insert a space
-        LDY #0              ; no offset
-        LDA (TMP2),Y        ; load operand of current instruction
-        JSR INSTXX          ; get mnemonic and addressing mode for opcode
-        PHA                 ; save index into mnemonic table
-        LDX LENGTH          ; get length of operand
-        INX                 ; add 1 byte for opcode
-DSBYT   DEX                 ; decrement index
-        BPL DSHEX           ; show hex for byte being disassembled
-        STY SAVY            ; save index
-        LDY #MSG8-MSGBAS    ; skip 3 spaces
+; disassemble one instruction at TMP2 -- the full 45GS02 map
+DISLIN  JSR SHOWAD          ; show the address
+        JSR SPACE
+        LDY #0
+        LDA (TMP2),Y        ; the opcode
+        STA XOPC
+        TAX
+        LDA XADM,X          ; its addressing mode, 0-18
+        STA XMOD
+        TAX
+        LDA XLENT,X         ; operand length in bytes
+        STA LENGTH
+        LDX LENGTH          ; hex for opcode + operands, padded to 3 slots
+        INX
+DSBYT   DEX
+        BPL DSHEX
+        STY SAVY
+        LDY #MSG8-MSGBAS    ; pad a missing byte with 3 spaces
         JSR SNDMSG
-        LDY SAVY            ; restore index
+        LDY SAVY
         JMP NXBYT
-DSHEX   LDA (TMP2),Y        ; show hex for byte
+DSHEX   LDA (TMP2),Y
         JSR WRBYTE
-
-NXBYT   INY                 ; next byte
-        CPY #3              ; have we output 3 bytes yet?
-        BCC DSBYT           ; if not, loop
-        PLA                 ; restore index into mnemonic table
-        LDX #3              ; 3 letters in mnemonic
-        JSR PROPXX          ; print mnemonic
-        LDX #6              ; 6 possible address mode character combos
-PRADR1  CPX #3              ; have we checked the third combo yet?
-        BNE PRADR3          ; if so, output the leading characters
-        LDY LENGTH          ; get the length of the operand
-        BEQ PRADR3          ; if it's zero, there's no operand to print
-PRADR2  LDA ACMD            ; otherwise, get the addressing mode
-        CMP #$E8            ; check for relative addressing
-        PHP                 ; save result of check
-        LDA (TMP2),Y        ; get the operand
-        PLP                 ; restore result of check
-        BCS RELAD           ; handle a relative address
-        JSR WRTWO           ; output digits from address
+NXBYT   INY
+        CPY #3
+        BCC DSBYT
+        LDY XOPC            ; the mnemonic: three packed letters
+        LDA XMNEML,Y
+        STA STORE
+        LDA XMNEMR,Y
+        STA STORE+1
+        LDX #3
+XPRMN1  LDA #0
+        LDY #5
+XPRMN2  ASL STORE+1
+        ROL STORE
+        ROL A
         DEY
-        BNE PRADR2          ; repeat for next byte of operand, if there is one
-PRADR3  ASL ACMD            ; check whether addr mode uses the current char
-        BCC PRADR4          ; if not, skip it
-        LDA CHAR1-1,X       ; look up the first char in the table
-        JSR MCHROUT          ; print first char
-        LDA CHAR2-1,X       ; look up the second char in the table
-        BEQ PRADR4          ; if there's no second character, skip it
-        JSR MCHROUT          ; print second char
-PRADR4  DEX                 ; next potential address mode character
-        BNE PRADR1          ; loop if we haven't checked them all yet
-        RTS                 ; back to caller
-RELAD   JSR UB64D           ; calculate absolute address from relative
+        BNE XPRMN2
+        ADC #$3F
+        JSR MCHROUT
+        DEX
+        BNE XPRMN1
+        LDA XOPC            ; $x7 is RMB/SMB, $xF is BBR/BBS: append the bit
+        AND #$0F
+        CMP #$07
+        BEQ XPDIG
+        CMP #$0F
+        BNE XPNOD
+XPDIG   LDA XOPC
+        LSR A
+        LSR A
+        LSR A
+        LSR A
+        AND #$07
+        ORA #$30
+        JSR MCHROUT
+XPNOD   JSR SPACE
+        LDX XMOD            ; the operand, walked from the mode's pattern
+        LDA XPATLO,X
+        STA XPTR
+        LDA XPATHI,X
+        STA XPTR+1
+        LDA #1
+        STA XOPN            ; next operand byte, 1-based from the opcode
+        LDY #0
+XPLOOP  LDA (XPTR),Y
+        BEQ XPEND
+        CMP #5              ; 1-4 are tokens, the rest literal characters
+        BCC XPTOK
+        JSR MCHROUT         ; literal (X and Y survive MCHROUT)
+        INY
+        JMP XPLOOP
+XPEND   RTS
+XPTOK   CMP #1
+        BEQ XPBYTE
+        CMP #2
+        BEQ XPWORD
+        CMP #3
+        BEQ XPREL8
+        ; token 4: 16-bit relative -- target = address + 2 + offset
+        STY SAVY
+        LDY #1
+        LDA (TMP2),Y        ; offset low
         CLC
-        ADC #1              ; adjust address relative to next instruction
-        BNE RELEND          ; don't increment high byte unless we overflowed
-        INX                 ; increment high byte
-RELEND  JMP WRADDR          ; print address
-
-UB64D   LDX TMP2+1          ; get high byte of current address
-        TAY                 ; is relative address positive or negative?
-        BPL RELC2           ; if positive, leave high byte alone
-        DEX                 ; if negative, decrement high byte
-RELC2   ADC TMP2            ; add relative address to low byte
-        BCC RELC3           ; if there's no carry, we're done
-        INX                 ; if there's a carry, increment the high byte
-RELC3   RTS
+        ADC TMP2
+        STA STORE
+        INY
+        LDA (TMP2),Y        ; offset high
+        ADC TMP2+1
+        STA STORE+1
+        CLC                 ; + 2
+        LDA STORE
+        ADC #2
+        STA STORE
+        BCC XPR16
+        INC STORE+1
+XPR16   LDX STORE+1
+        JSR WRADDR          ; A = low, X = high
+        LDY SAVY
+        INY
+        JMP XPLOOP
+XPBYTE  STY SAVY
+        LDY XOPN
+        LDA (TMP2),Y
+        JSR WRTWO           ; two digits, no trailing space
+        INC XOPN
+        LDY SAVY
+        INY
+        JMP XPLOOP
+XPWORD  STY SAVY
+        LDY XOPN
+        INY
+        LDA (TMP2),Y        ; high byte first on the page
+        JSR WRTWO
+        DEY
+        LDA (TMP2),Y
+        JSR WRTWO
+        INC XOPN
+        INC XOPN
+        LDY SAVY
+        INY
+        JMP XPLOOP
+XPREL8  STY SAVY            ; target = address of the offset byte + 1 + offset
+        LDY XOPN
+        LDA (TMP2),Y
+        LDX TMP2+1
+        TAY                 ; remember the sign
+        BPL XPR8P
+        DEX                 ; negative: borrow from the high byte
+XPR8P   CLC
+        ADC TMP2
+        BCC XPR8Q
+        INX
+XPR8Q   SEC                 ; + XOPN + 1 (the SEC supplies the +1)
+        ADC XOPN
+        BCC XPR8R
+        INX
+XPR8R   JSR WRADDR          ; A = low, X = high
+        INC XOPN
+        LDY SAVY
+        INY
+        JMP XPLOOP
 
 ; -----------------------------------------------------------------------------
 ; get opcode mode and length
@@ -1408,6 +1492,90 @@ MODTAB  .BYTE $10,$0A,$08,02    ; modulo number systems
 LENTAB  .BYTE $04,$03,$03,$01   ; bits per digit
 
 SUPAD   .WORD SUPER             ; address of entry point
+
+; -----------------------------------------------------------------------------
+; the 45GS02 disassembly tables, generated from the emulator's own opcode
+; map (core/xemu/cpu65ce02_disasm_tables.c) by the port script -- the
+; disassembler and the CPU can never disagree.  Mnemonics are packed
+; 5 bits a letter, Butterfield's own scheme; the bit-op families
+; (RMB/SMB at $x7, BBR/BBS at $xF) get their digit appended at print.
+XMNEML
+        .BYTE $1C,$84,$23,$A1,$AD,$84,$15,$9B,$8A,$84,$15,$AD,$AD,$84,$15,$18
+        .BYTE $1C,$84,$84,$1C,$AC,$84,$15,$9B,$23,$84,$53,$53,$AC,$84,$15,$18
+        .BYTE $5D,$13,$5D,$5D,$1A,$13,$9C,$9B,$8B,$13,$9C,$AE,$1A,$13,$9C,$18
+        .BYTE $1B,$13,$13,$1B,$1A,$13,$9C,$9B,$A1,$13,$29,$29,$1A,$13,$9C,$18
+        .BYTE $9D,$34,$79,$15,$15,$34,$6D,$9B,$8A,$34,$6D,$A8,$5B,$34,$6D,$18
+        .BYTE $1D,$34,$34,$1D,$15,$34,$6D,$9B,$23,$34,$8A,$A8,$70,$34,$6D,$18
+        .BYTE $9D,$11,$9D,$1D,$A5,$11,$9C,$9B,$8B,$11,$9C,$AE,$5B,$11,$9C,$18
+        .BYTE $1D,$11,$11,$1D,$A5,$11,$9C,$9B,$A1,$11,$8B,$A8,$5B,$11,$9C,$18
+        .BYTE $1C,$A5,$A5,$1C,$A5,$A5,$A5,$A3,$29,$1A,$AE,$A5,$A5,$A5,$A5,$18
+        .BYTE $19,$A5,$A5,$19,$A5,$A5,$A5,$A3,$AE,$A5,$AE,$A5,$A5,$A5,$A5,$18
+        .BYTE $69,$69,$69,$69,$69,$69,$69,$A3,$A8,$69,$A8,$69,$69,$69,$69,$18
+        .BYTE $19,$69,$69,$19,$69,$69,$69,$A3,$23,$69,$AD,$69,$69,$69,$69,$18
+        .BYTE $24,$23,$24,$29,$24,$23,$29,$A3,$53,$23,$29,$15,$24,$23,$29,$18
+        .BYTE $1B,$23,$23,$1B,$24,$23,$29,$A3,$23,$23,$8A,$8A,$24,$23,$29,$18
+        .BYTE $24,$A0,$69,$53,$24,$A0,$53,$A3,$53,$A0,$34,$9C,$24,$A0,$53,$18
+        .BYTE $19,$A0,$A0,$19,$8A,$A0,$53,$A3,$A1,$A0,$8B,$8B,$8A,$A0,$53,$18
+XMNEMR
+        .BYTE $D8,$C4,$4C,$8C,$06,$C4,$1A,$86,$62,$C4,$1A,$34,$06,$C4,$1A,$E6
+        .BYTE $5A,$C4,$C4,$5A,$C6,$C4,$1A,$86,$48,$C4,$C8,$F6,$C6,$C4,$1A,$E6
+        .BYTE $26,$CA,$26,$26,$AA,$CA,$1A,$86,$62,$CA,$1A,$A8,$AA,$CA,$1A,$E6
+        .BYTE $94,$CA,$CA,$94,$AA,$CA,$1A,$86,$88,$CA,$88,$B6,$AA,$CA,$1A,$E6
+        .BYTE $54,$26,$90,$26,$26,$26,$26,$86,$44,$26,$26,$B6,$A2,$26,$26,$E6
+        .BYTE $C8,$26,$26,$C8,$26,$26,$26,$86,$54,$26,$74,$86,$A2,$26,$26,$E6
+        .BYTE $68,$48,$68,$26,$76,$48,$26,$86,$44,$48,$26,$C4,$A2,$48,$26,$E6
+        .BYTE $E8,$48,$48,$E8,$76,$48,$26,$86,$94,$48,$74,$C4,$A2,$48,$26,$E6
+        .BYTE $C4,$44,$44,$C4,$74,$44,$72,$86,$B4,$AA,$44,$74,$74,$44,$72,$E8
+        .BYTE $08,$44,$44,$08,$74,$44,$72,$86,$84,$44,$68,$72,$76,$44,$76,$E8
+        .BYTE $74,$44,$72,$76,$74,$44,$72,$86,$B4,$44,$B2,$76,$74,$44,$72,$E8
+        .BYTE $28,$44,$44,$28,$74,$44,$72,$86,$6E,$44,$32,$76,$74,$44,$72,$E8
+        .BYTE $74,$A2,$76,$B0,$74,$A2,$88,$86,$F4,$A2,$B2,$30,$74,$A2,$88,$E8
+        .BYTE $CC,$A2,$A2,$CC,$76,$A2,$88,$86,$4A,$A2,$72,$76,$76,$A2,$88,$E8
+        .BYTE $72,$C8,$44,$F0,$72,$C8,$C8,$86,$F2,$C8,$1C,$30,$72,$C8,$C8,$E8
+        .BYTE $A4,$C8,$C8,$A4,$70,$C8,$C8,$86,$8A,$C8,$72,$76,$70,$C8,$C8,$E8
+; addressing mode 0-18 for every opcode
+XADM
+        .BYTE $00,$0F,$00,$00,$03,$03,$03,$03,$00,$01,$12,$00,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$03,$05,$05,$03,$00,$09,$00,$00,$07,$08,$08,$04
+        .BYTE $07,$0F,$10,$11,$03,$03,$03,$03,$00,$01,$12,$00,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$05,$05,$05,$03,$00,$09,$00,$00,$08,$08,$08,$04
+        .BYTE $00,$0F,$00,$00,$03,$03,$03,$03,$00,$01,$12,$00,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$05,$05,$05,$03,$00,$09,$00,$00,$00,$08,$08,$04
+        .BYTE $00,$0F,$01,$0B,$03,$03,$03,$03,$00,$01,$12,$00,$10,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$05,$05,$05,$03,$00,$09,$00,$00,$11,$08,$08,$04
+        .BYTE $0A,$0F,$0E,$0B,$03,$03,$03,$03,$00,$01,$00,$08,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$05,$05,$06,$03,$00,$09,$00,$09,$07,$08,$08,$04
+        .BYTE $01,$0F,$01,$01,$03,$03,$03,$03,$00,$01,$00,$07,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$05,$05,$06,$03,$00,$09,$00,$08,$08,$08,$09,$04
+        .BYTE $01,$0F,$01,$03,$03,$03,$03,$03,$00,$01,$00,$07,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$03,$05,$05,$03,$00,$09,$00,$00,$07,$08,$08,$04
+        .BYTE $01,$0F,$0E,$03,$03,$03,$03,$03,$00,$01,$00,$07,$07,$07,$07,$04
+        .BYTE $0A,$0C,$0D,$0B,$02,$05,$05,$03,$00,$09,$00,$00,$07,$08,$08,$04
+; operand bytes per mode
+XLENT   .BYTE 0,1,2,1,2,1,1,2,2,2,1,2,1,1,1,1,2,2,0
+; operand print patterns: literals, or 1=byte 2=word 3=rel8 4=rel16
+XPAT00  .BYTE 0
+XPAT01  .BYTE '#','$',1,0
+XPAT02  .BYTE '#','$',2,0
+XPAT03  .BYTE '$',1,0
+XPAT04  .BYTE '$',1,',','$',3,0
+XPAT05  .BYTE '$',1,',','X',0
+XPAT06  .BYTE '$',1,',','Y',0
+XPAT07  .BYTE '$',2,0
+XPAT08  .BYTE '$',2,',','X',0
+XPAT09  .BYTE '$',2,',','Y',0
+XPAT10  .BYTE '$',3,0
+XPAT11  .BYTE '$',4,0
+XPAT12  .BYTE '(','$',1,')',',','Y',0
+XPAT13  .BYTE '(','$',1,')',',','Z',0
+XPAT14  .BYTE '(','$',1,',','S','P',')',',','Y',0
+XPAT15  .BYTE '(','$',1,',','X',')',0
+XPAT16  .BYTE '(','$',2,')',0
+XPAT17  .BYTE '(','$',2,',','X',')',0
+XPAT18  .BYTE 'A',0
+XPATLO  .BYTE <XPAT00,<XPAT01,<XPAT02,<XPAT03,<XPAT04,<XPAT05,<XPAT06,<XPAT07,<XPAT08,<XPAT09,<XPAT10,<XPAT11,<XPAT12,<XPAT13,<XPAT14,<XPAT15,<XPAT16,<XPAT17,<XPAT18
+XPATHI  .BYTE >XPAT00,>XPAT01,>XPAT02,>XPAT03,>XPAT04,>XPAT05,>XPAT06,>XPAT07,>XPAT08,>XPAT09,>XPAT10,>XPAT11,>XPAT12,>XPAT13,>XPAT14,>XPAT15,>XPAT16,>XPAT17,>XPAT18
+
 
 ; -----------------------------------------------------------------------------
 ; the K4510 shims: the ROM's calls clobber registers; the monitor's code
