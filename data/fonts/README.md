@@ -56,3 +56,12 @@ grid design) — not done yet; staged for when/if its look is chosen.
    license upgrade) and the PETSCII story (openroms ROM is drop-in;
    VICKY wiring + any charset-switch plumbing is new work).
 4. CREDITS.md draft is staged next to this file — verify and vendor.
+
+### zx/ — ZX Origins by Damien Guard (NOT committed; personal use)
+A curated dozen of the ZX Origins 8x8 fonts (https://damieng.com/zx-origins,
+Copyright (c) 1988-2023 Damien Guard), offered in the F7 font menu. The
+licence is free-to-use but forbids re-hosting the files, so the `.bin` are
+gitignored -- the machine names them, it does not ship them, exactly like
+Commodore's chargen.bin. Regenerate from your own download with
+`tools/mkzxfonts.py`; absent fonts fall back to kernel8. See zx/README.md
+for the swap-the-charsets detail and the curated list. Credit Damien Guard.

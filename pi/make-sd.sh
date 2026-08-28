@@ -38,6 +38,11 @@ cp "$HERE/kernel8.img" "$M/kernel8.img"
 mkdir -p "$M/k4510/rom" "$M/k4510/data" "$M/k4510/fs"
 cp "$REPO/rom/kernal.bin" "$REPO/rom/wozmon.bin" "$REPO/rom/demo.bin" "$M/k4510/rom/"
 cp "$REPO/data/font8.bin" "$M/k4510/data/"
+# The alternate screen fonts, so F7 -> Screen font works on the Pi too (not
+# just kernel8).  -L to dereference; whatever is present here is carried,
+# including data/fonts/zx (the ZX Origins fonts you regenerated locally --
+# personal use on your own card, they are not in the repo).
+[ -d "$REPO/data/fonts" ] && cp -rL "$REPO/data/fonts" "$M/k4510/data/"
 # -L because FAT32 has no symlinks and fs/SID is one.  fs/CPM is the
 # exception and is done below: its drive letters are links that cannot be
 # followed -- K:/0 is deliberately cyclic (it *is* this filesystem) and

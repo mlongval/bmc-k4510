@@ -53,7 +53,13 @@ typedef struct {
     unsigned flags;
 } set_desc;
 /* the font choices, in the ENUM's order */
-enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN, FONT_COUNT };
+/* The five built-ins, then the curated ZX Origins C64 chargens in data/fonts/zx/
+ * (damieng.com/typography/zx-origins). Order is the menu order and MUST match
+ * font_names[] (settings.c) and the paths[] in apply_font (sdl/main.c). */
+enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN,
+       FONT_ZX_BAUHAUS, FONT_ZX_BROADWAY, FONT_ZX_COMPUTER, FONT_ZX_CYBERWIRE,
+       FONT_ZX_NLQ, FONT_ZX_BENGUIAT, FONT_ZX_CHICAGO, FONT_ZX_COURIER,
+       FONT_ZX_EUROSTILE, FONT_ZX_OCRA, FONT_ZX_PRISTINE, FONT_ZX_ANVIL, FONT_COUNT };
 /* video modes, in the ENUM's order -- the shell's MODE 0-4 */
 enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
 #define VMODE_MENU_MAX VMODE_320x240   /* the menu offers no less than this.  320x200 and 160x200 are

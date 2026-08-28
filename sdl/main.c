@@ -123,7 +123,10 @@ static int chargen_present(void)
 static void apply_font(int which)
 {
     static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
-                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom", 0 };
+                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom", 0 /* FONT_CHARGEN: from the guest fs */,
+                                             "data/fonts/zx/bauhaus.bin", "data/fonts/zx/broadway.bin", "data/fonts/zx/computer.bin", "data/fonts/zx/cyberwire.bin",
+                                             "data/fonts/zx/nlq.bin", "data/fonts/zx/benguiat.bin", "data/fonts/zx/chicago.bin", "data/fonts/zx/courier.bin",
+                                             "data/fonts/zx/eurostile.bin", "data/fonts/zx/ocr-a.bin", "data/fonts/zx/pristine.bin", "data/fonts/zx/anvil.bin" };
     char cg[512]; const char *path = paths[which];
     if (which == FONT_CHARGEN) { chargen_path(cg, sizeof cg); path = cg; }
     uint8_t buf[4096], font[2048]; int n = which ? load_file(path, buf, sizeof buf) : 0;

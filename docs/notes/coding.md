@@ -384,3 +384,51 @@ Wiring, for whoever extends it:
   configurable widgets; the 80x50 tall variant is reachable (640x480 +
   status) but untested. `MODE` from the shell still can't toggle status
   (F7 only); INFO's 28 lines page inside the 25-row window.
+
+---
+
+## ZX Origins fonts in the menu + the native clock tick (2026-08-28)
+
+**Clock now ticks from the IRQ.** The status-bar clock rode the console key
+poll, so it froze inside a running program (a BASIC compute loop never asks
+for a key). Moved it to the vblank IRQ that already blinks the cursor
+(crt0.s clk_paint): every ~half-second it checks the RTC minute and repaints
+the eight digit cells of HH:MM DD.MM straight into the text map, borrowing
+$02-$05 like the blink, never touching the ZP-swap core. Proven ticking
+inside `10 GOTO 10` across a midnight rollover. Gotcha that cost time:
+adding code before `_speed_loop` shifted it so its inner branch spanned a
+page (+1 cycle/iter x 37000 = INFO -c reading 38.3 not 40.4 MHz) -- moved
+_speed_loop ahead of the IRQ so later edits can't move it. Measurement is
+placement-sensitive; keep it early.
+
+**Twelve ZX Origins fonts (F7 -> Screen font).** FONT_ZX_* in settings.h,
+font_names[] in settings.c, paths[] in apply_font (sdl/main.c) -- three
+lists in lockstep, plus tools/mkzxfonts.py. Each ZX Origins zip ships a
+4096-byte C64/<name>.bin; the machine's petscii_to_ascii reads the
+lower/upper charset from offset 2048, but ZX Origins stores it first, so the
+tool SWAPS the two halves. Without the swap the text renders as line-drawing
+characters (set 1 = "both"/lower-upper at offset 0, set 2 = "upper"/graphics
+at 2048 -- opposite of a standard C64 chargen).
+
+**Licence -- the files are NOT committed.** ZX Origins (Damien Guard, (c)
+1988-2023) is free to use but forbids re-hosting the files. The repo is
+public, so data/fonts/zx/*.bin is gitignored, like Commodore's chargen.bin
+("names them, does not ship them"). Regenerate with tools/mkzxfonts.py from
+your own download; absent -> the menu entry falls back to kernel8. make-sd.sh
+now copies data/fonts/ so the Pi gets alternate fonts too (also fixes
+unscii/openroms never reaching the card before).
+
+## For the handbook agent -- please credit Damien Guard
+
+Doc asked (2026-08-28) that the handbook thank the ZX Origins author. When
+the font menu is documented, add a credit like:
+
+  "Screen fonts from ZX Origins by Damien Guard (https://damieng.com/zx-origins),
+   used with thanks."
+
+The dozen offered are Bauhaus, Broadway, Computer, Cyberwire, NLQ, Benguiat,
+Chicago, Courier, Eurostile, OCR-A, Pristine, Anvil. The licence's own
+suggested form is "<fontname> font by DamienG https://damieng.com/zx-origins".
+Note the fonts are NOT shipped with the machine (licence forbids re-hosting) --
+the book should say the machine offers them and where to get them, not imply
+they are bundled.

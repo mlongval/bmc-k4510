@@ -4,7 +4,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen" };   /* the last one is renamed by the host if /SYSTEM/chargen.bin is absent */
+static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen",   /* "C64 chargen" is renamed by the host if /SYSTEM/chargen.bin is absent */
+    "Bauhaus", "Broadway", "Computer", "Cyberwire", "NLQ", "Benguiat",   /* ZX Origins, in the FONT_ZX_* order */
+    "Chicago", "Courier", "Eurostile", "OCR-A", "Pristine", "Anvil" };
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
