@@ -456,9 +456,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   mode_shown   = settings_get(SET_VIDEO_MODE);
                   margin_shown = settings_get(SET_VIDEO_MARGIN);
                   status_shown = settings_get(SET_VIDEO_STATUSBAR);
-                  /* the ROM now boots with the margin off, so a request is only
-                   * needed when the mode differs, or the margin or status bar is wanted ON */
-                  if (machine != mode_shown || margin_shown || status_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+                  /* The ROM boots with the margin off but reads the status bit
+                   * live in video_init, so it cold-boots straight into the
+                   * status bands -- a request would only re-run video_init and
+                   * cls, wiping the banner it just drew.  So request for a
+                   * different mode or a wanted margin; never for the status bar. */
+                  if (machine != mode_shown || margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
