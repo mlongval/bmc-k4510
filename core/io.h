@@ -20,6 +20,7 @@
 #define SYSOPT_CPMCOM  0x01     /*    an unknown word may run a CP/M .COM */
 #define SYSOPT_NOBOOT  0x04     /*    do NOT run /STARTUP.BAT: the way out of one that wedges the machine */
 #define SYSOPT_MARGIN  0x02     /*    the one-cell top/left margin wanted with it (79 columns, not 80) */
+#define SYSOPT_STATUS  0x08     /*    the status-bar text mode: the console is a scroll region between two static bands */
 #define SYSOPT_MODEREQ 0x10     /*    a mode request is standing (the host holds it up for some frames) */
 #define SYSOPT_MODE    0xE0     /*    bits 5-7: the video mode the menu is asking for.
                                  *    The ROM performs it the next time it reads a key -- the frontend

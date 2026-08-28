@@ -17,6 +17,7 @@ typedef enum {
     SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
     SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
     SET_VIDEO_MARGIN,        /* BOOL the one-cell gap at the top and the left (79 columns, not 80) */
+    SET_VIDEO_STATUSBAR,     /* BOOL the status-bar mode: console as a scroll region between two hardware bands */
     SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
     SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */

@@ -342,3 +342,45 @@ Three things there that touch your side:
   the Pi's network side has never run on real hardware. Both are said
   plainly in the release notes and in `pi/README-SD.txt`; if the book
   claims either works on the Pi, it is ahead of the evidence.
+
+---
+
+## Status-bar text mode (2026-08-27)
+
+Built the first of the three "terminal" features Doc scoped: a real
+hardware status-bar mode, F7-selectable. 640x240 / 80x30, but the middle
+25 rows are a scroll region between two static bands (Doc's 2 top + 3
+bottom). It is a DECSTBM done in the machine's own layout: `scroll()`
+already only moved `OY..OY+ROWS-1`, so once the geometry carves a top band
+(OY) and a bottom band (`bband`), the console scrolls in the window while
+the bands sit still. Proven headless: two `DIR PRG` listings scroll the
+first up and off the top of the window and the bands never move.
+
+Wiring, for whoever extends it:
+- **Orthogonal BOOL, like `margin`** — `SET_VIDEO_STATUSBAR` (settings.c/h,
+  a Video menu row), host packs `SYSOPT_STATUS` ($D521 bit 3) every frame
+  (main.c), and suppresses `SYSOPT_MARGIN` while it is on (bands frame the
+  screen, no margin with them). `status_shown` reconciles like `margin_shown`
+  so toggling it issues a mode request; the boot branch requests it too.
+- **ROM (kernal.c):** `OY`/`bband` are now variables (OY was `#define
+  margin`). `video_init` reads `$D521 & SYSOPT_STATUS` live and, for the
+  80-column modes only, sets `OY = PROWS/15`, `bband = PROWS/10` (→ 2+3 at
+  640x240, 4+6 at 640x480 = the future 80x50). `bband != 0` is the "status
+  is on" flag the rest of the ROM reads. `cls` clears only the window and
+  calls `draw_bands`; `mode_do` forces `margin = 0` under status.
+- **`draw_bands` must be RESIDENT** (ROM1C) — `cls` runs inside bank-1
+  context (cmd_mode calls it) and `sw_call` does not nest, so it cannot be
+  banked. It cost ~570 bytes of ROM1C; watch that headroom. Trap I hit:
+  `modename()` lives in SWCODE1, so a resident caller gets garbage — the
+  resolution string had to be inlined, then dropped for budget. Phase-1
+  content is "BMC-K4510 K/OS" (top) and "status mode ... NN MHz" (bottom,
+  the live clock). The blank spacer rows are the phase-2 widget slots.
+- Geometry falls out for free: the console reports `ROWS = 25`, so NC / EDIT
+  / VI confined to it just work (they read `REG(TERM+6)`); they cannot draw
+  into the bands. That is the [[project-k4510-terminal-mode-and-filer]]
+  geometry rule, satisfied by construction.
+- Not done: live band refresh (the clock is drawn at mode entry, not per
+  frame — change the F7 clock and the band is stale until the next `cls`);
+  configurable widgets; the 80x50 tall variant is reachable (640x480 +
+  status) but untested. `MODE` from the shell still can't toggle status
+  (F7 only); INFO's 28 lines page inside the 25-row window.

@@ -17,6 +17,7 @@
 #define FS     0xD300u
 #define SID0   0xD400u
 #define SYS    0xD500u
+#define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
 #define BANK   0xD600u
 #define TUBE   0xD800u
 #define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -33,8 +34,8 @@
  * banks 1+ are appended 8 KB images called through sw_call(). */
 static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
 static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
+static uint8_t OY, bband;                            /* status mode: top-band height (console origin) and bottom-band height; bband != 0 means status mode is on */
 #define OX margin
-#define OY margin
 #define ROM_VERSION "stage 4"
 
 #define C_BG   0x06   /* VIC-II blue     */
@@ -86,10 +87,51 @@ static void draw_cursor(uint8_t on)
     cursor_vis = on;
 }
 
+/* ---- the status bands -------------------------------------------------- *
+ * Two static bars frame the console when status mode is on.  The console is
+ * a scroll region between them (scroll() only ever moves OY..OY+ROWS-1), so
+ * the bands sit still while text scrolls -- a VT100 DECSTBM done in the
+ * machine's own layout.  Phase 1 draws a title bar and a status bar; the
+ * blank spacer rows are where the widgets go later. */
+#define BAND_FG  C_HI                 /* white on grey: a status bar, ancient or modern */
+#define BAND_BG  0x0C
+#pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
+static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
+{
+    uint32_t a = SCREEN + ((uint32_t)py * PCOLS + px) * 4;
+    far_poke(a, ch); far_poke(a + 1, 0); far_poke(a + 2, f); far_poke(a + 3, b);
+}
+static void bar_str(uint8_t px, uint8_t py, const char *s)
+{
+    while (*s) put_at(px++, py, (uint8_t)*s++, BAND_FG, BAND_BG);
+}
+static void bar_num(uint8_t rx, uint8_t py, uint16_t v)     /* right-anchored at column rx */
+{
+    do { put_at(rx--, py, (uint8_t)('0' + v % 10), BAND_FG, BAND_BG); v /= 10; } while (v);
+}
+static void draw_bands(void)
+{
+    uint8_t i, ofg = fg, obg = bg, last = PROWS - 1;
+    uint16_t mhz = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
+    fg = BAND_FG; bg = BAND_BG; blank_row(0); blank_row(last);   /* the two bars */
+    fg = ofg; bg = obg;                                          /* the spacers, in the console's colours */
+    for (i = 1; i < OY; i++) blank_row(i);
+    for (i = OY + ROWS; i < last; i++) blank_row(i);
+    bar_str(1, 0, "BMC-K4510  K/OS");                            /* top bar: the machine */
+    bar_str(1, last, "status mode");                             /* bottom bar: the mode, and the live CPU clock */
+    bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz);
+}
+#pragma code-name (pop)
+
 static void cls(void)
 {
     uint8_t i;
-    for (i = 0; i < PROWS; i++) blank_row(i);          /* every physical row, the margins with them */
+    if (bband) {                                       /* status mode: clear the console window, keep the bands */
+        for (i = OY; i < OY + ROWS; i++) blank_row(i);
+        draw_bands();
+    } else {
+        for (i = 0; i < PROWS; i++) blank_row(i);       /* every physical row, the margins with them */
+    }
     cx = cy = 0;
 }
 
@@ -175,7 +217,7 @@ static void mode_do(void)
                                             * key poll performs it again, and each cls() wipes whatever
                                             * the machine printed in between. */
     vmode  = (uint8_t)(r >> 5);
-    margin = (uint8_t)((r >> 1) & 1);
+    margin = (r & SYSOPT_STATUS) ? 0 : (uint8_t)((r >> 1) & 1);   /* the status bands frame the screen; no margin with them */
     video_init(); cls();
 }
 #pragma code-name (pop)
@@ -1275,7 +1317,12 @@ static void video_init(void)
 {
     uint8_t i;
     PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : vmode >= 3 ? 25 : 30;
-    COLS = PCOLS - margin; ROWS = PROWS - margin;
+    /* status mode: two static bands frame the console (the 80-column modes only).
+     * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
+     * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
+    if ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80) { OY = PROWS / 15; bband = PROWS / 10; }
+    else                                                  { OY = margin;    bband = 0; }
+    COLS = PCOLS - (bband ? 0 : margin); ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
     REG(VICKY + 1) = C_BG;
     for (i = 0; i < 16; i++) { REG(VICKY + 6) = i; REG(VICKY + 7) = c64pal[i][0]; REG(VICKY + 8) = c64pal[i][1]; REG(VICKY + 9) = c64pal[i][2]; }

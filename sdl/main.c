@@ -438,7 +438,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static int mode_shown = -1, margin_shown = -1, mode_req, mode_wait;
+        { static int mode_shown = -1, margin_shown = -1, status_shown = -1, mode_req, mode_wait;
           static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
           uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
@@ -455,15 +455,19 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                                                          * but only if it differs from what it booted into */
                   mode_shown   = settings_get(SET_VIDEO_MODE);
                   margin_shown = settings_get(SET_VIDEO_MARGIN);
+                  status_shown = settings_get(SET_VIDEO_STATUSBAR);
                   /* the ROM now boots with the margin off, so a request is only
-                   * needed when the mode differs or the margin is wanted ON */
-                  if (machine != mode_shown || margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+                   * needed when the mode differs, or the margin or status bar is wanted ON */
+                  if (machine != mode_shown || margin_shown || status_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
               mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
           } else if (settings_get(SET_VIDEO_MARGIN) != margin_shown) { /* or turned the margin off */
               margin_shown = settings_get(SET_VIDEO_MARGIN);
+              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
+          } else if (settings_get(SET_VIDEO_STATUSBAR) != status_shown) { /* or toggled the status bar */
+              status_shown = settings_get(SET_VIDEO_STATUSBAR);
               mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
           } else if (machine >= 0 && machine != mode_shown) {          /* or the guest ran MODE itself */
               mode_shown = machine; settings_set(SET_VIDEO_MODE, machine); menu_dirty();
@@ -476,7 +480,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * -- and for the boot read, a whole power-on too late. */
         io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                     | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
-                    | (settings_get(SET_VIDEO_MARGIN) ? SYSOPT_MARGIN : 0)
+                    | ((settings_get(SET_VIDEO_MARGIN) && !settings_get(SET_VIDEO_STATUSBAR)) ? SYSOPT_MARGIN : 0)
+                    | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
                     | (mode_pending ? (uint8_t)(SYSOPT_MODEREQ
                                        | ((mode_pending - 1) << SYSOPT_MODE_SHIFT)) : 0));
 
