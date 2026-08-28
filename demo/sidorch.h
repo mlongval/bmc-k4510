@@ -78,6 +78,12 @@ static void show(uint8_t v)
     else for (i = 0; i < 40; i++) far_poke(p + 6 + i, i < level[v] ? 0xDB : '.');
 }
 
+static void oclk(uint8_t y, uint16_t sec)
+{
+    uint32_t p = TEXTMAP + (uint32_t)y * 80 + 66; uint8_t m = (uint8_t)(sec / 60), c = (uint8_t)(sec % 60);
+    far_poke(p, '0' + m / 10); far_poke(p + 1, '0' + m % 10); far_poke(p + 2, ':');
+    far_poke(p + 3, '0' + c / 10); far_poke(p + 4, '0' + c % 10);
+}
 static const char *const vname[12] = {
     "SID 0.1  bass      sawtooth", "SID 0.2  chord 3rd pulse", "SID 0.3  chord 5th pulse",
     "SID 1.1  melody    triangle", "SID 1.2  arpeggio  pulse", "SID 1.3  drums     noise",
@@ -86,7 +92,8 @@ static const char *const vname[12] = {
 
 static void orchestra(const char *title)
 {
-    uint8_t frame = 0, step = 0, bar = 0, arp = 0, c, v;
+    uint8_t frame = 0, step = 0, bar = 0, arp = 0, c, v, rls, lfc;
+    uint16_t tframes = 0, rsecs = 0;   /* tune = frames played / 60; real = host wall seconds */
     REG(V_CTRL) = 0;
     pal(1, 255, 255, 255); pal(2, 255, 200, 60); pal(3, 120, 200, 255);
     REG(V_BGCOL) = 0;
@@ -96,6 +103,7 @@ static void orchestra(const char *title)
     text8_print(TEXTMAP, 80, 1, 3, "Pachelbel in D, 8 bars at 120 bpm.  reSID 6581 x NCHIPS at 1 MHz, one channel.");
     for (v = 0; v < NV; v++) { far_poke(TEXTMAP + (uint32_t)(6 + v * 2) * 80 + 1, "1234567890AB"[v]); text8_print(TEXTMAP, 80, 3, 6 + v * 2, vname[v]); }
     text8_print(TEXTMAP, 80, 1, 6 + NV * 2 + 2, "keys 1-9, 0, A, B toggle a voice;  Q or Escape returns to the shell");
+    text8_print(TEXTMAP, 80, 61, 1, "tune"); text8_print(TEXTMAP, 80, 61, 2, "real");
     REG(V_CTRL) = 1;
 
     for (c = 0; c < NCHIPS; c++) { uint8_t r; for (r = 0; r < 25; r++) REG(SIDB(c) + r) = 0; REG(SIDB(c) + 0x18) = 15; }
@@ -107,7 +115,13 @@ static void orchestra(const char *title)
     adsr(3, 0, 0x09, 0x37, 0x0800);  adsr(3, 1, 0x00, 0x47, 0);      adsr(3, 2, 0x00, 0x03, 0); REG(SIDB(3) + 0x18) = 10;/* echo, bass 8va, hat */
 #endif
 
+    { volatile uint8_t xx = REG(SYS + 4); (void)xx; rls = REG(SYS + 5); }   /* real clock start */
+    lfc = REG(SYS + 0x0D);
     while (!keys()) {
+        uint8_t fc, d;
+        do { fc = REG(SYS + 0x0D); } while (fc == lfc);            /* wait for >= one frame */
+        d = (uint8_t)(fc - lfc); lfc = fc;                         /* frames elapsed, not one per pass */
+        while (d--) {
         if (frame == 0) {                                          /* a new eighth */
             uint8_t n = melody[step];
             if ((step & 7) == 0) {                                 /* a new bar: bass and chord */
@@ -137,10 +151,14 @@ static void orchestra(const char *title)
         if (frame == 3) release(3, 2, 0x80);
         if (frame == 10) release(3, 0, 0x40);
 #endif
-        wait_vblank();
-        for (v = 0; v < NV; v++) { if (level[v]) level[v]--; show(v); }
-        text8_print(TEXTMAP, 80, 1, 6 + NV * 2, "bar"); put_num(TEXTMAP, 80, 5, 6 + NV * 2, (uint8_t)(bar + 1)); text8_print(TEXTMAP, 80, 9, 6 + NV * 2, "of 8");
+        for (v = 0; v < NV; v++) if (level[v]) level[v]--;         /* decay, per music frame */
+        tframes++;
         if (++frame == 15) { frame = 0; if (++step == 64) step = 0; }
+        }                                                          /* end per-elapsed-frame */
+        for (v = 0; v < NV; v++) show(v);                          /* draw once per pass */
+        text8_print(TEXTMAP, 80, 1, 6 + NV * 2, "bar"); put_num(TEXTMAP, 80, 5, 6 + NV * 2, (uint8_t)(bar + 1)); text8_print(TEXTMAP, 80, 9, 6 + NV * 2, "of 8");
+        { volatile uint8_t xx = REG(SYS + 4); uint8_t sc = REG(SYS + 5); (void)xx; if (sc != rls) { rls = sc; rsecs++; } }
+        oclk(1, tframes / 60); oclk(2, rsecs);
     }
     for (c = 0; c < NCHIPS; c++) { uint8_t r; for (r = 0; r < 25; r++) REG(SIDB(c) + r) = 0; }
 }
