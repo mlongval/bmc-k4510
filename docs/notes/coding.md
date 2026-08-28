@@ -455,3 +455,45 @@ translation *mode*, not a second encoding. Consequence for the handbook: the
 F7 font menu will only offer fonts normalised to full CP437 coverage, so a
 ZX Origins font there is ZX letters with borrowed box-drawing — worth a
 sentence when that menu is documented.
+
+## KOMMANDER — a two-panel file commander, 2026-08-28
+
+Built `demo/kommander.c` → `fs/PRG/kommander.prg`, typed `KOMMANDER`. The
+Norton Commander of this machine: two directory panels, Tab switches the live
+one, arrows/PgUp/PgDn/Home/End walk it, Enter descends a directory or views a
+file, `..` climbs. Function keys **F3** View, **F5** Copy, **F6** Move/rename,
+**F9** MkDir, **F10** Delete; `.` toggles dotfiles, **F2** refreshes, **Esc**
+leaves. (F7 and F8 never reach a program — they are the menu and pause keys —
+so MkDir/Delete moved off Norton's F7/F8 to F9/F10.)
+
+Two design facts drove it, both worth remembering:
+
+- **A `.prg` cannot launch another `.prg`.** Both load at $6000, so shelling
+  out to EDIT would overwrite the running program and crash on its return
+  (`run_at` invokes a program with a plain `jsr $6000` and expects `rts`). So
+  KOMMANDER is wholly self-contained: every file operation goes straight to the
+  storage device at $D300 (DIR_FIRST/NEXT, STAT, LOAD, CHDIR, MKDIR, RM, RMDIR,
+  RENAME, COPYFILE, GETCWD), and it has its own read-only pager for View.
+- **The device has one current directory**, but a commander needs two. Kept an
+  invariant: the device cwd always tracks the *active* panel. To list the idle
+  panel it `CHDIR`s there (absolute paths work — `fs_resolve` honours a leading
+  `/`), lists, and `CHDIR`s back. Each panel remembers its own absolute path
+  from GETCWD.
+
+Drawn straight into VICKY text32 at $030000 (glyph-lo, glyph-hi, fg, bg per
+cell) inside the ROM console window — geometry from JIM's registers
+(COLS/ROWS/OX/OY/PCOLS at $DA05..$DA0D), so it lives correctly under the status
+bands and in the margin. Single-line CP437 frames (the default font8 carries the
+whole box set). Blue field, cyan bar on the active panel, grey on the idle one.
+Exits with the EDIT idiom — `REG($DA04)=2; rom_video()` — to hand the shell a
+clean screen.
+
+Entry tables are BSS: 192 entries/panel, 30-char names (bigger and the image
+overruns the $6000–$CFFF program region). Long names truncate; deep dirs cap at
+192 with the rest unseen. The `.prg` is ~11 KB.
+
+**For the handbook agent:** unbuilt when you last looked — this is now a real,
+shipping program worth a short section (a file manager alongside EDIT/VI). It is
+keyboard-only, self-contained, and does not launch other programs (the $6000
+reason above). Recapture any figure that shows the program list — `KOMMANDER` is
+in `/PRG` now.
