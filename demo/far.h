@@ -1,5 +1,5 @@
 /* far.h -- K-04: far memory, bank registers and far calls for cc65 programs
- * on the BMC-K4510. Everything here is a thin wrapper over hardware that
+ * on the K4510. Everything here is a thin wrapper over hardware that
  * assembly programs use directly: the 45GS10 flat forms ([ptr],Z, in
  * prg0.s), the DMA engine at $D200, the bank registers at $D600 (K-01) and
  * the far-call gate at $DF00 (K-02). See core/io.h for the registers.

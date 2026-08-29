@@ -1,4 +1,4 @@
-// BMC-K4510: the Mandelbrot set in text, 78 x 28, in the machine's sixteen
+// K4510: the Mandelbrot set in text, 78 x 28, in the machine's sixteen
 // colours through JIM. Fixed point, 10 fractional bits, 32-bit integers --
 // the flag-plant for the MATH unit ($D700) comes later.
 program pmandel;

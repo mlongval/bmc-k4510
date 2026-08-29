@@ -1,14 +1,22 @@
-# BMC-K4510
+# K4510
 
-**This is release alpha-0.3, titled 'Colophon'.** The release carries the
+**This is release alpha-0.4, titled 'Imprint'.** The release carries the
 Raspberry Pi SD-card image and the handbook.
 
-A fantasy 8/16-bit computer, built from scratch in August 2026 and running
-**bare metal on a Raspberry Pi 3B+** (and on a Linux desktop under SDL2).
-Project orchestrator: Michael Longval.
-It is not an emulation of any real machine: its CPU, video chip, sound and
-operating system are its own, and the parts it borrows — a 6502-family
-instruction set, the SID — it borrows openly and then outgrows.
+A fantasy 8/16-bit computer, built from scratch in August 2026. Project
+orchestrator: Michael Longval. It is not an emulation of any real
+machine: its CPU, video chip, sound and operating system are its own, and
+the parts it borrows — a 6502-family instruction set, the SID — it
+borrows openly and then outgrows.
+
+**Two names, one machine.** The computer is the **K4510** — the 45GS10,
+VICKY, SHEILA, four SIDs, and K/OS. On a Linux desktop under SDL2, that
+is simply what you are running. Put it on an SD card and stand it on a
+**Raspberry Pi 3B+ with no operating system underneath**, and the
+appliance that boots is the **BMC-K4510** — *BMC* for Randy Rossi's
+BMC64, the bare-metal platform this was built on. Same machine, same ROM
+bytes, same software; one of them you can unplug. `docs/NAMING.md` has
+the rule, and this release is named for settling it.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
 Programmer's Guide, 70 pages, every screenshot captured from the running
@@ -42,7 +50,7 @@ yourself, or:
 The machine needs ~5 MB. **Use the official 5.1 V / 2.5 A supply**: a
 phone charger sags under three busy cores, the firmware caps the clock,
 and the machine crawls while looking like a software fault. Insert, power
-on, and the K4510 boots in about three seconds.
+on, and the BMC-K4510 boots in about three seconds.
 
 ## The machine
 
@@ -133,12 +141,15 @@ on, and the K4510 boots in about three seconds.
     make test       # the test battery; also checks that no tracked binary is stale
     ./k4510         # the machine, from the repo root
 
-## Raspberry Pi 3B+
+## The BMC-K4510 — bare metal on a Raspberry Pi 3B+
 
 `pi/` holds the Circle kernel, the host glue and the C64 keyboard driver.
 It builds against a circle-libsdl2 checkout with its `rpi3` world built
 (`make BOARD=rpi3 SHIM=/path/to/circle-libsdl2`), and `pi/make-sd.sh`
 lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
+
+This directory is the whole of what makes the appliance: everything above
+it in the tree is the K4510 itself, and boots identically either way.
 
 ## Documentation
 

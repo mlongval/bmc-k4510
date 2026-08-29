@@ -1,4 +1,4 @@
-/* BMC-K4510: the Byte Sieve (Gilbreath, BYTE Sept 1981) in C, 10 iterations,
+/* K4510: the Byte Sieve (Gilbreath, BYTE Sept 1981) in C, 10 iterations,
  * as in rprouse/8bit-benchmarks ByteSieve.c. Timed with the $D50D frame
  * counter. The original compares compilers on a 1 MHz 6502 too. */
 #include "k4510.h"

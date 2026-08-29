@@ -1,4 +1,4 @@
-; BMC-K4510 system ROM startup for cc65. 65C02 code: a strict subset of the 45GS02.
+; K4510 system ROM startup for cc65. 65C02 code: a strict subset of the 45GS02.
         .export   _exit, __STARTUP__ : absolute = 1
         .import   _main, __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__, __BSS_RUN__, __BSS_SIZE__
         .import   __RAM_START__, __RAM_SIZE__, __STACKSIZE__, __STK_START__, __STK_SIZE__

@@ -33,7 +33,7 @@ int main(void)
     CHECK(mem_load_rom("rom/kernal.bin") >= 24576, "rom");   /* base 24 KB + any sideways banks */
     cpu65_reset(); frames(40);      /* boot + the !BOOT grace window */
     char r[81]; row(0, r); printf("banner: %s\n", r);
-    CHECK(findsub("BMC-K4510") >= 0, "banner");
+    CHECK(findsub("K4510") >= 0, "banner");
     CHECK(findsub("/]") >= 0, "prompt");
     type("mon E000.E00F\n");
     CHECK(find("0000E000: 78 D8 A2 FF 9A") >= 0, "examine ROM (cc65 crt0: SEI CLD LDX TXS)");

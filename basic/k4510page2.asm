@@ -37,4 +37,4 @@ K_POWER					; FAC1 = FAC2 ^ FAC1
 	JMP	k_f0_fac1
 
 k4510_banner
-	.byte	CR, "BMC-K4510  EhBASIC 2.22 +GRAPHICS  (RUN/STOP: shell)", CR, 0
+	.byte	CR, "K4510  EhBASIC 2.22 +GRAPHICS  (RUN/STOP: shell)", CR, 0

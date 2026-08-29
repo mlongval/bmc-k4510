@@ -1,4 +1,4 @@
-/* BMC-K4510: EDIT name -- a small full-screen editor, the nano of this machine.
+/* K4510: EDIT name -- a small full-screen editor, the nano of this machine.
  *
  * The text is one flat buffer at $0800, below the program itself, so the file
  * is edited in place and SAVE writes it straight back out. Keys arrive raw

@@ -1,4 +1,4 @@
-(* [BMC-K4510] the SYSTEM unit's machine-specific half: frames from SYS
+(* [K4510] the SYSTEM unit's machine-specific half: frames from SYS
    ($D50D), keys from the keyboard device, arguments from the ROM's ARGS
    call ($FF95). *)
 

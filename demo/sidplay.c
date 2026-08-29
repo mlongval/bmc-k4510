@@ -1,4 +1,4 @@
-/* BMC-K4510 SID player. PSID tunes from /SID, played by their own 6502 code
+/* K4510 SID player. PSID tunes from /SID, played by their own 6502 code
  * on SID 0, the way a C64 would: the player lives under the ROM at $E000
  * (K-05) so the tune may own $0400-$CFFF; the zero page is swapped around
  * every call into the tune; play() runs at the tune's rate (50 Hz PAL,
@@ -86,7 +86,7 @@ static void draw_list(uint16_t top, uint16_t cur)
 {
     uint16_t i;
     clear_rows(0, ROWS - 1);
-    text(0, 0, "BMC-K4510 SID player", C_WHITE); text(22, 0, "/SID", C_GREY);
+    text(0, 0, "K4510 SID player", C_WHITE); text(22, 0, "/SID", C_GREY);
     dec(30, 0, nfiles, C_GREY); text(35, 0, "tunes", C_GREY);
     text(0, ROWS - 1, "cursor keys, PgUp/PgDn, Enter plays, Esc leaves", C_GREY);
     for (i = top; i < nfiles && i < top + PAGE * 2; i++) draw_row(top, i, i == cur);
@@ -135,7 +135,7 @@ static void show_info(uint16_t n)
     char name[32];
     get_name(n, name);
     clear_rows(0, ROWS - 1);
-    text(0, 0, "BMC-K4510 SID player", C_WHITE); text(22, 0, name, C_GREY);
+    text(0, 0, "K4510 SID player", C_WHITE); text(22, 0, name, C_GREY);
     text(0, 2, "title   ", C_LBLUE); textn(8, 2, FILEBUF + 0x16, 32, C_WHITE);
     text(0, 3, "author  ", C_LBLUE); textn(8, 3, FILEBUF + 0x36, 32, C_YEL);
     text(0, 4, "released", C_LBLUE); textn(8, 4, FILEBUF + 0x56, 32, C_YEL);

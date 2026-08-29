@@ -1,4 +1,4 @@
-(* [BMC-K4510] CRT on JIM, the terminal at $DA00: a VT100 in hardware whose
+(* [K4510] CRT on JIM, the terminal at $DA00: a VT100 in hardware whose
    cursor and colours are also plain registers, so GotoXY and TextColor
    are stores, and the escape sequences do the rest. *)
 

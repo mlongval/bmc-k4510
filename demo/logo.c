@@ -1,4 +1,4 @@
-/* BMC-K4510: LOGO -- clear the screen and draw the machine's banner.
+/* K4510: LOGO -- clear the screen and draw the machine's banner.
  *
  * The same picture the ROM shows at power-on and the LOGO command reprints,
  * but as a program you can edit: the bars, their colours and the text are the
@@ -37,7 +37,7 @@ void main(void)
     static const uint8_t width[5]  = { 16, 12, 8, 12, 16 };   /* 4:3:2:3:4 */
     static const uint8_t colour[5] = { 2, 8, 7, 5, 14 };      /* red, orange, yellow, green, light blue */
     static const char *const say[5] = {
-        "BMC-K4510 -- A FANTASY 8/16-bit COMPUTER",
+        "K4510 -- A FANTASY 8/16-bit COMPUTER",
         "",
         "CPU: 45GS10",
         "RAM: 256 000 000 bytes",

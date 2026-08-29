@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the BMC-K4510 target into a Mad-Pascal checkout and rebuild mp.
+"""Install the K4510 target into a Mad-Pascal checkout and rebuild mp.
 
     pascal/install.py [MP_DIR]      (default: ~/Projects/neo6502_dev/Mad-Pascal)
 
@@ -38,7 +38,7 @@ for unit in ('crt', 'crth', 'system', 'systemh', 'sysutils', 'graph', 'graphh'):
 # 2. Targets.pas
 p = os.path.join(mp, 'src', 'Targets.pas'); s = open(p).read()
 block = '''    TTargetID.K4510: begin
-      // BMC-K4510 target [BMC-K4510]: a .prg (4-byte header: load address, run address)
+      // K4510 target [K4510]: a .prg (4-byte header: load address, run address)
       // for the system ROM's RUN; the 45GS02 runs the 65C02 set; JIM ($DA00) is the console.
       // Zero page: $22-$3F the registers, $64-$A3 the software stack (-stack); the ROM owns $02-$21 and $F0-$F9.
       target.cpu := TCPU.cpu_65c02;
@@ -80,16 +80,16 @@ if 'STACK_BASE := $64' not in s:
     # the software stack in zero page at $64 unless -stack says otherwise
     m = re.search(r'\n(\s*)if ZPAGE_BASE < 0 then\n', s)
     assert m, 'ZPAGE_BASE default not found'
-    s = s.replace(m.group(0), '\n' + m.group(1) + 'if (STACK_BASE < 0) and (targetID = TTargetID.K4510) then STACK_BASE := $64;   // [BMC-K4510]\n' + m.group(0), 1)
+    s = s.replace(m.group(0), '\n' + m.group(1) + 'if (STACK_BASE < 0) and (targetID = TTargetID.K4510) then STACK_BASE := $64;   // [K4510]\n' + m.group(0), 1)
     open(p, 'w').write(s); print('   patched src/mp.pas: stack at $64')
 # 3b. lib/system.pas: the SINGLE transcendentals on the MATH unit, the originals kept under {$else}
 p = os.path.join(mp, 'lib', 'system.pas'); s = open(p).read()
 def mathfn(header, op):
     name = header.split('(')[0].split()[-1]; arg = header.split('(')[1].split(':')[0]
     return (header + '\nbegin\n asm\n\tlda ' + arg + '\n\tsta $D700\n\tlda ' + arg + '+1\n\tsta $D701\n\tlda ' + arg + '+2\n\tsta $D702\n\tlda ' + arg + '+3\n\tsta $D703\n'
-            '\tstz $D721\n\tlda #' + str(op) + '\n\tsta $D720\t; [BMC-K4510] the MATH unit: ' + name + '\n'
+            '\tstz $D721\n\tlda #' + str(op) + '\n\tsta $D720\t; [K4510] the MATH unit: ' + name + '\n'
             '\tlda $D700\n\tsta Result\n\tlda $D701\n\tsta Result+1\n\tlda $D702\n\tsta Result+2\n\tlda $D703\n\tsta Result+3\n end;\nend;\n')
-if '[BMC-K4510] the MATH unit' not in s:
+if '[K4510] the MATH unit' not in s:
     for header, op in (('function Sqrt(x: Single): Single; overload;', 5), ('function Sin(x: single): single; overload;', 6),
                        ('function Cos(x: single): single; overload;', 7), ('function ArcTan(a: single): single; overload;', 9),
                        ('function Exp(x: Float): Float; overload;', 11), ('function Ln(x: Float): Float; overload;', 12)):

@@ -1,4 +1,4 @@
-/* BMC-K4510: SETUP -- the machine measures itself, thoroughly, when asked.
+/* K4510: SETUP -- the machine measures itself, thoroughly, when asked.
  *
  * The boot does not measure.  Doc's decision, 2026-08-27: a probe at every
  * first boot buys an answer that changes once, and buys it badly -- two
@@ -374,7 +374,7 @@ static void write_report(void)
 {
     uint8_t i;
     blen = 0;
-    add("BMC-K4510 SETUP\n===============\n\n");
+    add("K4510 SETUP\n===============\n\n");
     add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); add("\n");
     add("Build:    ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) BUF[blen++] = (char)REG(SYS + 0x10 + i);

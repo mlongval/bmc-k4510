@@ -1,4 +1,4 @@
-FORTH on the BMC-K4510
+FORTH on the K4510
 ----------------------
 Type FORTH at the shell. This is Tali Forth 2 (public domain), running
 as native 45GS10 code -- no Tube, no tricks: a .prg loaded at $4000.

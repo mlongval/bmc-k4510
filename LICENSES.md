@@ -1,6 +1,6 @@
 # Licences
 
-The BMC-K4510 as a whole is distributed under the **GNU General Public
+The K4510 as a whole is distributed under the **GNU General Public
 License, version 2 or (at your option) any later version** — see
 `LICENSE` (the full GPL-2.0 text). It comes with **no warranty
 whatsoever**: see sections 11 and 12 of that file, and the disclaimer

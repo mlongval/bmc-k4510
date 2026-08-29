@@ -1,4 +1,4 @@
-   10 REM BMC-K4510 BBC BASIC SELF-TEST (VERBOSE). LOAD "BBCBASIC/TEST.BBC" THEN RUN.
+   10 REM K4510 BBC BASIC SELF-TEST (VERBOSE). LOAD "BBCBASIC/TEST.BBC" THEN RUN.
    20 MODE 7:PRINT "BBC BASIC SELF-TEST -- R.T.Russell BBC BASIC on the K4510 Tube":PRINT
    30 PRINT "Each test shows its goal, what it expects, a sample result,"
    40 PRINT "and PASS or FAIL. Press a key within 5 seconds to step"

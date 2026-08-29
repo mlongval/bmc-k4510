@@ -1,4 +1,4 @@
-; BMC-K4510 startup for sidplay: a cc65 program that lives UNDER the ROM at
+; K4510 startup for sidplay: a cc65 program that lives UNDER the ROM at
 ; $E000-$FEFF (block 7 banked to RAM by the K4SG loader), so a C64 tune can
 ; own $0400-$CFFF. Exit goes through a trampoline in low RAM: the banks must
 ; be cleared by code that is not itself banked away.

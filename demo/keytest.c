@@ -1,4 +1,4 @@
-/* BMC-K4510: keyboard test. Asks for every key of a C64 keyboard in matrix
+/* K4510: keyboard test. Asks for every key of a C64 keyboard in matrix
  * order, checks the code the $D100 device delivers against what the GPIO
  * driver (pi/c64kbd.cpp) should produce, checks the three modifiers through
  * the status register, tries shifted combinations, then prints a summary
@@ -85,8 +85,8 @@ void main(void)
 {
     uint8_t i, ok = 0, n = 0, mods = 0;
     rom_chrout(12);
-    print("BMC-K4510 keyboard test -- press each key as asked (8 s each)"); nl(); nl();
-    rep("BMC-K4510 keyboard test\n\nkeys:\n");
+    print("K4510 keyboard test -- press each key as asked (8 s each)"); nl(); nl();
+    rep("K4510 keyboard test\n\nkeys:\n");
     for (i = 0; i < sizeof keys / sizeof keys[0]; i++) { n++; ok += test_key(&keys[i]); }
     nl(); print("modifiers (status register $D101):"); nl(); rep("\nmodifiers:\n");
     mods += test_mod("LEFT or RIGHT SHIFT", 0x01);

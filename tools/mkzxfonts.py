@@ -14,7 +14,7 @@ SWAP the halves on the way in; then the machine's existing loader renders them
 with correct upper- and lower-case.
 
 Usage:  tools/mkzxfonts.py [path-to-zx-origins-zips]
-  default path: ~/Projects/BMC-K4510/fonts-staging/zx-origins
+  default path: ~/Projects/K4510/fonts-staging/zx-origins
 Run from the repo root; writes data/fonts/zx/<slug>.bin.
 """
 import os, sys, zipfile, fnmatch
@@ -40,7 +40,7 @@ def c64_bin(zf, name):
 
 def main():
     zips = sys.argv[1] if len(sys.argv) > 1 else \
-        os.path.expanduser("~/Projects/BMC-K4510/fonts-staging/zx-origins")
+        os.path.expanduser("~/Projects/K4510/fonts-staging/zx-origins")
     out = os.path.join("data", "fonts", "zx")
     if not os.path.isdir(zips):
         sys.exit(f"no ZX Origins zips at {zips} -- pass the folder as an argument")

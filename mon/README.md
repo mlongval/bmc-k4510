@@ -1,4 +1,4 @@
-# mon/ — SUPERMON+64, ported to the BMC-K4510
+# mon/ — SUPERMON+64, ported to the K4510
 
 Jim Butterfield's Supermon+64 V1.2 (1985), the classic Commodore machine
 language monitor, running as a K4510 `.prg`. Type `SUPERMON` at the shell.

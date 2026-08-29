@@ -1,6 +1,6 @@
 # Altered source notice (RunCPM, MIT -- see LICENSE-RunCPM.txt)
 
-`src/` is RunCPM as vendored (VENDORED-FROM.txt), with these [BMC-K4510]
+`src/` is RunCPM as vendored (VENDORED-FROM.txt), with these [K4510]
 changes for the in-process Tube build (`-DK4510_TUBE -Dmain=tube_cpm_main`,
 used by the Pi kernel and by the desktop `make tubetest`; the desktop's
 `cpm/runcpm` on a pty is built from the unmodified POSIX abstraction):

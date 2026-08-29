@@ -1,12 +1,12 @@
 \chapter{The Machine}\label{cha:machine}
 
-The BMC-K4510 is a fantasy computer: a machine that never existed, built the
+The K4510 is a fantasy computer: a machine that never existed, built the
 way 1985 might have built it with no budget committee in the room. It is not
 an emulation of any real computer. Its CPU, video chip, sound, and operating
 software are its own; the parts it borrows --- a 6502-family instruction set,
 the SID sound chip --- it borrows openly and then outgrows.
 
-\section{What is the BMC-K4510?}
+\section{What is the K4510?}
 \begin{itemize}[leftmargin=1.4em]
 \item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
   4510 with the Q pseudo-register and 32-bit flat addressing) plus this
@@ -47,7 +47,29 @@ the SID sound chip --- it borrows openly and then outgrows.
   more languages one word away: BBC BASIC on the Tube, Forth, and CP/M.
 \end{itemize}
 
-\section{Building the emulator}
+\section{Two names, one machine}\label{sec:names}
+This book is about the \textbf{K4510}: the 45GS10, VICKY, SHEILA, the
+four SIDs, and K/OS. That is the computer, and it is what you are running
+on a Linux desktop.
+
+Put the same machine on an SD card and stand it on a
+\textbf{Raspberry~Pi~3B+ with no operating system underneath it}, and
+what boots is the \textbf{BMC-K4510} --- the appliance. \emph{BMC} is
+for Randy Rossi's BMC64, the bare-metal platform this was built on; the
+name has always meant ``the K4510 on bare metal'', and this edition is
+the first to use it that way and no other.
+
+The distinction is easy to apply. Everything in this book is the K4510
+unless it needs a board with a card in it --- the boot time, the four
+Circle cores, the HDMI output, writing the card. Speed belongs to the
+host rather than to the machine, which is why the K4510 measures whatever
+it wakes up on: the BMC-K4510 \emph{holds} fifteen megahertz; the K4510
+does not \emph{run at} any particular number.
+
+Same architecture, same ROM bytes, same software, either way. One of them
+you can unplug.
+
+\section{Building the machine}
 On the \textbf{desktop} (Linux), three lines build the whole machine:
 \begin{type}
 git clone https://github.com/mlongval/bmc-k4510
@@ -57,7 +79,7 @@ cd bmc-k4510 && ./setup.sh
 \verb|setup.sh| installs the compilers and SDL2, builds everything, and
 runs the machine's ten test suites.
 
-\subsection*{Or: putting it on a Raspberry Pi}
+\subsection*{Or: the BMC-K4510, on a Raspberry Pi}
 On the \textbf{Raspberry Pi 3B+} nothing is built --- download the SD-card zip from the
 project's releases page and put it on a card --- either unzip it onto the
 card's root yourself, or let the script do it:
@@ -86,7 +108,7 @@ plenty.
 
 \section{First boot}
 Switch it on (on the desktop: \verb|./k4510|; on the
-Raspberry Pi 3B+: insert the card and power up). The machine greets you in yellow on blue:
+on the BMC-K4510: insert the card and power up). The machine greets you in yellow on blue:
 
 \screen{shots/boot.png}{The boot screen: five stepped colour bars, then
 the machine, its CPU, its memory and its chips --- and no clock, because

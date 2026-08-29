@@ -1,4 +1,4 @@
-/* BMC-K4510: a program bigger than its window. K-01..K-04 together.
+/* K4510: a program bigger than its window. K-01..K-04 together.
  * main() lives at $6000 as usual. Two overlays are linked for the SAME
  * address, $4000 (block 2), and stored at different physical addresses
  * (1 MB and 1 MB + 8 KB); the K4SG header (segdemo.s) tells the ROM's
@@ -63,7 +63,7 @@ void main(void)
 {
     unsigned i, r; uint32_t t;
     rom_chrout(12);
-    print("BMC-K4510 segdemo: a program bigger than its window (K-01..K-04)"); nl(); nl();
+    print("K4510 segdemo: a program bigger than its window (K-01..K-04)"); nl(); nl();
     print("LOAD put main at $6000, overlay 1 at $100000, overlay 2 at $102000."); nl();
     print("Both overlays are linked for $4000. Block 2 now: $"); hex32(bank_get(2)); nl(); nl();
 

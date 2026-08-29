@@ -1,4 +1,4 @@
-; BMC-K4510 spike ROM: Wozmon, retargeted.
+; K4510 spike ROM: Wozmon, retargeted.
 ;
 ; Woz's 1976 monitor, logic untouched. Only the two machine-facing pieces
 ; are ours: the keyboard register it polls, and ECHO, which on the Apple-1

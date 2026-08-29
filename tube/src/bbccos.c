@@ -21,12 +21,12 @@ extern int dirlen;
 #include <dirent.h>
 #include <sys/stat.h>
 #ifdef K4510_TUBE
-#define k4_stat tube_cp_stat	// [BMC-K4510] through the co-processor's path layer
+#define k4_stat tube_cp_stat	// [K4510] through the co-processor's path layer
 #else
 #define k4_stat stat
 #endif
 
-// [BMC-K4510] show a host path as the machine sees it: the fs root (passed
+// [K4510] show a host path as the machine sees it: the fs root (passed
 // in K4510_ROOT by the emulator) shown as "/", the tree above it hidden.
 // When K4510_ROOT is unset (the in-process Tube, already sandboxed, or a
 // bare bbcbasic) the path is returned untouched.
@@ -375,15 +375,15 @@ void xeqvdu (int code, int data1, int data2)
 			printf ("\033[%im", vdu) ;
 			break ;
 
-		case 16: // CLG [BMC-K4510: to the console's VICKY interpreter]
+		case 16: // CLG [K4510: to the console's VICKY interpreter]
 			printf ("\033]K4G;16\007") ;
 			break ;
 
-		case 18: // GCOL m,c [BMC-K4510]
+		case 18: // GCOL m,c [K4510]
 			printf ("\033]K4G;18,%i,%i\007", (data1 >> 24) & 0xFF, code & 0xFF) ;
 			break ;
 
-		case 19: // VDU 19,l,p,r,g,b - PALETTE [BMC-K4510]
+		case 19: // VDU 19,l,p,r,g,b - PALETTE [K4510]
 			printf ("\033]K4G;19,%i,%i,%i,%i,%i\007", data1 & 0xFF, (data1 >> 8) & 0xFF,
 				(data1 >> 16) & 0xFF, (data1 >> 24) & 0xFF, code & 0xFF) ;
 			break ;
@@ -398,19 +398,19 @@ void xeqvdu (int code, int data1, int data2)
 
 		case 22: // MODE CHANGE
 			modechg (code & 0x7F) ;
-			printf ("\033]K4G;22,%i\007", code & 0x7F) ; // [BMC-K4510]
+			printf ("\033]K4G;22,%i\007", code & 0x7F) ; // [K4510]
 			col = 0 ;
 			row = 0 ;
 			rhs = 999 ;
 			break ;
 
-		case 25: // PLOT k,x;y; [BMC-K4510]
+		case 25: // PLOT k,x;y; [K4510]
 			printf ("\033]K4G;25,%i,%i,%i\007", data1 & 0xFF,
 				(short)(((data1 >> 8) & 0xFF) | ((data1 >> 16) & 0xFF) << 8),
 				(short)(((data1 >> 24) & 0xFF) | ((code & 0xFF) << 8))) ;
 			break ;
 
-		case 29: // GRAPHICS ORIGIN [BMC-K4510]
+		case 29: // GRAPHICS ORIGIN [K4510]
 			printf ("\033]K4G;29,%i,%i\007",
 				(short)(((data1 >> 8) & 0xFF) | ((data1 >> 16) & 0xFF) << 8),
 				(short)(((data1 >> 24) & 0xFF) | ((code & 0xFF) << 8))) ;
@@ -418,7 +418,7 @@ void xeqvdu (int code, int data1, int data2)
 
 		case 23: // DEFINE CHARACTER ETC.
 			if ((data2 & 0xFF) == 27)
-			    {	// [BMC-K4510] VDU 23,27: sprites, executed by the Tube ULA on VICKY
+			    {	// [K4510] VDU 23,27: sprites, executed by the Tube ULA on VICKY
 				printf ("\033]K4G;23,27,%i,%i,%i,%i,%i,%i\007", (data2 >> 8) & 0xFF, (data2 >> 16) & 0xFF,
 					(data2 >> 24) & 0xFF, data1 & 0xFF, (data1 >> 8) & 0xFF, (data1 >> 16) & 0xFF) ;
 				break ;
@@ -730,13 +730,13 @@ void oscli (char *cmd)
 			if (flag == 0)
 			    {
 				getcwd (path, MAX_PATH) ;
-				text (k4_rel (path)) ;	// [BMC-K4510]
+				text (k4_rel (path)) ;	// [K4510]
 				crlf () ;
 				return ;
 			    }
 			if (chdir (path))
 				error (206, "Bad directory") ;
-			    {	// [BMC-K4510] never climb above the fs root
+			    {	// [K4510] never climb above the fs root
 				const char *root = getenv ("K4510_ROOT") ; char cw[MAX_PATH] ;
 				if (root && *root && getcwd (cw, sizeof cw) &&
 					strncmp (cw, root, strlen (root)))
@@ -819,7 +819,7 @@ void oscli (char *cmd)
 				q = path2 ;
 			    }
 			text ("Directory of ") ;
-			{	// [BMC-K4510] show the path as the machine sees it, no doubled slash
+			{	// [K4510] show the path as the machine sees it, no doubled slash
 				const char *disp = k4_rel (q) ;
 				text (disp) ;
 				if (dd && (*disp == 0 || disp[strlen (disp) - 1] != dd))
@@ -845,7 +845,7 @@ void oscli (char *cmd)
 				if (r == NULL)
 					break ;
 				if (strcmp (r -> d_name, ".") && strcmp (r -> d_name, ".."))
-				    {	// [BMC-K4510] a subdirectory is listed whatever the pattern, with a trailing /
+				    {	// [K4510] a subdirectory is listed whatever the pattern, with a trailing /
 					struct stat sb ; char full[520] ;
 					snprintf (full, sizeof full, "%s%c%s", q, dd ? dd : '/', r -> d_name) ;
 					if ((k4_stat (full, &sb) == 0) && S_ISDIR (sb.st_mode))
@@ -1087,7 +1087,7 @@ void oscli (char *cmd)
 			return ;
 
 		case RUN:
-			// [BMC-K4510] An unknown star command reaches here (and *RUN
+			// [K4510] An unknown star command reaches here (and *RUN
 			// itself). The original ran it through the host's system();
 			// on the K4510 the host is the machine's own shell: hand the
 			// command over as an OSC sequence the console recognises.

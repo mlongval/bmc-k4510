@@ -26,7 +26,7 @@
 
 #define MINIMUM_RAM PAGE_OFFSET+0x20000  // Minimum amount of RAM to allocate
 
-// [BMC-K4510] Built with -DK4510_TUBE the interpreter is the in-process Tube
+// [K4510] Built with -DK4510_TUBE the interpreter is the in-process Tube
 // co-processor (a core of the Pi, or a thread in the desktop test build):
 // its console is the Tube's ring, not stdio, and its files live inside the
 // machine's filesystem behind its own current directory. See core/tube_cp.h.
@@ -52,7 +52,7 @@
 #define MAXIMUM_RAM 0x10000000           // Maximum amount of RAM to allocate
 #else
 #define MAXIMUM_RAM 0x10000000LL         // Maximum amount of RAM to allocate
-                                             // [BMC-K4510: was 0x100000000LL; the Tube co-processor carries 256 MB, like the host machine]
+                                             // [K4510: was 0x100000000LL; the Tube co-processor carries 256 MB, like the host machine]
 #endif
 
 #if (PAGE_OFFSET < 0x10000) && (defined(__x86_64__) || defined(__aarch64__))

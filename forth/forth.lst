@@ -58,7 +58,7 @@
 .4038		60		rts		        rts
 >4039		00				run_sp: .byte 0                 ; lives in the loaded image: plain RAM
 .403a						s_kernel_id:
->403a		54 61 6c 69 20 46 6f 72		        .text "Tali Forth 2 on the BMC-K4510 (native 45GS10)", AscLF, 0
+>403a		54 61 6c 69 20 46 6f 72		        .text "Tali Forth 2 on the K4510 (native 45GS10)", AscLF, 0
 >4042		74 68 20 32 20 6f 6e 20 74 68 65 20 42 4d 43 2d
 >4052		4b 34 35 31 30 20 28 6e 61 74 69 76 65 20 34 35
 >4062		47 53 31 30 29 0a 00

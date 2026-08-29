@@ -1,4 +1,4 @@
-/* BMC-K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS10.
+/* K4510 system ROM, Stage 3. cc65, 65C02 subset of the 45GS10.
  *
  * A colour text terminal on VICKY text32, a keyboard driver, the host
  * filesystem, and a shell that keeps Wozmon's syntax and adds files,
@@ -120,7 +120,7 @@ static void draw_bands(void)
     fg = ofg; bg = obg;                                          /* the spacers, in the console's colours */
     for (i = 1; i < OY; i++) blank_row(i);
     for (i = OY + ROWS; i < last; i++) blank_row(i);
-    bar_str(1, 0, "BMC-K4510  K/OS");                            /* top bar: the machine, and the clock at the right */
+    bar_str(1, 0, "K4510  K/OS");                            /* top bar: the machine, and the clock at the right */
     (void)REG(SYS + 4); draw_clock();
     bar_str(1, last, "status mode");                             /* bottom bar: the mode, and the live CPU clock */
     bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz);
@@ -234,7 +234,7 @@ static uint8_t caps(uint8_t k)
  * keeps the whole thing ~20 bytes, which is what the resident ROM has. */
 static void video_init(void);
 static void cls(void);
-#pragma code-name (push, "CODE")
+#pragma code-name (push, "CODE2")   /* resident; ROM1C is full, ROM2 has the room */
 static void mode_do(void)
 {
     uint8_t r = REG(SYS + 0x21);
@@ -463,6 +463,8 @@ static uint8_t is_prg(const char *name)
  *   then nseg x 12 (nseg <= 8): phys[4] len[4] block (bank it there, $FF = no) pad[3]
  *   then the segments' bytes, in order. Each lands at its physical address
  *   anywhere in 256 MB; a block number also sets that bank register. */
+#pragma code-name (push, "SWCODE0")   /* bank 0: 1.2K, and cold -- the resident half has no room for it.
+                                      * Its rodata stays resident: ROM1C is mapped whatever the window holds. */
 static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
 {
     uint8_t hdr[4];
@@ -517,6 +519,7 @@ static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
     last_addr = addr; strcpy(last_name, name); xam = addr;
     return 0;
 }
+#pragma code-name (pop)
 
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
@@ -534,6 +537,8 @@ static void cmd_load(const char *p)
     newline();
 }
 
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_save(const char *p)
 {
     char name[NAMEMAX]; uint8_t d; uint32_t from, to;
@@ -544,6 +549,8 @@ static void cmd_save(const char *p)
     if (fs_cmd(10)) { error("save: failed"); return; }
     puts_("saved "); putdec(to - from + 1); puts_(" bytes"); newline();
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 static uint8_t exec_busy;                    /* a script is running: nobody to press a key */
 static uint8_t typed;                        /* lines since the last "-- more --" */
@@ -554,7 +561,7 @@ static uint8_t typed;                        /* lines since the last "-- more --
  * resident.  Left in the sideways window it was a cross-bank call -- with bank
  * 1 engaged (INFO runs there) the window holds bank 1, not this, so newline
  * jumped into whatever was at that address.  sw_call's rules, learned again. */
-#pragma code-name (push, "CODE")
+#pragma code-name (push, "CODE2")
 static uint8_t page_break(void)
 {
     static uint8_t inside;                   /* its own printing goes through newline() too */
@@ -570,6 +577,8 @@ static uint8_t page_break(void)
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
 }
 #pragma code-name (pop)
+#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_type(const char *p)
 {
     char name[NAMEMAX]; uint32_t n; uint16_t i;
@@ -593,6 +602,8 @@ static void cmd_type(const char *p)
     typed = 0;
     if (cx) newline();
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 typedef void (*fn_t)(void);
 #pragma code-name (pop)
@@ -751,12 +762,12 @@ static const char daynames[] = "SunMonTueWedThuFriSat";   /* flat 3-char slots, 
 static void info_version(void)
 {
     uint8_t i;
-    label("SYSTEM"); puts_("K/OS " ROM_VERSION " (the BMC-K4510 operating system)");
+    label("SYSTEM"); puts_("K/OS " ROM_VERSION " (the K4510 operating system)");
     newline(); pad(8);
     puts_("build ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
     /* "emulator" is wrong on the Pi, where this is bare metal on real hardware */
-    puts_(REG(SYS + 0x22) ? ", bare metal on a Raspberry Pi 3B+" : ", desktop emulator");
+    puts_(REG(SYS + 0x22) ? ", BMC-K4510: bare metal on a Raspberry Pi 3B+" : ", K4510 on a desktop");
     newline();
 }
 
@@ -994,11 +1005,6 @@ static void cmd_swap(const char *p)
      * this one -- which the saved image matches byte for byte. */
     w32(DMA, SWAPRAM); w32(DMA + 4, 0x00000000UL); w32(DMA + 8, 0x10000UL);
     REG(DMA + 12) = 1;
-}
-
-static void cmd_help(void)
-{
-    cmd_type("/.HELP");                                  /* the help text lives on disk, dot-hidden */
 }
 
 /* RENAME old new / CP old new: two names, the second passed via the ADDR reg */
@@ -1249,8 +1255,8 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
     if (is_cmd(&p, "RMDIR")) { cmd_rmdir(p); return; }
     if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
-    if (is_cmd(&p, "SAVE"))  { cmd_save(p); return; }
-    if (is_cmd(&p, "TYPE"))  { cmd_type(p); return; }
+    if (is_cmd(&p, "SAVE"))  { sw_call(1, cmd_save, p); return; }
+    if (is_cmd(&p, "TYPE"))  { sw_call(1, cmd_type, p); return; }
     if (is_cmd(&p, "XD") || is_cmd(&p, "HEX")) { sw_call(1, cmd_xd, p); return; }
     if (is_cmd(&p, "RENAME") || is_cmd(&p, "REN") || is_cmd(&p, "MV")) { cmd_two(16, p); return; }
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
@@ -1271,7 +1277,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
-    if (is_cmd(&p, "HELP"))  { cmd_help(); return; }
+    if (is_cmd(&p, "HELP"))  { sw_call(1, cmd_type, "/.HELP"); return; }   /* the help text lives on disk, dot-hidden */
     if (is_cmd(&p, "DUMP"))  { sw_call(1, cmd_dump, p); return; }
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
@@ -1340,7 +1346,7 @@ static const uint8_t c64pal[16][3] = {
 /* VICKY CTRL for each MODE: halve columns (2), halve lines (4), 200-line
  * field (8), quarter columns (16).  See core/vicky.h. */
 static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
-#pragma code-name (push, "CODE")
+#pragma code-name (push, "CODE2")
 static void video_init(void)
 {
     uint8_t i;
@@ -1517,7 +1523,8 @@ static void banner(void)
         bg = obg;
         pad(20);
         switch (r) {
-        case 0: fg = C_HI;  puts_("BMC-K4510 -- A FANTASY 8/16-bit COMPUTER"); break;
+        case 0: fg = C_HI;  if (REG(SYS + 0x22)) puts_("BMC-");   /* on the card it IS the appliance; see docs/NAMING.md */
+                    puts_("K4510 -- A FANTASY 8/16-bit COMPUTER"); break;
         /* No clock here: the machine has no one speed any more.  The clock in
          * force is INFO's business, and it says it in kHz. */
         case 2: fg = C_FG; puts_("CPU: 45GS10"); break;

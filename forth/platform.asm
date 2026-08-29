@@ -1,4 +1,4 @@
-; BMC-K4510 platform file for Tali Forth 2 (public-domain Forth for the
+; K4510 platform file for Tali Forth 2 (public-domain Forth for the
 ; 65c02 by Scot W. Stevenson, maintained by Sam Colwell; vendored
 ; unmodified under tali/ -- see tali/COPYING.txt, tali/VENDORED-FROM.txt).
 ; The machine's third language, and unlike BBC BASIC it is native: pure
@@ -115,7 +115,7 @@ run_sp: .byte 0                 ; lives in the loaded image: plain RAM
 stack_save: .fill 256
 
 s_kernel_id:
-        .text "Tali Forth 2 on the BMC-K4510 (native 45GS10)", AscLF, 0
+        .text "Tali Forth 2 on the K4510 (native 45GS10)", AscLF, 0
 
 ; ---------------------------------------------------------------------
 ; Tali itself

@@ -1,4 +1,4 @@
-/* BMC-K4510: BENCH -- the machine measures itself and writes the numbers to
+/* K4510: BENCH -- the machine measures itself and writes the numbers to
  * disk.
  *
  * Doc found a Pi build "about 10x slower" than the one before it, and the
@@ -175,7 +175,7 @@ void main(void)
     rom_shell("CLS");
     say("\nBENCH results\n\n");
 
-    add("BMC-K4510 self-test\n===================\n\n");
+    add("K4510 self-test\n===================\n\n");
     add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); nl();
     add("Build:    ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) addc((char)REG(SYS + 0x10 + i));

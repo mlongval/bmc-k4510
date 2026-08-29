@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: Mandelbrot set on the MATH unit. 320x240 (VICKY lowres),
+/* K4510 demo: Mandelbrot set on the MATH unit. 320x240 (VICKY lowres),
  * 8 bpp bitmap at $200000, drawn row by row through a RAM buffer and DMA.
  * Every number is an IEEE single in one of the unit's eight registers at
  * $D700; an operation is two byte writes (FARG, FOP) and works in place,
@@ -99,7 +99,7 @@ void main(void)
     REG(V_CTRL) = 1 | 2;
     for (;;) {
         uint8_t f0, f1, secs;
-        text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 Mandelbrot mathlist zoom ");
+        text8_print(TEXTMAP, 40, 1, 0, "K4510 Mandelbrot mathlist zoom ");
         far_poke(TEXTMAP + 36, '0' + level);
         if (level == 0) set_view(-2458, 0, 0); else set_view(-3052, 410, level);      /* -0.6,0 then -0.745,0.1 */
         f0 = REG(SYS + 0x0D); f1 = REG(SYS + 0x0E);

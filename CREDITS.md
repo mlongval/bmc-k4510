@@ -2,7 +2,7 @@
 
 LICENSES.md is the legal record; this file is the thanks.
 
-The BMC-K4510 is a fantasy machine, but it stands on very real work.
+The K4510 is a fantasy machine, but it stands on very real work.
 Thank you:
 
 ## Code running in the machine

@@ -1,4 +1,4 @@
-/* BMC-K4510: LODE -- a Lode Runner, 320x240, three levels.
+/* K4510: LODE -- a Lode Runner, 320x240, three levels.
  *
  * A 20x15 grid of 16x16 8 bpp tiles on VICKY layer 0 (drawn by code at
  * startup -- bricks, stone, ladders, rope, gold; no vendored art), the

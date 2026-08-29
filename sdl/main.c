@@ -215,7 +215,7 @@ int k4510_frontend_main(int argc, char **argv)
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     sid_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
-    SDL_Window *win = SDL_CreateWindow("BMC-K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
 /* No vsync, anywhere.  It was off on the Pi already, because the shim blocked
  * the present until the flip and a frame that overran by a millisecond waited
@@ -357,7 +357,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   double ma  = (double)p_mach * 1000.0 / (double)hz / f;
                   double tx  = (double)p_tex  * 1000.0 / (double)hz / f;
                   double pr  = (double)p_pres * 1000.0 / (double)hz / f;
-                  fprintf(pf, "BMC-K4510 frame profile\n=======================\n\n");
+                  fprintf(pf, "K4510 frame profile\n===================\n\n");
                   fprintf(pf, "Build:   %s\n", K4510_BUILD);
                   fprintf(pf, "Clock:   %.1f MHz\n", cpu_hz_now / 1e6);
                   fprintf(pf, "Frames:  %d averaged\n\n", PERF_FRAMES);
@@ -423,7 +423,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_PAGEUP) hit = (ch == CHORD_SUPER_PGUP && (m & KMOD_GUI)) || (ch == CHORD_CTRL_PGUP && (m & KMOD_CTRL)) || (ch == CHORD_ALT_PGUP && (m & KMOD_ALT));
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
-                if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "BMC-K4510  [PAUSED]" : "BMC-K4510"); break; }
+                if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;

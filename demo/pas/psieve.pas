@@ -1,4 +1,4 @@
-// BMC-K4510: the sieve of Eratosthenes, ten times, timed by the frame counter.
+// K4510: the sieve of Eratosthenes, ten times, timed by the frame counter.
 program psieve;
 uses k4510;
 const N = 8190;

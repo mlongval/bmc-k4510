@@ -1,4 +1,4 @@
-/* BMC-K4510: KOMMANDER -- a two-panel file commander, the Norton Commander of
+/* K4510: KOMMANDER -- a two-panel file commander, the Norton Commander of
  * this machine. Two directory panels side by side; Tab switches which is live,
  * the arrows walk it, Enter descends a directory or views a file, and the
  * function keys copy, move, make and delete.

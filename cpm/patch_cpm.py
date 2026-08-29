@@ -34,7 +34,7 @@ rep("""#include <ctype.h>
 #include <unistd.h>
 #define millis() clock() / 1000
 """,
-"""/* [BMC-K4510] abstraction_k4510.h -- RunCPM as the K4510's in-process Tube
+"""/* [K4510] abstraction_k4510.h -- RunCPM as the K4510's in-process Tube
  * co-processor (core 3 on the Pi, a thread in the desktop test build).
  * GENERATED from abstraction_posix.h by patch_cpm.py: identical except at
  * four seams -- no termios/poll/glob/system, the console is the Tube's
@@ -74,13 +74,13 @@ rep("""#ifdef STREAMIO
 rep("""#define FOLDERCHAR '/'
 #define FILEBASE "./"
 """, """#define FOLDERCHAR '/'
-#define FILEBASE ""                          /* [BMC-K4510] the path layer adds fs/CPM/ */
+#define FILEBASE ""                          /* [K4510] the path layer adds fs/CPM/ */
 """)
 # the directory search: opendir instead of glob, sorted like glob was
 rep("""glob_t pglob;
 int dirPos;
 """, """int dirPos;
-/* [BMC-K4510] A directory listing gathered with opendir(), sorted as glob()
+/* [K4510] A directory listing gathered with opendir(), sorted as glob()
  * sorted, over "D/U" or -- for the all-users search "D/?" -- every user
  * folder 0-9, A-F. Names are "D/U/NAME" like glob's paths were. */
 static char _k4_names[512][32]; static int _k4_count;
@@ -118,7 +118,7 @@ rep("""            globfree(&pglob);
 # the console
 i = s.index("#ifndef RUNVT_EMBED\nstatic struct termios _old_term, _new_term;")
 j = s.index("#endif // RUNVT_EMBED")
-s = s[:i] + """/* [BMC-K4510] the console is the Tube: bytes down to the machine's ROM
+s = s[:i] + """/* [K4510] the console is the Tube: bytes down to the machine's ROM
  * console, keys up from it. A wait for a key is where the kill is felt. */
 static int _k4_pending = -1;
 
@@ -165,7 +165,7 @@ patch("cpm/src/main.c", [(
 """    #ifdef RUNVT_EMBED
         #include "abstraction_runvt.h"
     #elif defined(K4510_TUBE)
-        #include "abstraction_k4510.h" // [BMC-K4510] the in-process Tube co-processor
+        #include "abstraction_k4510.h" // [K4510] the in-process Tube co-processor
     #elif defined(_WIN32)"""),
 (
 """int main(int argc, char *argv[]) {
@@ -173,7 +173,7 @@ patch("cpm/src/main.c", [(
     #ifdef DEBUGLOG""",
 """int main(int argc, char *argv[]) {
     #ifdef K4510_TUBE
-    if (setjmp(tube_cpm_env)) return 2;  // [BMC-K4510] the machine stopped the Tube
+    if (setjmp(tube_cpm_env)) return 2;  // [K4510] the machine stopped the Tube
     #endif
 
     #ifdef DEBUGLOG"""),
@@ -247,7 +247,7 @@ echo "tubetest: OK (PRINT, restart after *QUIT, MODE 2/GCOL/PLOT/MODE 7, CP/M DI
 ])
 open("cpm/ALTERED.md", "w").write("""# Altered source notice (RunCPM, MIT -- see LICENSE-RunCPM.txt)
 
-`src/` is RunCPM as vendored (VENDORED-FROM.txt), with these [BMC-K4510]
+`src/` is RunCPM as vendored (VENDORED-FROM.txt), with these [K4510]
 changes for the in-process Tube build (`-DK4510_TUBE -Dmain=tube_cpm_main`,
 used by the Pi kernel and by the desktop `make tubetest`; the desktop's
 `cpm/runcpm` on a pty is built from the unmodified POSIX abstraction):

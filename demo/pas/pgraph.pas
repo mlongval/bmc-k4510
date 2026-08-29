@@ -1,4 +1,4 @@
-// BMC-K4510: the GRAPH unit on VICKY -- lines, bars and triangles by the
+// K4510: the GRAPH unit on VICKY -- lines, bars and triangles by the
 // blitter, circles pixel by pixel, text from the ROM's font, over the
 // console. Any key ends it.
 program pgraph;

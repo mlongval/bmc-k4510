@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the BMC-K4510 guide: screenshots first (from the machine itself),
+# Build the K4510 guide: screenshots first (from the machine itself),
 # then XeLaTeX twice, then check the margins. Run from anywhere.
 #
 # Two things fail this build, both for the same reason -- a book you cannot

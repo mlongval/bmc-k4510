@@ -1,4 +1,4 @@
-; BMC-K4510 demo ROM: SHEILA gradient, text layer, a bouncing sprite.
+; K4510 demo ROM: SHEILA gradient, text layer, a bouncing sprite.
 ; Everything below is done by the 45GS02 through VICKY's registers.
 !cpu m65
 VICKY  = $D000
@@ -187,7 +187,7 @@ TEXT:   ldx #0
         inx
         bne .v
 .done:  rts
-MSG1:   !text "BMC-K4510   45GS02 + VICKY + SHEILA", 0
+MSG1:   !text "K4510   45GS02 + VICKY + SHEILA", 0
 MSG2:   !text "sky: SHEILA palette bands   ball: sprite 0, 16x16, 8 bpp, moved on vblank", 0
 MSG3:   !text "text layer 0 over a SHEILA gradient  --  everything on screen is 45GS02 code talking to registers", 0
 

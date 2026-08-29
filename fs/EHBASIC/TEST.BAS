@@ -1,4 +1,4 @@
-10 REM BMC-K4510 EHBASIC SELF-TEST (VERBOSE). RUN "TEST.BAS".
+10 REM K4510 EHBASIC SELF-TEST (VERBOSE). RUN "TEST.BAS".
 20 PRINT CHR$(12):PRINT "EHBASIC SELF-TEST  (EhBASIC 2.22)":PRINT
 30 PRINT "Goal, expected, a sample result, PASS/FAIL per test."
 40 PRINT "Press a key in 5 sec to step; else it runs through.":PRINT

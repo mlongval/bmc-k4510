@@ -1,4 +1,4 @@
-/* BMC-K4510: VI name -- a modal editor that keeps the file in far memory.
+/* K4510: VI name -- a modal editor that keeps the file in far memory.
  *
  * Nothing about the text lives in the 64 KB. Every line is a 256-byte slot out
  * at $0E000000 -- a length byte and up to 255 characters -- and only the line

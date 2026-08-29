@@ -21,7 +21,7 @@ run
 " 36000 DONE 2>/dev/null | grep -E "TIME:|primes|ch/s" | sed 's/^ *//' | tr '\n' ' '; echo
 }
 [ $# -eq 0 ] && set -- RF1 RF2 RF3 RF4 RF5 RF6 RF7 RF8 SIEVE AHL sieve.prg chrout.prg
-echo "BMC-K4510 benchmarks  (1 frame = 1/60 s; 45GS02 at 40.5 MHz)"
+echo "K4510 benchmarks  (1 frame = 1/60 s; 45GS02 at 40.5 MHz)"
 for b in "$@"; do
     case $b in *.prg) run_prg "$b" ;; *) run_bas "$b.BAS" ;; esac
 done

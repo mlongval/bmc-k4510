@@ -1,4 +1,4 @@
-/* BMC-K4510: RAM under the ROM (K-05). The ROM occupies $A000-$FFFF of the
+/* K4510: RAM under the ROM (K-05). The ROM occupies $A000-$FFFF of the
  * CPU view, but rom_out() banks blocks 5 and 7 onto the physical RAM that
  * sits under it: $A000-$BFFF and $E000-$FEFF become the program's. The ROM
  * keeps $C000-$CFFF (4 KB) next to the I/O page and the stub page $FF00,

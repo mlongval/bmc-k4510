@@ -57,7 +57,7 @@ that the code is unknown; those are listed again at the end.
 | Upstream | https://github.com/rtrussell/BBCSDL (Richard T. Russell) |
 | Version | 1.34b (`tube/include/BBC.h`) |
 | Licence | zlib. "BBC BASIC" is the name of Richard Russell's interpreter; this project holds no licence to that name and asserts no rights in it, using it only to identify what is vendored. See `tube/ALTERED.md`. |
-| Altered | **Yes** -- every change marked `[BMC-K4510]`; the notice required by condition 2 of the licence is `tube/ALTERED.md`. |
+| Altered | **Yes** -- every change marked `[K4510]`; the notice required by condition 2 of the licence is `tube/ALTERED.md`. |
 | Verify | `dir: 8988e29475436852` |
 
 ## RunCPM

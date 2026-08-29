@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: TINY -- a scrolling tile map with sprites. Kenney's Tiny
+/* K4510 demo: TINY -- a scrolling tile map with sprites. Kenney's Tiny
  * Dungeon (CC0) as VICKY 16x16 tiles at 8 bpp on layer 0, the Tiled sample
  * map tiled 2x2 into a 64x40 world (1024x640 px) seen through a 320x240
  * window; the hero and a crowd of monsters are 8 bpp sprites whose DATA

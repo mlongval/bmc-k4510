@@ -2,11 +2,119 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 14:5x**
+**Updated: 2026-08-29 11:0x**
 
 ## Now
 
 - Nothing in flight.
+
+## Done today (2026-08-29) — the ROM segment rebalance
+
+`docs/TODO.md`'s "ROM2/ROM1C headroom plan", done.  No behaviour change,
+no new commands: five functions moved between segments so the resident
+halves are no longer one line of C from a link failure.
+
+| area | was | now |
+|---|---|---|
+| ROM1C | 35 | 646 |
+| ROM2  | 30 | 547 |
+| ROM1A | 1650 | 1110 |
+| SW1   | 1594 | 973 |
+| SW2   | 6762 | 6762 |
+
+What moved:
+
+- `video_init`, `page_break`, `mode_do`: `CODE` -> `CODE2`.  Resident
+  either way; ROM1C was full and ROM2 had the room.  `page_break` keeps
+  its resident guarantee.
+- `do_load` (1175 B): `CODE2` -> `SWCODE0`.  Cold, and every caller is
+  resident or bank 0.  Its rodata stays in ROM1C, which is mapped
+  whatever the window holds.
+- `cmd_save`, `cmd_type`: `SWCODE0` -> `SWCODE1`, dispatched with
+  `sw_call(1, ...)`.  Both only ever called from `shell_line`, and both
+  only call resident helpers.  Their rodata moved to `SWRODATA1` with
+  them.
+- `cmd_help` is gone: `HELP` is now `sw_call(1, cmd_type, "/.HELP")` in
+  the dispatch, which is what the wrapper did.
+
+Green: the whole `make test` suite, plus `nettest.sh` and `tubetest.sh`.
+
+**For the handbook session:** nothing user-visible.  Every command
+behaves as before, `HELP` included.  I struck the TODO bullet in
+`docs/TODO.md` (your file, one line) rather than leave it stale.
+
+**Wozmon stays in** — Doc decided 2026-08-29, so the retirement
+question is closed, and on its own merits: a boot-swapped monitor is not
+a substitute for a resident one.  A reset keeps RAM (the chord is
+`cpu65_reset()` alone) but loses the registers, zero page, and the
+sideways banks — `mem_load_rom` writes to `$0FF00000`, which is bank RAM,
+so it overwrites the alias table.
+
+## alpha-0.4 'Imprint' — the naming split, carried out
+
+Doc asked for the whole job in one pass and for a release on it, so this
+is done, not proposed.  **K4510** = the machine (and the desktop build);
+**BMC-K4510** = the bare-metal Pi appliance.  ~160 occurrences reviewed;
+`BMC-K4510` now survives in `pi/`, `install-sd.sh`, and the sentences
+genuinely about the appliance.
+
+**I edited your area, and more of it than the protocol's "small and say
+so" allowance covers.** Specifically: `doc/guide/k4510-guide.tex` (title
+and cover), `chapters/01-machine.tex` (new §1.3 *Two names, one
+machine*, and the Pi subsection retitled), `04-tube`, `89-disclaimer`,
+`90-thanks` (Randy Rossi's initials named in the appliance's name),
+`91-licences`, `93-issues`, `issue-form.txt`, `make-guide.sh`, and the
+rebuilt PDF.  **Revise any of it freely** — I wrote it to Doc's ask, not
+over your judgement.
+
+- The book is now **The K4510 User's and Programmer's Guide**, 84 pages,
+  cover stamped `alpha-0.4` (`GUIDE_VERSION=alpha-0.4`).
+- **Every figure was recaptured** (`make-guide.sh --shots`) — the banner
+  changed, and it is in a dozen of them.  Takes ~4 minutes.
+- `.github/ISSUE_TEMPLATE/report.md` is generated from
+  `doc/guide/issue-form.txt`; I edited the generated file first and it
+  was overwritten, as designed.  Noted so you do not repeat it.
+
+**For you:** the alpha notice and the release titles are still yours, and
+the book says `alpha-0.4` only on the cover.
+
+## docs/NAMING.md — the decision behind it, and it lands in your area
+
+Doc decided 2026-08-29 that **K4510** is the machine (architecture, K/OS,
+ROM, handbook, every `.prg` — and the desktop build, which simply *is*
+the K4510) and **BMC-K4510** is the bare-metal Pi appliance (the card,
+Circle, the cores, no OS underneath).  Not a rename: `K4510-Design.md`
+already said *BMC* names Randy Rossi's BMC64 platform, not the machine.
+
+I wrote `docs/NAMING.md` — your area, and bigger than the "small and say
+so" allowance, so: **it is yours now, edit or overrule it freely.**  I
+wrote it because Doc asked for the write-up in this session and the rule
+needs to exist before either of us writes another sentence with a name in
+it.
+
+What it asks of you, and it is one open question I deliberately did not
+answer: **the handbook's title.**  The book documents the machine, so
+`K4510` is the consistent answer with the appliance as its own chapter —
+but the cover, the alpha notice and the release titles are yours.
+
+The rule, if you only read one line: *would the sentence still be true if
+you unplugged the Pi and opened the desktop build?*  Then it is K4510.
+
+Nothing is renamed in code yet — the file is the decision, not the edit.
+The guest-facing strings are the part I would do first (the banner, the
+status bar and `INFO` all say `BMC-K4510` from a ROM whose same bytes
+boot on both hosts).  Say if you want that before the next figure
+capture, since it changes three screenshots.
+
+**Parked, and it may reach `core/` and `sdl/` when it happens:** a
+boot-selectable **SUPERMON kernal** (Doc, 2026-08-29).  Needs a console
+shim, since `mon/supermon.asm` calls the ROM jump table and a boot ROM
+has no K:OS under it; `rom/wozmon.a` is the pattern.  Host side is a menu
+action shaped like `ACT_POWER_CYCLE` minus `host_zero`.  Written up in
+`docs/BUILD-LOG.md` and listed in `docs/TODO.md`.  Nobody is on it.
+
+**Still open from that TODO section:** ZP is 32/32 and BSSR 447/448.
+Those need `crt0.s` changes, not segment moves, and are untouched.
 
 ## Waiting on
 

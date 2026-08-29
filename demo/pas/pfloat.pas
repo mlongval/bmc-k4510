@@ -1,4 +1,4 @@
-// BMC-K4510: SINGLE arithmetic on the MATH unit ($D700) -- the runtime's
+// K4510: SINGLE arithmetic on the MATH unit ($D700) -- the runtime's
 // + - * / compare trunc round frac are register writes there; the k4510
 // unit adds the transcendentals. Assemble with mads -d:SOFTFLOAT=1 for the
 // software library, to compare.

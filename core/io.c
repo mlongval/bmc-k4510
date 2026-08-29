@@ -1027,7 +1027,7 @@ int dbg_dump(const char *why)
     if (++dbg_num > 100) dbg_num = 1;                  /* rotate: at most 100 files */
     snprintf(name, sizeof name, "dumps/dump-%03d.txt", dbg_num);
     if (!(f = fopen(name, "w"))) { dbg_num--; return -1; }
-    fprintf(f, "BMC-K4510 dump %d  %04d-%02d-%02d %02d:%02d:%02d  (%s)\n", dbg_num, m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, why);
+    fprintf(f, "K4510 dump %d  %04d-%02d-%02d %02d:%02d:%02d  (%s)\n", dbg_num, m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, why);
     fprintf(f, "frame %u  cwd /%s\n\n", (unsigned)sys_frames, fs_cwd);
     { uint8_t pf = cpu65_get_pf(); char fl[8]; const char *names = "NVEBDIZC";
       for (int b = 0; b < 8; b++) fl[b] = (pf & (0x80 >> b)) ? names[b] : '-';

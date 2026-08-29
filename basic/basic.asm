@@ -5363,7 +5363,7 @@ LAB_246C
 
 LAB_ADD
 	JMP	K_ADD		; K4510: MATH unit
-				; [BMC-K4510] excised#5369: body runs on the MATH unit
+				; [K4510] excised#5369: body runs on the MATH unit
 LAB_279B
 	LDA	FAC2_s		; get FAC2 sign (b7)
 
@@ -5634,12 +5634,12 @@ LAB_259A
 
 LAB_LOG
 	JMP	K_LOG		; K4510: MATH unit
-				; [BMC-K4510] excised#5650: body runs on the MATH unit
+				; [K4510] excised#5650: body runs on the MATH unit
 ; do convert AY, FCA1*(AY)
 
 LAB_MULTIPLY
 	JMP	K_MULTIPLY		; K4510: MATH unit
-				; [BMC-K4510] excised#5690: body runs on the MATH unit
+				; [K4510] excised#5690: body runs on the MATH unit
 LAB_264D
 	STA	ut1_pl		; save pointer low byte
 	STY	ut1_ph		; save pointer high byte
@@ -5738,7 +5738,7 @@ LAB_26C2
 
 LAB_DIVIDE
 	JMP	K_DIVIDE		; K4510: MATH unit
-				; [BMC-K4510] excised#5853: body runs on the MATH unit
+				; [K4510] excised#5853: body runs on the MATH unit
 ; do A<<6, save as FAC1 rounding byte, normalise and return
 
 LAB_2737
@@ -6237,13 +6237,13 @@ LAB_296E
 	JMP	K_FOUT		; K4510: MATH unit
 LAB_297B
 	JMP	K_FOUTR		; K4510: MATH unit
-				; [BMC-K4510] excised: number output runs on the MATH unit
+				; [K4510] excised: number output runs on the MATH unit
 
 ; perform power function
 
 LAB_POWER
 	JMP	K_POWER		; K4510: MATH unit
-				; [BMC-K4510] excised: POWER runs on the MATH unit
+				; [K4510] excised: POWER runs on the MATH unit
 
 ; do - FAC1
 
@@ -6261,7 +6261,7 @@ LAB_2AF9
 
 LAB_EXP
 	JMP	K_EXP		; K4510: MATH unit
-				; [BMC-K4510] excised#6728: body runs on the MATH unit
+				; [K4510] excised#6728: body runs on the MATH unit
 LAB_RND
 	LDA	FAC1_e		; get FAC1 exponent
 	BEQ	NextPRN		; do next random # if zero
@@ -6306,17 +6306,17 @@ CopyPRNG
 
 LAB_COS
 	JMP	K_COS		; K4510: MATH unit
-				; [BMC-K4510] excised#6888: body runs on the MATH unit
+				; [K4510] excised#6888: body runs on the MATH unit
 ; perform SIN()
 
 LAB_SIN
 	JMP	K_SIN		; K4510: MATH unit
-				; [BMC-K4510] excised#6896: body runs on the MATH unit
+				; [K4510] excised#6896: body runs on the MATH unit
 ; perform TAN()
 
 LAB_TAN
 	JMP	K_TAN		; K4510: MATH unit
-				; [BMC-K4510] excised#6941: body runs on the MATH unit
+				; [K4510] excised#6941: body runs on the MATH unit
 ; perform USR()
 
 LAB_USR
@@ -6327,7 +6327,7 @@ LAB_USR
 
 LAB_ATN
 	JMP	K_ATN		; K4510: MATH unit
-				; [BMC-K4510] excised#6974: body runs on the MATH unit
+				; [K4510] excised#6974: body runs on the MATH unit
 ; perform BITSET
 
 LAB_BITSET
@@ -6521,9 +6521,9 @@ LAB_AL2X
 	DEY				; decrement counter
 	RTS
 
-	.include "k4510expr.asm"	; [BMC-K4510] the expression compiler rides in the $E000 half
+	.include "k4510expr.asm"	; [K4510] the expression compiler rides in the $E000 half
 
-K4510_SPLIT1				; [BMC-K4510] sideways stage 3: part 1 ends here
+K4510_SPLIT1				; [K4510] sideways stage 3: part 1 ends here
 	.assert K4510_SPLIT1 <= $FF00, error, "EhBASIC part 1 overflows the $E000 half"
 	.org	$C000			; the interpreter continues below the I/O page
 LAB_NLTO
@@ -6935,7 +6935,7 @@ TabErr
 
 LAB_SQR
 	JMP	K_SQR		; K4510: MATH unit
-				; [BMC-K4510] excised#7627: body runs on the MATH unit
+				; [K4510] excised#7627: body runs on the MATH unit
 ; perform VARPTR()
 
 LAB_VARPTR

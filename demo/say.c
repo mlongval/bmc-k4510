@@ -1,4 +1,4 @@
-/* BMC-K4510: SAY -- the smallest possible disk command, and the proof of
+/* K4510: SAY -- the smallest possible disk command, and the proof of
  * the REXX rule: an unknown shell word runs name.prg from disk, and the
  * program reads what followed it with the ARGS system call ($FF95:
  * $F0/$F1 -> the tail, A = its length). SAY prints its arguments. */

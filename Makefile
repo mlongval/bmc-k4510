@@ -1,4 +1,4 @@
-# BMC-K4510 -- the machine, built without VICE.
+# K4510 -- the machine, built without VICE.
 #   make            -> build everything
 #   make test       -> run the CPU wrapper test
 # `all` is below, after the variables it needs; say so here, because the

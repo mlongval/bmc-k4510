@@ -1,4 +1,4 @@
-/* BMC-K4510: BOMBER -- a Bomberman, 320x240, three levels.
+/* K4510: BOMBER -- a Bomberman, 320x240, three levels.
  *
  * The arena is a 20x15 grid of 16x16 8 bpp tiles on VICKY layer 0: the
  * classic ring wall, the pillar lattice, crates hiding pickups.  Art is

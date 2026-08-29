@@ -1,10 +1,10 @@
 ; ********************************
 ; * SUPERMON+ 64 JIM BUTTERFIELD *
 ; * V1.2   AUGUST 20 1985        *
-; *  BMC-K4510 port, 2026        *
+; *  K4510 port, 2026        *
 ; ********************************
 ;
-; Ported to the BMC-K4510 from J.B. Langston's commented 64tass source
+; Ported to the K4510 from J.B. Langston's commented 64tass source
 ; (github.com/jblang/supermon64, public domain).  What changed:
 ;   - C64 KERNAL calls -> the K4510 ROM jump table ($FF80 CHROUT,
 ;     $FF86 GETIN, $FF89 LOAD, $FF8C SAVE, $FF8F SHELL)
@@ -1356,7 +1356,7 @@ MSG2    .BYTE $0D               ; header for registers
         .TEXT "   PC  SR AC XR YR SP   V1.2"
         .BYTE $0D+$80
 MSG3    .BYTE $20,$3F+$80       ; syntax error: display " ?"
-MSG4    .TEXT "SUPERMON+64 V1.2 (BMC-K4510)"
+MSG4    .TEXT "SUPERMON+64 V1.2 (K4510)"
         .BYTE $0D+$80
 MSG5    .BYTE $3A,$20+$80       ; ": " before the ASCII dump
 MSG6    .TEXT " ERRO"           ; I/O error: display " ERROR"

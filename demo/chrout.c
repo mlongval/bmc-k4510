@@ -1,4 +1,4 @@
-/* BMC-K4510: CHROUT throughput benchmark. How fast is the ROM's terminal
+/* K4510: CHROUT throughput benchmark. How fast is the ROM's terminal
  * path (C with cc65, scroll by DMA)?  Three passes through $FF80:
  *   A  a stream of printable characters, wrapping at the right edge
  *   B  79-character lines ending in newline (wrap + scroll each line)
@@ -38,7 +38,7 @@ void main(void)
     uint16_t t0, i; uint8_t c; uint32_t n;
 
     rom_chrout(12);
-    print("BMC-K4510 CHROUT benchmark (ROM jump table $FF80, 80x60 text)"); nl(); nl();
+    print("K4510 CHROUT benchmark (ROM jump table $FF80, 80x60 text)"); nl(); nl();
 
     /* A: 40,000 printable characters, no newline: the glyph path + wrap + scroll every 80 */
     res[0].name = "A stream"; res[0].chars = 40000UL; c = '!';

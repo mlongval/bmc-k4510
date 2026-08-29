@@ -1,4 +1,4 @@
-; EhBASIC 2.22 on the BMC-K4510, as a .prg the system ROM loads at $7000.
+; EhBASIC 2.22 on the K4510, as a .prg the system ROM loads at $7000.
 ; "Derived from EhBASIC" -- Lee Davison's Enhanced BASIC, see README-EhBASIC.txt.
 ; Console through the ROM jump table ($FF80 CHROUT, $FF86 GETIN); BASIC RAM
 ; $0800-$6FFF (26 KB); page 3 holds EhBASIC's vectors and input buffer;
@@ -150,7 +150,7 @@ k4510_outdone
 	.include "k4510file.asm"
 	.include "k4510gfx.asm"
 
-K4510_SPLIT2				; [BMC-K4510] end of the $C000 slice (the expression
+K4510_SPLIT2				; [K4510] end of the $C000 slice (the expression
 					; compiler rides inside basic.asm's $E000 half now)
 	.assert K4510_SPLIT2 <= $D000, error, "EhBASIC $C000 slice overflows into the I/O page"
 	.org	$0230			; the page-2 loan, $0230-$02CF: ROM DATA ends below it

@@ -1,4 +1,4 @@
-; BMC-K4510 .prg startup for cc65 programs run from the system ROM.
+; K4510 .prg startup for cc65 programs run from the system ROM.
 ; Header: load address, run address. The ROM jumps here with JSR; we come
 ; back with RTS after unmapping. Also the helpers cc65 cannot express:
 ; MAP (a 16 KB window at $2000-$5FFF, the text screen's RAM, unused while a

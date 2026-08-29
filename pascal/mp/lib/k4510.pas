@@ -1,8 +1,8 @@
 unit k4510;
 (*
 * @type: unit
-* @author: BMC-K4510 project
-* @name: The BMC-K4510's chips, as typed absolute registers.
+* @author: K4510 project
+* @name: The K4510's chips, as typed absolute registers.
 * @version: 0.1
 
 * @description:

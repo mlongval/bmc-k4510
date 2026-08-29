@@ -159,7 +159,7 @@ int settings_save(const char *path)
     FILE *f = fopen(path, "r"); char line[256];
     if (f) { while (nold < 128 && fgets(line, sizeof line, f)) { old[nold] = malloc(strlen(line) + 1); strcpy(old[nold++], line); } fclose(f); }
     f = fopen(path, "w"); if (!f) { for (int i = 0; i < nold; i++) free(old[i]); return -1; }
-    if (!nold) fprintf(f, "# BMC-K4510 settings -- written by the F7 menu; edit freely, unknown keys are kept\nversion = 1\n");
+    if (!nold) fprintf(f, "# K4510 settings -- written by the F7 menu; edit freely, unknown keys are kept\nversion = 1\n");
     for (int i = 0; i < nold; i++) {                      /* the old lines, known keys rewritten in place */
         char *k, *v; char copy[256]; strcpy(copy, old[i]);
         int id = split(copy, &k, &v) ? find_key(k) : -1;

@@ -1,4 +1,4 @@
-/* sidorch.h -- a small SID orchestra for the BMC-K4510 demos.
+/* sidorch.h -- a small SID orchestra for the K4510 demos.
  * NCHIPS (2 or 4) SIDs at $D400 + 32*n, three voices each, sequenced once
  * per frame at 120 bpm (an eighth = 15 frames). Pachelbel's progression in
  * D: D A Bm F#m G D G A, 8 bars, looped. Voices (chip.voice):

@@ -4942,3 +4942,213 @@ five times the MEGA65's clock. Whether the menu should offer more than
 suggestions. p15's numbers were taken in a scratch clone in /tmp: its
 working tree holds the aarch64 objects of the Pi kernel build and was
 not touched.
+
+## 2026-08-29 — the resident ROM gets its air back
+
+`romfree.py` had ROM1C at 35 bytes free and ROM2 at 30. That is not a
+budget, it is a tripwire: the next resident line of C fails the link.
+Meanwhile ROM1A sat on 1650 free and SW2 on 6762. The problem was never
+total space — it was that everything hot had accumulated in the two
+halves that are always mapped.
+
+Doc asked the prior question first: how much work would it be to rewrite
+the ROM in assembler? The measurement said ~20.3 KB of cc65-generated
+code across five segments, which hand-written 6502 would bring to 8-10 KB
+— eight to twelve sessions of work, and no Pi gain at all, because the
+emulator burns a fixed cycle budget per frame whatever the guest is
+doing (~0.124 ms of host time per emulated MHz, from the 2026-08-27
+sweep). Denser guest code does not make the frame cheaper. So the
+rewrite is an aesthetic project, not a resource one, and the resource
+problem had a cheaper answer sitting in `docs/TODO.md` already.
+
+Five functions moved, no behaviour changed:
+
+- `video_init` (434 B), `page_break` (130), `mode_do` (54): `CODE` to
+  `CODE2`. Resident either way — the comments that put them in ROM1C
+  said "where the room is", and that stopped being true.
+- `do_load` (1175): `CODE2` to `SWCODE0`. Cold, and every caller is
+  resident or bank 0. Its rodata stays in ROM1C, which is mapped
+  whatever the sideways window holds.
+- `cmd_save` (268) and `cmd_type` (241): `SWCODE0` to bank 1, through
+  `sw_call`. Both are only ever reached from `shell_line`, and both call
+  nothing but resident helpers. Their rodata went to `SWRODATA1` with
+  them — bank 0 is not in the window while bank 1 is engaged.
+- `cmd_help` is gone; `HELP` is `sw_call(1, cmd_type, "/.HELP")` in the
+  dispatch, which is all the wrapper ever was.
+
+ROM1C 35 -> 646 free, ROM2 30 -> 547, ROM1A 1650 -> 1110, SW1 1594 ->
+973. Every area now has room for real work.
+
+`dump`, `peek` and `poke` stayed put, against the TODO's suggestion:
+`peek` is called by `info_mem` from bank 1, so it has to be resident.
+Worth writing down as the general rule — before moving anything out of
+the resident half, check whether a banked command calls it. The tool for
+that is a segment-attributed grep of the call sites, not memory.
+
+The mistake worth recording: the first attempt broke `TYPE` so
+thoroughly that the machine booted the shell and then found itself
+inside WordStar. The cause was not cross-bank at all — an editing script
+computed its line numbers before a deletion and applied them after, so
+the `sw_call` conversions landed five lines down, on the `EXEC` and
+`HUSH` dispatch lines, leaving the original direct `jsr _cmd_type` in
+place. A direct call to a bank-1 function without engaging the window
+jumps into whatever bank 0 has at that address, and bank 0's neighbour
+there was the CP/M launcher. `nettest.sh` caught it on the first run;
+the generated `kernal.s` named it in one grep, by showing both a
+`jsr _cmd_type` and a `sw_call` in the same procedure.
+
+Doc closed the other half of that TODO bullet the same day: **Wozmon
+stays.** The 1.1K it would free is the in-shell `MON`/`WOZ` command, and
+a monitor's value is highest exactly when the machine is too broken to
+load `SUPERMON.prg` off disk — retiring it trades away the case it
+exists for.
+
+The first draft of this entry offered a consolation prize: if ROM1A were
+ever short, a key held at power-up could boot the standalone
+`rom/wozmon.bin` instead of the kernal, so retiring `MON` would cost
+nothing. **Doc took that apart, and he is right.** A boot-swapped monitor
+is a different tool from a resident one, because getting to it costs a
+reset. What survives a reset and what does not, measured rather than
+assumed:
+
+- **RAM survives.** The reset chord (`sdl/main.c:424`) calls
+  `cpu65_reset()` and nothing else — RAM zeroing is a separate action
+  (`ACT_POWER_CYCLE`, line 587). So the screen at `$030000`, the C stack
+  at `$0600-$0800` and the shell log are all still readable afterwards.
+- **CPU state does not.** PC, A/X/Y/SP and the flags at the moment of the
+  fault are gone, and that is usually the thing worth having.
+- **Zero page does not.** `$02-$21` is trampled by whatever image boots.
+- **The sideways banks do not.** `mem_load_rom` writes to `$0FF00000`,
+  which *is* bank RAM — loading a different image overwrites the alias
+  table and any user bank.
+
+So the hold key is not a substitute for `MON`; it is a narrower thing —
+a way in when the kernal will not reach a prompt at all. Recorded that
+way, and `MON` stays resident on its own merits.
+
+### Parked: a SUPERMON kernal
+
+Doc's second thought, and the better one: if a monitor is ever going to
+be boot-selectable, build it from SUPERMON rather than Wozmon. Wozmon in
+the ROM already covers *always there, no reboot*; a bootable image should
+cover the other case — *the machine will not reach a prompt, and I want
+the good tools*: the full 45GS02 disassembler, the assembler, hunt,
+transfer, compare. Complementary, not competing, which is why both can
+exist without either being redundant.
+
+What it costs, from `mon/README.md` and `mon/supermon.asm`:
+
+- `supermon.asm` is a `.prg` and calls the **ROM jump table** — `$FF80`
+  CHROUT, `$FF86` GETIN, `$FF89` LOAD, `$FF8C` SAVE, `$FF8F` SHELL. As a
+  boot ROM there is no K:OS underneath it, so it needs its own console:
+  VICKY text init, keyboard poll, cursor, reset vector. That shim is
+  exactly what `rom/wozmon.a` already is (374 lines, self-contained), so
+  the pattern is proven — but it is a session's work, not a link-order
+  change.
+- `LOAD`, `SAVE` and the `@` shell escape have no host to call and would
+  be stubbed or dropped. `L`/`S` are the ones worth thinking about: a
+  monitor that cannot save what it recovered is half a tool.
+- Build lives outside the Makefile like the `.prg` does — `mon/build.sh`
+  needs 64tass, not cc65.
+- Host side is cheap: a menu action that is `ACT_POWER_CYCLE` minus the
+  `host_zero`, so the image is reloaded and the CPU reset with RAM left
+  alone, plus a setting for which image. Roughly ten lines. Prefer that
+  to a held key — you want to *choose* the image, and the Pi's early-boot
+  key read is the fiddly part.
+
+Not built. The reason to write it down now is that the console shim is
+the whole cost, and `wozmon.a` is the worked example of it.
+
+## 2026-08-29 (b) — one name was doing two jobs
+
+Doc: the emulator should be the K4510 fantasy computer, and the Pi
+version the BMC-K4510. Written up as `docs/NAMING.md`.
+
+The reason it is obviously right is sitting in `K4510-Design.md`, from
+the day the name was chosen: *"BMC is for Randy Rossi's BMC64 and its
+family on the Pi 3B and earlier boards — the platform this is built on."*
+`BMC-K4510` has always parsed as "the K4510 on the bare-metal Pi". The
+project used it for everything only because, for a while, there was one
+way to run the thing. So this is not a rename; it is a name that grew
+over its own meaning being pushed back inside it.
+
+The rule that decides the cases: **would the sentence still be true if
+you unplugged the Pi and opened the desktop build?** Then it is the
+K4510. Only what needs a board with a card in it is the BMC-K4510 — boot
+time, the four Circle cores, HDMI, `make-sd.sh`. Performance belongs to
+the host, not the machine, which is why `core/calib.c` measures it: "the
+BMC-K4510 holds 15 MHz", never "the K4510 runs at 15 MHz".
+
+The count came out cleaner than expected. `BMC-K4510` appears about 160
+times across the tree; **seven of them are in `pi/`**, and those are the
+seven that were right all along. The rest are the machine.
+
+The sharpest consequence is in the guest. The ROM banner, the status bar
+and `INFO` all say `BMC-K4510` — and **the same ROM bytes boot on both
+hosts**, so the machine has been claiming to be a Raspberry Pi appliance
+while running on a laptop. Those three become `K4510`, which also gives
+four bytes of rodata back. Whether the guest should instead *learn* which
+host it is on — `$D521` has spare bits, and the host already publishes
+video state through it — is recorded in `NAMING.md` and not decided; it
+is a branch and a second string in a ROM that only just clawed back to
+646 and 547 bytes free.
+
+Nothing renamed yet: the file is the decision, not the edit. `docs/` is
+the handbook session's area, so `NAMING.md` was handed to them in
+`docs/notes/coding.md` along with the one question it deliberately does
+not answer — the handbook's own title.
+
+## 2026-08-29 (c) — alpha-0.4 'Imprint': the split, carried out
+
+`NAMING.md` was the decision; this is the edit. Doc asked for all of it
+in one pass — code, README, handbook — and for the release to be cut on
+it.
+
+**The name.** *Colophon* was the note at the back of a book saying how it
+was made. An **imprint** is the name a work is published under, and it is
+also the mark a press leaves in the paper. This release settles which
+name goes on which thing, so it names itself.
+
+**What moved.** `BMC-K4510` appeared about 160 times; it now appears in
+`pi/`, in `install-sd.sh` (it writes cards), and in the handful of
+sentences that are genuinely about the appliance. Everything else is the
+`K4510`.
+
+The guest strings went first and matter most: the banner, the status bar
+and `INFO`'s *"the K4510 operating system"*. The same ROM bytes boot on
+both hosts, so the machine had been announcing itself as a Raspberry Pi
+appliance while running on a laptop. Four bytes of rodata came back.
+
+**The handbook is now *The K4510 User's and Programmer's Guide*.** The
+cover reads `K4510`; §1.3 *Two names, one machine* carries the argument
+for readers, with the test in it (would the sentence still be true if you
+unplugged the Pi?); the Pi section is retitled for the appliance; and the
+thanks page now says out loud what was only ever in the design document —
+that Randy Rossi's initials are in the appliance's name. **Every figure
+was recaptured**, because the banner is in a dozen of them and the
+build's own guard said so before we did: *"rom/kernal.bin is newer than
+bbc.png"*. 84 pages, cover stamped `alpha-0.4`.
+
+**Two things worth remembering for next time.** The issue template is
+generated from the book (`doc/guide/issue-form.txt` → `mkissue.py` →
+`.github/ISSUE_TEMPLATE/report.md`) — editing the generated file
+accomplishes nothing, which we proved by doing it. And `check-artifacts`
+fails for as long as a rebuilt `.prg` is uncommitted; that is the design,
+not a fault, but it means `make test` cannot go green in the middle of a
+change like this one. The thirteen test binaries, `basictest`, `pastest`,
+`nettest` and `tubetest` were all run directly instead, and all pass.
+
+**A postscript, and the best part of the day.** `NAMING.md` had recorded
+"should the guest know which host it is on?" as open, on the assumption
+that it needed a new mechanism and a second string in a tight ROM. It
+needed neither: **`$D522` already carries it**, and `INFO` has been
+branching on it since the Pi port. So the banner branches on the same
+byte — one ROM image that prints `BMC-K4510 -- A FANTASY 8/16-bit
+COMPUTER` from a card and `K4510 -- ...` on a desktop. Seventeen bytes of
+ROM1A, and the machine now tells the truth about which of its two selves
+you are looking at. The status bar stays `K4510  K/OS` either way; it
+names the machine, not the box.
+
+The lesson is the ordinary one: the estimate that made it look expensive
+was made without reading `rom/kernal.c:770`, where the answer was already
+sitting.

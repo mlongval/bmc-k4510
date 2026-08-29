@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: rotating cube, wireframe then solid with hidden faces
+/* K4510 demo: rotating cube, wireframe then solid with hidden faces
  * removed. 320x240 (VICKY lowres), 8 bpp bitmap, two frame buffers in far
  * RAM ($110000 / $130000). Pixels go out with the 45GS10 flat store,
  * spans with DMA fill, the clear with DMA fill, and the flip is one write
@@ -90,7 +90,7 @@ void main(void)
         REG(L) = 1 | (0 << 1) | (3 << 3);                               /* enable, bitmap, 8 bpp */
     }
     dma_fill(' ', TEXTMAP, 40 * 30);
-    text8_print(TEXTMAP, 40, 1, 0, "BMC-K4510 cube: blitter LINE + TRIANGLE,");
+    text8_print(TEXTMAP, 40, 1, 0, "K4510 cube: blitter LINE + TRIANGLE,");
     text8_print(TEXTMAP, 40, 1, 1, "double buffered by one pointer write");
     text8_print(TEXTMAP, 40, 1, 29, "D: buffering   key: exit   FPS ");
     text8_print(TEXTMAP, 40, 1, 28, "double buffered");

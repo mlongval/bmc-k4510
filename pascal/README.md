@@ -1,4 +1,4 @@
-# Mad Pascal for the BMC-K4510
+# Mad Pascal for the K4510
 
 A cross-compiler, like cc65: [Mad Pascal](https://github.com/tebe6502/Mad-Pascal)
 (Tomasz Biela, MIT) compiles on the desktop to 6502 assembly, MADS

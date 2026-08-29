@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: two SIDs. SID 0 plays the melody (pulse, voice 1) and a
+/* K4510 demo: two SIDs. SID 0 plays the melody (pulse, voice 1) and a
  * fast arpeggio (voice 2, the classic C64 trick); SID 1 plays the bass
  * (sawtooth, voice 1) and drums (noise, voice 2). A 16-bar loop at
  * 120 bpm, sequenced once per frame. On screen: which note each voice
@@ -67,7 +67,7 @@ void main(void)
     REG(V_BGCOL) = 0;
     dma_fill(' ', TEXTMAP, 80 * 60);
     text8_layer(0, TEXTMAP, 80, 0);
-    text8_print(TEXTMAP, 80, 1, 1,  "BMC-K4510  two SIDs (reSID 6581 x 2 of 4), 1 MHz, mixed to one channel");
+    text8_print(TEXTMAP, 80, 1, 1,  "K4510  two SIDs (reSID 6581 x 2 of 4), 1 MHz, mixed to one channel");
     text8_print(TEXTMAP, 80, 1, 4,  "SID 0  voice 1  melody   pulse");
     text8_print(TEXTMAP, 80, 1, 6,  "SID 0  voice 2  arpeggio pulse");
     text8_print(TEXTMAP, 80, 1, 8,  "SID 1  voice 1  bass     sawtooth");

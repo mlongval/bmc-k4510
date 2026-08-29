@@ -1,7 +1,7 @@
 #ifndef ABSTRACT_H
 #define ABSTRACT_H
 
-/* [BMC-K4510] abstraction_k4510.h -- RunCPM as the K4510's in-process Tube
+/* [K4510] abstraction_k4510.h -- RunCPM as the K4510's in-process Tube
  * co-processor (core 3 on the Pi, a thread in the desktop test build).
  * GENERATED from abstraction_posix.h by patch_cpm.py: identical except at
  * four seams -- no termios/poll/glob/system, the console is the Tube's
@@ -64,7 +64,7 @@ uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
 /* Filesystem (disk) abstraction functions */
 /*===============================================================================*/
 #define FOLDERCHAR '/'
-#define FILEBASE ""                          /* [BMC-K4510] the path layer adds fs/CPM/ */
+#define FILEBASE ""                          /* [K4510] the path layer adds fs/CPM/ */
 
 typedef struct {
     uint8 dr;
@@ -397,7 +397,7 @@ uint8 _sys_makedisk(uint8 drive) {
 #endif
 
 int dirPos;
-/* [BMC-K4510] A directory listing gathered with opendir(), sorted as glob()
+/* [K4510] A directory listing gathered with opendir(), sorted as glob()
  * sorted, over "D/U" or -- for the all-users search "D/?" -- every user
  * folder 0-9, A-F. Names are "D/U/NAME" like glob's paths were. */
 static char _k4_names[512][32]; static int _k4_count;
@@ -638,7 +638,7 @@ void _host_init(int argc, char *argv[]) {
 /* Console abstraction functions */
 /*===============================================================================*/
 
-/* [BMC-K4510] the console is the Tube: bytes down to the machine's ROM
+/* [K4510] the console is the Tube: bytes down to the machine's ROM
  * console, keys up from it. A wait for a key is where the kill is felt. */
 static int _k4_pending = -1;
 

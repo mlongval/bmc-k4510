@@ -36,7 +36,7 @@ typedef int timer_t ;
 #define ENABLE_VIRTUAL_TERMINAL_INPUT 0x200
 BOOL WINAPI K32EnumProcessModules (HANDLE, HMODULE*, DWORD, LPDWORD) ;
 #elif defined(K4510_TUBE)
-// [BMC-K4510] the in-process Tube co-processor: no terminal, no signals,
+// [K4510] the in-process Tube co-processor: no terminal, no signals,
 // no threads -- the Tube rings (core/tube_cp.c) are the whole platform.
 #include <sys/stat.h>
 #define myftell ftell
@@ -55,7 +55,7 @@ static void *dlsym (void *handle, const char *symbol) { return NULL ; }
 #include "dlfcn.h"
 #define myftell ftell
 #define myfseek fseek
-#define PLATFORM "K4510"	// [BMC-K4510] the banner names the machine, not the host it borrows
+#define PLATFORM "K4510"	// [K4510] the banner names the machine, not the host it borrows
 #define WM_TIMER 275
 #endif
 
@@ -88,7 +88,7 @@ void *userRAM = NULL ;
 void *progRAM = NULL ;
 void *userTOP = NULL ;
 const int bLowercase = 0 ;    // Dummy
-const char szVersion[] = "BBC BASIC for the K4510 Tube "VERSION ;	// [BMC-K4510] was "for "PLATFORM" Console"
+const char szVersion[] = "BBC BASIC for the K4510 Tube "VERSION ;	// [K4510] was "for "PLATFORM" Console"
 const char szNotice[] = "(C) Copyright R. T. Russell, "YEAR ;
 char *szLoadDir ;
 char *szLibrary ;
@@ -319,7 +319,7 @@ unsigned int GetTicks (void)
 #ifdef _WIN32
 	return timeGetTime () ;
 #elif defined(K4510_TUBE)
-	return tube_cp_ticks () ;	// [BMC-K4510] the platform's clock (SDL_GetTicks on the Pi)
+	return tube_cp_ticks () ;	// [K4510] the platform's clock (SDL_GetTicks on the Pi)
 #else
 	struct timespec ts ;
 	if (clock_gettime (CLOCK_MONOTONIC, &ts))
@@ -329,7 +329,7 @@ unsigned int GetTicks (void)
 }
 
 #ifdef K4510_TUBE
-// [BMC-K4510] The keyboard arrives over the Tube instead of a reader
+// [K4510] The keyboard arrives over the Tube instead of a reader
 // thread, and the 250 ms timer that Linux delivered as a signal ticks
 // here, synchronously, whenever the interpreter looks at the keyboard
 // (which it does at every trap).
@@ -462,7 +462,7 @@ void getcsr(int *px, int *py)
 }
 
 // SOUND Channel,Amplitude,Pitch,Duration
-// [BMC-K4510] sent over the Tube; the console queues it on the machine's
+// [K4510] sent over the Tube; the console queues it on the machine's
 // sound sequencer, which plays it on the SIDs (chan 0 = noise).
 void sound (short chan, signed char ampl, unsigned char pitch, unsigned char duration)
 {
@@ -478,7 +478,7 @@ void envel (signed char *env)
 // Disable sound generation:
 void quiet (void)
 {
-	printf ("\033]K4S;Q\007") ;	// [BMC-K4510] flush and silence all channels
+	printf ("\033]K4S;Q\007") ;	// [K4510] flush and silence all channels
 	fflush (stdout) ;
 }
 
@@ -630,7 +630,7 @@ void trap (void)
 {
 #ifdef K4510_TUBE
 	if (tube_cp_killed ())
-		flags |= KILL ;		// [BMC-K4510] the machine wrote 2 to $D803
+		flags |= KILL ;		// [K4510] the machine wrote 2 to $D803
 #endif
 	stdin_handler (NULL, NULL) ;
 
@@ -1210,7 +1210,7 @@ static FILE *lookup (void *chan)
 }
 
 // Load a file into memory:
-// [BMC-K4510] The machine's programs are NAME.BBC and its desktop host's
+// [K4510] The machine's programs are NAME.BBC and its desktop host's
 // filesystem is case-sensitive: a read that misses is retried with the
 // extension in capitals, so LOAD "KALEID" finds KALEID.BBC there too.
 static FILE *fopen_rd (char *path, const char *mode)
@@ -1744,7 +1744,7 @@ void SystemIO (int flag)
 #endif
 
 #ifdef K4510_TUBE
-// [BMC-K4510] The co-processor's main: what main() below does, minus the
+// [K4510] The co-processor's main: what main() below does, minus the
 // terminal, the environment and the process. Called by tube_cp_run() on
 // every start (*QUIT returns here, and the next BBCBASIC calls again), so
 // everything main() set once is set again.

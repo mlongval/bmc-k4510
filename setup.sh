@@ -1,5 +1,5 @@
 #!/bin/sh
-# BMC-K4510: one-shot desktop setup -- install the build dependencies,
+# K4510: one-shot desktop setup -- install the build dependencies,
 # build the machine and its tools, run the test suite.
 #   git clone https://github.com/mlongval/bmc-k4510 && cd bmc-k4510 && ./setup.sh
 # Understands apt (Debian/Ubuntu), dnf (Fedora) and pacman (Arch).

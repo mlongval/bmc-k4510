@@ -1,4 +1,4 @@
-; [BMC-K4510] SINGLE (IEEE-754 32-bit) on the MATH unit at $D700 -- the
+; [K4510] SINGLE (IEEE-754 32-bit) on the MATH unit at $D700 -- the
 ; same entry points and registers as common\single.asm (David Schmenk's
 ; software library), but every operation is a few register moves and one
 ; write to FOP: the unit does the arithmetic in the cycle after.

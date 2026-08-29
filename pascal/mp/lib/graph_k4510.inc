@@ -1,4 +1,4 @@
-(* [BMC-K4510] GRAPH on VICKY. See graphh_k4510.inc. *)
+(* [K4510] GRAPH on VICKY. See graphh_k4510.inc. *)
 
 var	gfx_bk, gfx_ctrl: byte;
 	MULA: cardinal absolute $D770;		(* the MEGA65-style multiplier: A * B -> MULOUT *)

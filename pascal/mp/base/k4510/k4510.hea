@@ -1,4 +1,4 @@
-; BMC-K4510: the I/O page and the ROM's system calls (core/io.h, rom/crt0.s)
+; K4510: the I/O page and the ROM's system calls (core/io.h, rom/crt0.s)
 
 k4_vicky	= $D000		; VICKY video
 k4_kbd		= $D100		; keyboard: next key (pops)

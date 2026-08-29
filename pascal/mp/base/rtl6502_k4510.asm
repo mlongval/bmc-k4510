@@ -2,7 +2,7 @@
 	opt c+			; the 45GS02 has the 65C02 set: stz, bra, (zp)
 
 /* -----------------------------------------------------------------------
-/*                CPU 6502 runtime library - BMC-K4510  [BMC-K4510]
+/*                CPU 6502 runtime library - K4510  [K4510]
 /* -----------------------------------------------------------------------
 /* rtl_default.asm's list, with one substitution: SINGLE arithmetic on
 /* the MATH unit at $D700 (k4510\single.asm) instead of the software

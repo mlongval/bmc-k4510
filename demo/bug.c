@@ -1,4 +1,4 @@
-/* BMC-K4510: BUG -- interview the user and write a finished issue to disk.
+/* K4510: BUG -- interview the user and write a finished issue to disk.
  *
  * DUMP writes what the machine knows about itself.  This writes what the
  * machine cannot know: what you typed, what you expected, and why.  The two
@@ -86,7 +86,7 @@ void main(void)
     say("\nBUG -- this writes an issue you can paste into GitHub.\n");
     say("Answer what you can; Enter alone skips a question.\n");
 
-    add("BMC-K4510 issue\n===============\n\n");
+    add("K4510 issue\n===============\n\n");
 
     add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); nl();
     add("Version:  ");

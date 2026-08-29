@@ -73,7 +73,7 @@ static const item_t main_items[] = {
     { "Shell",   MI_SUBMENU, 0, &shell_menu },
     { "Info",    MI_SUBMENU, 0, &info_menu },
 };
-static const menu_t main_menu = { "BMC-K4510", main_items, 6 };
+static const menu_t main_menu = { "K4510", main_items, 6 };
 
 /* ---- state ----------------------------------------------------------------
  * Two panes: the categories on the left, the chosen one's settings on the
@@ -189,7 +189,7 @@ int menu_draw(uint8_t *ov)
     if (!open_) return 1;
     ui_fill(ov, 0, 0, UI_COLS, UI_ROWS, UIC_PANEL);
     ui_fill(ov, 0, 0, UI_COLS, 1, UIC_BAR);
-    ui_text(ov, 1, 0, UIC_BARTEXT, UIC_BAR, "BMC-K4510");
+    ui_text(ov, 1, 0, UIC_BARTEXT, UIC_BAR, "K4510");
     { char b[32]; const set_desc *mk = settings_desc(SET_INPUT_MENU_KEY);
       snprintf(b, sizeof b, "%s closes ", mk->labels[settings_get(SET_INPUT_MENU_KEY)]);
       ui_text(ov, UI_COLS - (int) strlen(b), 0, UIC_BARTEXT, UIC_BAR, b); }

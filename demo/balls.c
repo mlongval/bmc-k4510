@@ -1,4 +1,4 @@
-/* BMC-K4510 demo: 15 bouncing balls. 128-sprite engine, 4 bpp sprites with
+/* K4510 demo: 15 bouncing balls. 128-sprite engine, 4 bpp sprites with
  * per-sprite palette offsets (one ball bitmap, 15 colour banks), sprite
  * table double-buffered by flipping SPRTAB, SHEILA sky gradient, text8
  * caption. 640x480. Every table lives in far memory (written with the
@@ -94,7 +94,7 @@ void main(void)
         vy[i] = 0;
     }
     dma_fill(' ', TEXTMAP, 80 * 60);
-    text8_print(TEXTMAP, 80, 1, 0, "BMC-K4510  VICKY: 15 x 32x32 4bpp sprites, 15 palette banks, SHEILA sky");
+    text8_print(TEXTMAP, 80, 1, 0, "K4510  VICKY: 15 x 32x32 4bpp sprites, 15 palette banks, SHEILA sky");
     text8_print(TEXTMAP, 80, 1, 59, "any key returns to the shell        FPS ");
     text8_layer(0, TEXTMAP, 80, 0);
     init_table(SPRTAB_A); init_table(SPRTAB_B);

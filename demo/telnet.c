@@ -1,4 +1,4 @@
-/* BMC-K4510: TELNET host port -- a terminal on the N: device ($D900).
+/* K4510: TELNET host port -- a terminal on the N: device ($D900).
  * Opens tcp://host:port on channel 0, sends what you type, and what
  * arrives goes to JIM, the terminal ($DA00): a VT100/ANSI in hardware, so
  * BBSes get their ANSI art and colours, and cursor and function keys go
