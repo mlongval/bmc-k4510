@@ -5,7 +5,13 @@ files:   DIR [A] [dir|pattern]
          match here; * any run, ? any one)
          CD [dir]
          MKDIR dir
-         RM name
+         RM name       RM -f name
+         (RM moves it to /.TRASH -- it is not
+         destroyed; RM -f is the one that really
+         removes it.  DELETE -l lists the trash,
+         DELETE -r name puts one back, DELETE -e
+         empties it.  RANGER's DD uses the same
+         trash, and so does DELETE name)
          RMDIR dir
          TYPE name
          EDIT [name]   VI [name]

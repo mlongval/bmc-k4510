@@ -429,14 +429,49 @@ static void cmd_mkdir(const char *p)
     fs_name(name);
     if (fs_cmd(12)) { error("mkdir: failed"); return; }
 }
+/* RM moves a file to /.TRASH; RM -f is the one that really removes it.
+ *
+ * The safe default is the machine's, not Unix's, and deliberately so: this
+ * filesystem is a directory on somebody's laptop, so keeping a deleted file
+ * until you say otherwise costs nothing, and not keeping it costs whatever
+ * was in it.  -f is there because a default you cannot get out of is not a
+ * default, it is a restriction -- a script clearing its temporary files wants
+ * the real thing, and so does anyone reclaiming space.
+ *
+ * The trash is /.TRASH, shared with DELETE.prg and RANGER's DD, under the
+ * same rule: a name already in there gets ~1, ~2 rather than being
+ * overwritten.  That has to be asked with STAT beforehand -- the device's
+ * RENAME takes the host's semantics and overwrites in silence, which is how
+ * RANGER's first trash lost a file (docs/BUILD-LOG.md, 2026-08-29). */
 static void cmd_rm(const char *p)
 {
-    char name[NAMEMAX]; uint8_t st;
+    char name[NAMEMAX], dst[NAMEMAX + 8];
+    uint8_t force = 0, n, l;
+    if (is_cmd(&p, "-f")) force = 1;
     if (!getname(&p, name)) { error("rm: name?"); return; }
     fs_name(name);
-    st = fs_cmd(13);
-    if (st == 1) { error("rm: not found"); return; }
-    if (st) { error("rm: not a file"); return; }
+    if (fs_cmd(8)) { error("rm: not found"); return; }
+    if (r32(FS + 0x10) == 0xFFFFFFFFUL) { error("rm: not a file"); return; }
+    if (force) { fs_name(name); if (fs_cmd(13)) error("rm: failed"); return; }
+    /* The name MUST be in RAM: the device reads it from physical memory at
+     * that address, and a string literal lives in the ROM image, which is not
+     * the RAM underneath it.  Every other fs_name() in this file passes a
+     * buffer for exactly this reason. */
+    strcpy(dst, "/.TRASH"); fs_name(dst); fs_cmd(12);  /* already there is fine */
+    for (n = 0; n < 100; n++) {
+        strcpy(dst, "/.TRASH/"); strcat(dst, name);
+        if (n) {                                       /* taken: name~1, name~2, ... */
+            l = (uint8_t)strlen(dst);
+            dst[l++] = '~';
+            if (n >= 10) dst[l++] = (char)('0' + n / 10);
+            dst[l++] = (char)('0' + n % 10);
+            dst[l] = 0;
+        }
+        fs_name(dst);
+        if (fs_cmd(8)) break;                          /* STAT failed: the name is free */
+    }
+    fs_name(name); w32(FS + 8, (uint16_t)dst);
+    if (fs_cmd(16)) { error("rm: could not move it to the trash"); return; }
 }
 static void cmd_rmdir(const char *p)
 {

@@ -5289,3 +5289,63 @@ With no argument RANGER now picks its own count from the console width.
 `test/rangertest.sh` covers all of it in ten cases and is in `make test`.
 Two of them exist only because of the trash bug: *paste OVERWROTE an
 existing file* and *the first trashed file was destroyed by the second*.
+
+## 2026-08-29 (f) — the machine gets a trash, and RM stops destroying
+
+Doc: *can we implement delete.prg / rm.prg = move to .trash.*
+
+Half of that could be a program and half could not. `DELETE` is a new
+`.prg`; `RM` is a ROM built-in, and `shell_line` checks built-ins **before**
+the "unknown word runs `name.prg`" rule, with aliases checked dead last and
+a comment saying why — *so an alias never shadows a real command*. So no
+`rm.prg` and no `ALIAS RM DELETE` could ever have fired. Making `RM` safe
+meant opening the ROM.
+
+Put to Doc as a choice, because it changes what the machine's most
+destructive command means. He took **RM trashes, RM -f destroys**, which is
+the right answer: a default you cannot get out of is not a default, it is a
+restriction, and a script clearing its temporary files wants the real thing.
+
+So there are now three ways into one trash — `RM`, `DELETE`, and RANGER's
+`DD` — all using `/.TRASH` and the same `~1`/`~2` rule for a name already
+taken. `test/deletetest.sh` asserts they agree rather than trusting that
+three implementations of one idea stayed in step.
+
+`DELETE` also makes the trash a place rather than a hole: `-l` lists it,
+`-r name` restores into the current directory, `-e` empties it. Nothing
+expires on its own — a trash that quietly disposes of things after a while
+is one you cannot trust either.
+
+### The ROM change cost 438 bytes, and the room was there because of the morning
+
+ROM1A had 1097 free after the segment rebalance and has 643 now. Worth
+noticing: the rebalance was done because ROM1C and ROM2 were at 35 and 30
+bytes, and the argument for it was that the machine could not take another
+line of resident code. The first thing it actually bought was room to make
+`RM` safe eight hours later.
+
+### Two faults, and I already had notes on both
+
+**`fs_name("/.TRASH")` does not work.** The device reads the name from
+physical memory at that address; a string literal lives in the ROM image,
+which is not the RAM underneath it. Every other `fs_name()` in
+`rom/kernal.c` passes a buffer, and mine was the only literal in the file —
+a fact one grep would have told me before I wrote it, and which is sitting
+in the session notes as *"fs names from RAM"*. The path is built in the
+stack buffer now.
+
+**`DIR1` opens a directory, it does not return the first entry.** Treating
+its result as an entry made `DELETE -l` report one file more than the trash
+held. `listdir()` in RANGER had it right the day before.
+
+Both are the same shape of mistake: reaching for an interface I had already
+used correctly somewhere else in the tree, and not looking at how.
+
+### And a test that broke for the right reason
+
+`deletetest.sh` walks to its fixture with RANGER's `G` (last entry) rather
+than counting keypresses. A leftover `fs/ZRM` from hand-testing sorted after
+`ZDTEST`, so `G` went there instead and the failure read *"RANGER did not
+apply the same ~1 rule"* — a trash bug that was not a trash bug. The case
+now asserts which directory it actually landed in before blaming anything,
+which is what `rangertest.sh` already did and this one had not copied.

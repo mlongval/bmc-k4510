@@ -60,11 +60,16 @@ into the current directory, `-e` empties it (that one really deletes).
 Nothing expires on its own: a trash that quietly disposes of things after a
 while is one you cannot trust either.
 
-**`RM` is unchanged and still destroys** — it is a ROM built-in, and the
-shell checks built-ins before the "unknown word runs name.prg" rule, so no
-program or alias can shadow it.  Making `RM` trash means a ROM change;
-that is Doc's call and I have asked.  If it happens, the book will want
-both commands described together.
+**`RM` NOW TRASHES TOO — user-visible ROM change, Doc's call, same day.**
+`RM name` moves to `/.TRASH`; **`RM -f name` is the one that really
+removes it**.  `DEL` and `ERASE` follow, being the same dispatch entry.
+Refusing a directory and a missing name is unchanged.  Costs 438 bytes of
+ROM1A (643 free after).
+
+This one matters for the book: `RM` is documented as destroying, and it no
+longer does.  `fs/.HELP` is updated.  The three trash routes — `RM`,
+`DELETE`, RANGER's `DD` — share `/.TRASH` and the `~1`/`~2` rule, and
+`test/deletetest.sh` asserts they agree.
 
 ## NEW COMMAND: RANGER — for the handbook, announcing it the same day
 

@@ -76,14 +76,46 @@ printf 'from ranger\n' > "$D/SAME.TXT"
 out=$(R '~RANGER
 ~G~l~DD~y~q
 ' 1600)
+# G walks to the LAST entry of the root, so a stray directory sorting after
+# ZDTEST would send this into the wrong place and the failure would look like
+# a trash bug.  Check where it actually went before blaming the trash.
+has "/ZDTEST" "RANGER went somewhere other than the fixture -- is there a stray directory sorting after ZDTEST in fs/?"
 [ -f fs/.TRASH/SAME.TXT ]      || fail "the two do not share /.TRASH"
 [ -f 'fs/.TRASH/SAME.TXT~1' ]  || fail "RANGER did not apply the same ~1 rule as DELETE"
 grep -q "from delete" fs/.TRASH/SAME.TXT      || fail "RANGER's DD overwrote what DELETE had put there"
 grep -q "from ranger" 'fs/.TRASH/SAME.TXT~1'  || fail "RANGER's file went to the wrong name"
 
-# 6. no arguments explains itself rather than doing something
+# 6. the shell's own RM trashes, and RM -f is the way out.  This is the ROM,
+# not a .prg -- RM is a built-in and no program or alias can shadow it.
+rm -rf "$D" fs/.TRASH; mkdir -p "$D/SUB"
+printf 'kept\n'  > "$D/R.TXT"
+printf 'burned\n'> "$D/F.TXT"
+out=$(R '~CD ZDTEST
+~RM R.TXT
+~RM -f F.TXT
+~RM SUB
+~RM NOPE.TXT
+~DIR
+' 2000)
+[ -f fs/.TRASH/R.TXT ]   || fail "RM did not move the file to the trash"
+grep -q kept fs/.TRASH/R.TXT || fail "RM trashed the wrong contents"
+if [ -f "$D/F.TXT" ]; then fail "RM -f did not really remove the file"; fi
+if [ -f fs/.TRASH/F.TXT ]; then fail "RM -f trashed it instead of removing it"; fi
+has "rm: not a file"  "RM on a directory should still refuse"
+has "rm: not found"   "RM on a missing name should still say so"
+
+# 7. RM obeys the same ~1 rule as DELETE and RANGER
+printf 'later\n' > "$D/R.TXT"
+out=$(R '~CD ZDTEST
+~RM R.TXT
+' 1600)
+[ -f 'fs/.TRASH/R.TXT~1' ]     || fail "RM did not apply the ~1 rule"
+grep -q kept  fs/.TRASH/R.TXT  || fail "RM overwrote the file already in the trash"
+grep -q later 'fs/.TRASH/R.TXT~1' || fail "RM's second file has the wrong contents"
+
+# 8. no arguments explains itself rather than doing something
 out=$(R '~DELETE
 ')
 has "not destroyed" "bare DELETE should say what it does"
 
-echo "deletetest: OK (move, list, restore, empty; a taken name gets ~1; DELETE and RANGER's DD share one trash and one set of rules)"
+echo "deletetest: OK (DELETE move/list/restore/empty, RM trashes and RM -f removes, a taken name gets ~1, and DELETE, RANGER's DD and RM all share one trash)"
