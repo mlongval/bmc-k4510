@@ -5152,3 +5152,69 @@ names the machine, not the box.
 The lesson is the ordinary one: the estimate that made it look expensive
 was made without reading `rom/kernal.c:770`, where the answer was already
 sitting.
+
+## 2026-08-29 (d) — building alpha-0.4 on ubuntu-s1, and what the build found
+
+Doc asked for a build of the emulator and the manual on this host, the
+laptop being asleep. A clean build is worth more than an incremental one,
+and this one earned its keep immediately: **`make clean` broke the tree.**
+
+    make: *** No rule to make target 'demo/prg0.s', needed by 'demo/prg0.o'
+
+`clean-demos` ran `rm -f demo/*.s`, and six of those `.s` files are
+**hand-written sources**, not cc65 output: `prg0.s`, `romcalls.s`, the
+three `*-header.s`, and `sidplay0.s`. So `make clean` on a fresh clone
+left a tree that could not be built at all, and it had presumably been
+that way for as long as those files have existed — nobody runs `clean` on
+a checkout they have not already built. Clean now removes one `.s` per
+`.c` plus the three built under another name.
+
+Underneath it was a second one. `fs/PRG/setup.prg` is in `$(DEMOS)`, so
+`clean` deleted it, but it was **missing from `all`**, so nothing rebuilt
+it. It had therefore been committed stale: its banner still read
+`BMC-K4510 SETUP` after this morning's rename, because the rename edited
+the source and the build never touched the binary. `check-artifacts`
+would have caught it at the next commit — that is exactly what that
+target is for — but only because the rename happened to touch it.
+
+Everything else rebuilt byte-identical to the commit, which is the
+answer to the question a clean build is really asking.
+
+Then: `make clean && make all` in 14 s, all thirteen test binaries,
+`basictest`, `pastest`, `nettest`, `tubetest`, `check-artifacts` green,
+the SDL binary up under Xvfb, and the handbook rebuilt at 84 pages with
+the cover stamped `alpha-0.4`.
+
+### SIDPLAY drew in the wrong place
+
+Doc, in passing, mid-build: *sidplay.prg has a bug, it hardcoded the empty
+left column, and when that column is turned off in the menu it leaves the
+previous screen's first column on screen.* Exactly right, and the fix
+took longer than the diagnosis.
+
+`put()` had the origin baked in as `(y + 1) * 80 + x + 1`. With the margin
+off the console's origin is (0,0), so the program drew one cell in and
+never touched column 0 or row 0 — which kept the shell's last screen. The
+ROM has published the real origin at `$DA07`/`$DA08` since `video_init`,
+and KOMMANDER already reads it (`demo/kommander.c:487`); SIDPLAY did not.
+
+The first fix read `COLS`, `ROWS`, `OX`, `OY` and `STRIDE` the way
+KOMMANDER does — and **overflowed `demo/sidplay.cfg`'s PRG area by 11
+bytes**, because a variable stride turns a constant multiply into a real
+one in the hottest function in the program. Worth remembering: in a `.prg`
+as full as this one, `y * 80` and `y * stride` are not the same price.
+
+The version that shipped keeps the stride constant, reads only the origin,
+and makes the screen clear **physical** — all 80x30 cells rather than the
+program's own 79x29 window — so a leftover is impossible whatever the
+origin turns out to be. Folding the two `clear_rows(0, ROWS-1)` calls into
+one `clear_all()` paid for the rest.
+
+Verified against the old binary, margin off, entering SIDPLAY from a `DIR`:
+column 0 read `/dBEPS1/` — the listing showing through — and now reads the
+program's own text. Margin on is unchanged.
+
+**The lesson for the other `.prg` programs**, and it is not just this one:
+anything that writes the text map directly must read the origin. The F7
+menu can move it, and a hardcoded (1,1) is a bug waiting for someone to
+turn the margin off.
