@@ -2,7 +2,7 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-29 11:0x**
+**Updated: 2026-08-29 16:4x**
 
 ## Now
 
@@ -49,6 +49,40 @@ a substitute for a resident one.  A reset keeps RAM (the chord is
 `cpu65_reset()` alone) but loses the registers, zero page, and the
 sideways banks — `mem_load_rom` writes to `$0FF00000`, which is bank RAM,
 so it overwrites the alias table.
+
+## NEW COMMAND: RANGER — for the handbook, announcing it the same day
+
+Doc asked for a ranger clone.  `RANGER` is a new `.prg` (`demo/ranger.c`,
+`fs/PRG/ranger.prg`), **alongside KOMMANDER, not replacing it** — they are
+different ideas about what a file manager is, and both fit.
+
+Three miller columns: parent, current, preview.  vi's fingers, no function
+keys.  The preview shows a directory's contents or a file's first lines.
+
+    h l j k / arrows   walk           Enter  descend, or edit a file in VI
+    gg G Home End      ends           Space  mark / unmark
+    yy  dd  pp         copy cut paste DD     delete to /.TRASH
+    r rename   m mkdir   c columns    .      dotfiles      q Esc  leave
+
+Three things worth a paragraph each in the book if you cover it:
+
+- **Quitting leaves the shell in the directory you ended in.**  That is the
+  reason to use it rather than typing `CD`.
+- **`DD` is not a delete.**  It RENAMEs into `/.TRASH`, undone by walking in
+  there and moving it back.  A name already taken gets `~1`, `~2`.
+- **Nothing overwrites.**  Paste and rename both refuse an existing name
+  and say so.  The device's RENAME/COPY overwrite silently, so this is the
+  program's own guard, not the device's.
+
+`c` cycles 3 -> 2 -> 1 columns, and `RANGER 2` sets it from the shell.  It
+is not decoration: **in MODE 2 the console is 40 columns**, three of them
+would be 13 characters each, and RANGER starts at 2 (or 1) on a narrow
+screen by itself.
+
+`test/rangertest.sh` is in `make test` (ten cases, owns and removes its own
+fixture).  Not in `fs/.HELP` — that file does not list the `.prg` programs,
+and KOMMANDER is not in it either.  **KOMMANDER is still undocumented in the
+book**, so if you take one you may want both.
 
 ## alpha-0.4 'Imprint' — the naming split, carried out
 

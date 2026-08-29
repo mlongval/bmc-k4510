@@ -5218,3 +5218,74 @@ program's own text. Margin on is unchanged.
 anything that writes the text map directly must read the origin. The F7
 menu can move it, and a hardcoded (1,1) is a bug waiting for someone to
 turn the margin off.
+
+## 2026-08-29 (e) — RANGER: the other kind of file manager
+
+Doc: *a ranger clone with copy paste rename and delete (to trash), exit
+drops you in the folder you were exploring, vi movements, enter on a text
+file launches vi via the swap mechanism.*
+
+KOMMANDER, built the day before, is this machine's Norton Commander: two
+panels, function keys. RANGER is the other tradition, and the two are not
+competing implementations of one idea — they are different ideas about
+what a file manager is for. So RANGER is a new `.prg` alongside it rather
+than a replacement, and the machine can afford both.
+
+Three miller columns: the parent, the current directory, and a preview of
+whatever the bar is on — a directory's contents if it is a directory, the
+first lines of the file if it is a file. Three levels of the tree at once,
+and vi's fingers on them: `hjkl`, `gg`/`G`, `yy`/`dd`/`pp`, `DD`, `r`, `m`,
+Space to mark.
+
+**Everything it needed already existed.** The `$D300` device has RENAME,
+COPY, MKDIR, CHDIR and GETCWD; KOMMANDER had already worked out the
+SWAP-to-VI dance and written down why the command line has to live at
+`$0300` rather than in the program's own image. The geometry comes from
+JIM at `$DA05-$DA0D` the way KOMMANDER reads it. Almost none of this was
+new mechanism; it was a new arrangement of what the machine had.
+
+Quitting leaves the shell in the directory you ended in, which is the
+point of the exercise. That took no work at all: the program CHDIRs as it
+browses, so it only has to *not* put the old directory back.
+
+### Three bugs, and two of them are the same bug
+
+**The columns had a one-cell gap between them.** Tidier in the source; on
+the screen it was a stripe of the previous program showing through, since
+nothing drew the gap. This is the SIDPLAY bug from this morning wearing a
+different hat, found the same way — by looking at the actual screen and
+seeing characters that belonged to something else. The columns now abut,
+and each column's own blank first cell is the separator.
+
+**The trash ate a file.** `to_trash()` renamed into `/.TRASH` and treated
+a failed rename as "the name is taken, try `~1`". But the device's RENAME
+takes the host's semantics and **overwrites in silence**, so the failure
+never came, the `~1` path was dead code, and deleting two files that
+shared a name destroyed the first. The fix is to ask first — `C_STAT`
+returns 0 when a path exists — and the same question was missing from
+paste and rename, which would both have overwritten just as quietly.
+Nothing in the program overwrites anything now; paste says *"some names
+are already here"* and leaves them alone.
+
+The general lesson, and it is not confined to this program: **on this
+device, "did the call fail?" is not a collision test.** Anything that
+writes a name someone else might already be using has to STAT it first.
+
+**A test assertion that matched the wrong line.** `^ BBCBASIC` was meant
+to find the listing at the left edge and also matched the status bar
+naming the selected entry. Worth recording because it passed for the
+wrong reason first and only failed once the layout changed.
+
+### The column count is an option because MODE 2 exists
+
+Doc, while it was being built: *needs an option to limit number of columns
+to 3.* It already had three — but fixed at three, which is not the same as
+choosing three. `c` now cycles 3 → 2 → 1 and `RANGER 2` sets it from the
+shell. The option earns its place on this machine specifically: **in MODE 2
+the console is forty columns**, and three miller columns would be thirteen
+characters each — a listing you cannot read of a directory you cannot see.
+With no argument RANGER now picks its own count from the console width.
+
+`test/rangertest.sh` covers all of it in ten cases and is in `make test`.
+Two of them exist only because of the trash bug: *paste OVERWROTE an
+existing file* and *the first trashed file was destroyed by the second*.
