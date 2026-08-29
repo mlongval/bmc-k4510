@@ -588,3 +588,27 @@ and the F7 menu's Resolution row follows GRAPHICS; startup in any saved
 mode shows the banner. The $D521 description changed (core/io.h) —
 regenerate Appendix A. Any figure of GRAPH2D/GRAPH3D taken before today
 shows the half-screen bug: recapture.
+
+## Menu mode changes: apply at close, repaint with the logo — 2026-08-28
+
+Doc, after trying the rebuilt mechanics: returning from a resolution or
+status-bar change should "call logo.prg to reset the screen", and stepping
+through resolutions inside the menu and landing back on the original must
+not wipe what was on screen. Both done:
+
+- The frontend applies mode/margin/status-bar changes only at **menu
+  close**, and only if the setting is *net* different from what the
+  machine is in — stepping away and back costs nothing at all.
+- When a change *is* performed, `mode_do` sets a flag; `k_getin` returns a
+  CR to unstick `readline`, and the shell loop prints the **banner** (the
+  LOGO screen) before its next prompt. So the answer to "what does the
+  screen show after a menu mode change" is now: the machine's face and a
+  fresh prompt, never a bare console.
+- Budget: `putdec2` moved to SWCODE1 (its only caller is INFO, bank 1).
+  ROM1C 35 free, ROM2 30, BSSR 1 (mode_note took a byte).
+
+**For the handbook agent:** the F7 chapter's description of the Resolution
+and Status bar rows changed: they take effect when the menu closes, and
+the machine greets you with the logo screen. A program that is running
+instead of the shell gets a phantom CR when the change is performed and
+the logo waits until the next shell prompt.

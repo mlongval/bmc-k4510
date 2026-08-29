@@ -47,6 +47,7 @@ uint8_t bband;                                       /* bottom-band height; bban
 
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
+static uint8_t mode_note;                  /* an F7 mode/status change was performed: the shell repaints (LOGO) at its next prompt */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
@@ -195,7 +196,9 @@ static void puthex(uint8_t v) { static const char h[] = "0123456789ABCDEF"; k_ch
 static void puthex16(uint16_t v) { puthex(v >> 8); puthex(v); }
 static void puthex28(uint32_t v) { puthex(v >> 24); puthex(v >> 16); puthex(v >> 8); puthex(v); }
 static void putdec(uint32_t v) { char b[11]; uint8_t i = 10; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); puts_(&b[i]); }
+#pragma code-name (push, "SWCODE1")   /* its only caller is INFO, in sideways bank 1 */
 static void putdec2(uint8_t v) { k_chrout('0' + v / 10); k_chrout('0' + v % 10); }
+#pragma code-name (pop)
 /* Pad to a column -- but never past the right margin.  k_chrout wraps cx back
  * to 0 there, so a target at or beyond COLS is a target cx can never reach,
  * and the loop never ends.  That is what hung MODE 4 (19 columns) on the
@@ -242,6 +245,7 @@ static void mode_do(void)
     vmode  = (uint8_t)((r >> 5) - 1);           /* bits 5-7 carry mode+1: 0 is "nothing published" */
     margin = (r & SYSOPT_STATUS) ? 0 : (uint8_t)((r >> 1) & 1);   /* the status bands frame the screen; no margin with them */
     video_init(); cls();
+    mode_note = 1;
 }
 #pragma code-name (pop)
 
@@ -249,7 +253,8 @@ static void mode_do(void)
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
-    if (REG(SYS + 0x21) & 0x10) mode_do();          /* rare: the F7 menu asked for a mode */
+    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 13; }   /* rare: the F7 menu asked for a mode; the CR
+                                                              * unsticks readline so the shell repaints now */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     /* Not while JIM is showing its own: a program that draws through the
      * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the
@@ -1559,6 +1564,7 @@ int main(void)
         if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {
+        if (mode_note) { mode_note = 0; banner(); }   /* back from an F7 mode or status-bar change */
         put_cwd(); puts_("] ");
         readline(line, sizeof line);
         shell_line(line);

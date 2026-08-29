@@ -481,6 +481,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   status_shown = settings_get(SET_VIDEO_STATUSBAR);
                   if (machine != mode_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
+          } else if (menu_is_open()) {
+              /* While the menu is up, nothing is applied: the user may step
+               * through modes and land back on the original, and that must
+               * cost nothing.  The comparisons below run at menu close and
+               * ask only whether anything is NET different. */
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
               mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
