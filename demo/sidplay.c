@@ -12,12 +12,21 @@
 void __fastcall__ tune_call(unsigned addr);
 extern unsigned char tune_a;
 
-#define SCREEN   0x00030000UL        /* the ROM's text map, 80 cells x 4 bytes; margin 1 */
+#define SCREEN   0x00030000UL        /* the ROM's text map, 80 cells x 4 bytes */
+#define TERM     0xDA00u             /* $DA07/$DA08: the console's origin, OX and OY */
 #define LISTBUF  0x00300000UL        /* file names, 32 bytes each */
 #define FILEBUF  0x00310000UL        /* the loaded .sid */
 #define MAXFILES 400
 #define COLS 79
 #define ROWS 29
+/* The console's origin is NOT fixed at (1,1): the F7 menu can turn the
+ * one-cell margin off, and then it is (0,0).  This was hardcoded, so with the
+ * margin off the program drew one cell in from the edge and left column 0 and
+ * row 0 holding the previous screen -- a stripe of junk down the side.  The
+ * ROM publishes the real origin at $DA07/$DA08 (video_init), so read it; and
+ * clear the whole PHYSICAL screen rather than our own window, which makes a
+ * leftover impossible whatever the origin turns out to be. */
+static uint8_t s_ox = 1, s_oy = 1;
 #define C_WHITE 1
 #define C_YEL 7
 #define C_GREY 12
@@ -35,11 +44,19 @@ extern unsigned char tune_a;
 
 static void put(uint8_t x, uint8_t y, uint8_t ch, uint8_t fg)
 {
-    uint32_t c = SCREEN + ((uint32_t)(y + 1) * 80 + x + 1) * 4;
+    uint32_t c = SCREEN + ((uint32_t)(y + s_oy) * 80 + x + s_ox) * 4;
     far_poke(c, ch); far_poke(c + 1, 0); far_poke(c + 2, fg); far_poke(c + 3, C_BLUE);
 }
 static void text(uint8_t x, uint8_t y, const char *s, uint8_t fg) { while (*s) put(x++, y, (uint8_t)*s++, fg); }
 static void textn(uint8_t x, uint8_t y, uint32_t fa, uint8_t n, uint8_t fg) { uint8_t i; for (i = 0; i < n; i++) { uint8_t ch = far_peek(fa + i); put(x + i, y, ch ? ch : ' ', fg); } }
+static void clear_all(void)          /* every physical cell, margin or no margin */
+{
+    uint16_t i;
+    for (i = 0; i < 80 * 30; i++) {
+        uint32_t c = SCREEN + (uint32_t)i * 4;
+        far_poke(c, ' '); far_poke(c + 1, 0); far_poke(c + 2, C_YEL); far_poke(c + 3, C_BLUE);
+    }
+}
 static void clear_rows(uint8_t y0, uint8_t y1) { uint8_t x, y; for (y = y0; y <= y1; y++) for (x = 0; x < COLS; x++) put(x, y, ' ', C_YEL); }
 static void dec(uint8_t x, uint8_t y, uint16_t v, uint8_t fg) { char b[6]; uint8_t i = 5; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); text(x, y, b + i, fg); }
 static void dec2(uint8_t x, uint8_t y, uint8_t v, uint8_t fg) { put(x, y, '0' + v / 10, fg); put(x + 1, y, '0' + v % 10, fg); }
@@ -85,7 +102,7 @@ static void draw_row(uint16_t top, uint16_t i, uint8_t sel)
 static void draw_list(uint16_t top, uint16_t cur)
 {
     uint16_t i;
-    clear_rows(0, ROWS - 1);
+    clear_all();
     text(0, 0, "K4510 SID player", C_WHITE); text(22, 0, "/SID", C_GREY);
     dec(30, 0, nfiles, C_GREY); text(35, 0, "tunes", C_GREY);
     text(0, ROWS - 1, "cursor keys, PgUp/PgDn, Enter plays, Esc leaves", C_GREY);
@@ -134,7 +151,7 @@ static void show_info(uint16_t n)
 {
     char name[32];
     get_name(n, name);
-    clear_rows(0, ROWS - 1);
+    clear_all();
     text(0, 0, "K4510 SID player", C_WHITE); text(22, 0, name, C_GREY);
     text(0, 2, "title   ", C_LBLUE); textn(8, 2, FILEBUF + 0x16, 32, C_WHITE);
     text(0, 3, "author  ", C_LBLUE); textn(8, 3, FILEBUF + 0x36, 32, C_YEL);
@@ -220,6 +237,7 @@ void main(void)
 {
     uint16_t cur = 0, top = 0, oldcur, oldtop; uint8_t k;
     rom_out();                                            /* $0800-$CFFF and $E000-$FEFF are ours */
+    s_ox = REG(TERM + 7); s_oy = REG(TERM + 8);           /* the console's real origin, before anything is drawn */
     far_w32(0xD308, (uint16_t)oldcwd); fs_cmd(15);        /* remember the caller's directory */
     list_dir();
     draw_list(top, cur);
@@ -229,7 +247,7 @@ void main(void)
         /* coalesce: handle every queued key before drawing anything (holding a
          * cursor key fills the FIFO much faster than a full redraw drains it) */
         do {
-            if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); clear_rows(0, ROWS - 1); fs_setname(oldcwd); fs_cmd(11); return; }
+            if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); clear_all(); fs_setname(oldcwd); fs_cmd(11); return; }
             if (k == KEY_DOWN && cur + 1 < nfiles) cur++;
             else if (k == KEY_UP && cur) cur--;
             else if (k == KEY_RIGHT && cur + PAGE < nfiles) cur += PAGE;
