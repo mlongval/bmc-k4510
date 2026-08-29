@@ -221,8 +221,8 @@ static uint8_t caps(uint8_t k)
     if (k >= 'A' && k <= 'Z') return (uint8_t)(k + 32);   /* shifted: a caps lock gives the OTHER case */
     return k;
 }
-/* The host's F7 menu asks for a video mode through $D521 bits 5-7 (mode + 1,
- * 0 = nothing asked).  The ROM has to be the one to do it: the console's
+/* The host's F7 menu asks for a video mode through $D521 bits 5-7 (always
+ * the wanted mode + 1; bit 4 says a change is asked for).  The ROM has to be the one to do it: the console's
  * PCOLS/PROWS/stride are the ROM's, and writing VICKY's CTRL alone would
  * leave the text laid out for the old mode.  Resident on purpose -- banked
  * commands read keys too, and sw_call does not nest.
@@ -239,7 +239,7 @@ static void mode_do(void)
                                             * performed.  Without this it stands for frames and every
                                             * key poll performs it again, and each cls() wipes whatever
                                             * the machine printed in between. */
-    vmode  = (uint8_t)(r >> 5);
+    vmode  = (uint8_t)((r >> 5) - 1);           /* bits 5-7 carry mode+1: 0 is "nothing published" */
     margin = (r & SYSOPT_STATUS) ? 0 : (uint8_t)((r >> 1) & 1);   /* the status bands frame the screen; no margin with them */
     video_init(); cls();
 }
@@ -1539,9 +1539,14 @@ static void banner(void)
 #pragma rodata-name (pop)
 int main(void)
 {
-    vmode = 1; margin = 0;                   /* MODE 1 0: 640x240, the full 80x30.  The gap that
-                                              * makes the picture breathe is the frontend's border,
-                                              * which costs no character cells (F7 -> Video). */
+    /* The host publishes the saved video mode in $D521 bits 5-7 (mode+1;
+     * 0 = a host that does not) from power-on, so the machine boots straight
+     * into it -- there is no late mode request to perform, and nothing to
+     * wipe the banner with.  MODE 1 0 (640x240, the full 80x30) if nothing
+     * is published. */
+    margin = (uint8_t)((REG(SYS + 0x21) >> 1) & 1);   /* the host never sets bit 1 with the status bar on */
+    vmode = (uint8_t)(REG(SYS + 0x21) >> 5);
+    if (vmode) vmode--; else vmode = 1;
     video_init();
     fg = C_FG;
     banner();

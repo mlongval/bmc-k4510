@@ -244,6 +244,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
+    int mode_shown = -1, margin_shown = -1, status_shown = -1, mode_req = 0, mode_wait = 0;
 #define MODE_REQ_FRAMES 120                        /* two seconds for the guest to notice, then give up */
 
     SDL_AudioSpec want = { 0 }, have;
@@ -453,8 +454,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static int mode_shown = -1, margin_shown = -1, status_shown = -1, mode_req, mode_wait;
-          static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
+        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
           uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
@@ -464,19 +464,22 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == m) machine = i;
           }
           if (mode_req) {
-              if (io_mode_acked() || --mode_wait <= 0) mode_req = 0;   /* the guest says it has done it */
+              if (io_mode_acked()) mode_req = 0;        /* the guest says it has done it */
+              else if (--mode_wait <= 0) {              /* it never will (a program that polls no keys):
+                                                         * put the setting back, so the menu does not lie
+                                                         * about a mode the machine is not in */
+                  mode_req = 0;
+                  if (machine >= 0 && machine != mode_shown) { mode_shown = machine; settings_set(SET_VIDEO_MODE, machine); menu_dirty(); }
+              }
           } else if (mode_shown < 0) {
-              if (machine >= 0) {                       /* the machine has booted: put back what was saved,
-                                                         * but only if it differs from what it booted into */
+              if (machine >= 0) {                       /* the machine has booted -- straight into the saved
+                                                         * mode, which $D521 bits 5-7 publish from power-on.
+                                                         * A request only if it booted into something else
+                                                         * (an old ROM that does not read the bits). */
                   mode_shown   = settings_get(SET_VIDEO_MODE);
                   margin_shown = settings_get(SET_VIDEO_MARGIN);
                   status_shown = settings_get(SET_VIDEO_STATUSBAR);
-                  /* The ROM boots with the margin off but reads the status bit
-                   * live in video_init, so it cold-boots straight into the
-                   * status bands -- a request would only re-run video_init and
-                   * cls, wiping the banner it just drew.  So request for a
-                   * different mode or a wanted margin; never for the status bar. */
-                  if (machine != mode_shown || margin_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+                  if (machine != mode_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
@@ -500,8 +503,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
                     | ((settings_get(SET_VIDEO_MARGIN) && !settings_get(SET_VIDEO_STATUSBAR)) ? SYSOPT_MARGIN : 0)
                     | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
-                    | (mode_pending ? (uint8_t)(SYSOPT_MODEREQ
-                                       | ((mode_pending - 1) << SYSOPT_MODE_SHIFT)) : 0));
+                    | (uint8_t)((mode_pending ? mode_pending
+                                              : settings_get(SET_VIDEO_MODE) + 1) << SYSOPT_MODE_SHIFT)
+                    | (mode_pending ? SYSOPT_MODEREQ : 0));
 
         Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();
@@ -575,7 +579,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               act = ACT_NONE; }
         switch (act) {
         case ACT_RESET: cpu65_reset(); break;
-        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); io_reset(); apply_font(font_applied); mem_load_rom(rom); cpu65_reset(); break;
+        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); io_reset(); apply_font(font_applied); mem_load_rom(rom); cpu65_reset();
+                              mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
         } }

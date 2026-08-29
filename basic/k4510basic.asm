@@ -26,13 +26,13 @@ k_crx0	= $03B3			; K4510: the crunch start index (the * prefix is only a prefix 
 	.dword	$0230
 	.dword	K4510_END - $0230
 	.byte	$FF, 0, 0, 0		; the page-2 loan: plain RAM, always visible
-	.dword	$BE00
-	.dword	K4510_TAIL - $BE00
+	.dword	$BD00
+	.dword	K4510_TAIL - $BD00
 	.byte	$FF, 0, 0, 0		; the tail: plain RAM at the top of BASIC's, where the
-					; *VI / *EDIT hook lives.  Both interpreter slices are hard
-					; against their ceilings ($D000 is the I/O page, $FF00 the
-					; ROM stub), so new code goes here and Ram_top comes down
-					; to $BE00 to pay for it -- 512 bytes of 47103.
+					; *VI / *EDIT hook and the GRAPHICS mode plumbing live.
+					; Both interpreter slices are hard against their ceilings
+					; ($D000 is the I/O page, $FF00 the ROM stub), so new code
+					; goes here and Ram_top comes down to $BD00 to pay for it.
 
 	.include "basic.asm"		; .org $E000 / $C000 inside; Ram_base/Ram_top patched for the K4510
 
@@ -46,7 +46,8 @@ ESC		= $1B
 
 k4510_start
 	CLD
-	STZ	$03B2			; the sprite table wants clearing again (gsprinit)
+	STZ	$03B9			; the sprite table wants clearing again (gsprinit)
+	STZ	$03BA			; and no console mode is saved (gprev)
 	LDA	#<k4510_in
 	STA	VEC_IN
 	LDA	#>k4510_in
@@ -160,7 +161,7 @@ K4510_SPLIT2				; [BMC-K4510] end of the $C000 slice (the expression
 K4510_END
 	.assert K4510_END <= $02D0, error, "the page-2 loan overflows into the launch trampoline"
 
-	.org	$BE00			; the tail, in what used to be the top of BASIC's RAM
+	.org	$BD00			; the tail, in what used to be the top of BASIC's RAM
 
 ; ---- *VI / *EDIT with nothing after: edit THIS program --------------------
 ; SAVE the program to a temp file, run the editor, LOAD it back.  SWAP is not
@@ -285,5 +286,54 @@ k_ed_sn
 	BRA	k_ed_sn
 k_ed_sn_done
 	RTS
+; SPROFF n : disable  (lives in the tail: the $C000 slice is full)
+K_SPROFF
+	LDX	#1
+	JSR	k_getargs
+	JSR	k_spr_base
+	.byte	$A3, $08
+	.byte	$EA
+	LDA	(sprfp)
+	AND	#$FE
+	.byte	$EA
+	STA	(sprfp)
+	.byte	$A3, $00
+	RTS
+
+; ---- GRAPHICS mode plumbing (k4510gfx.asm calls these) -------------------
+; A = the console MODE digit: run "MODE d" through the ROM's shell.  The
+; line is copied to gargs first -- the ROM cannot read this image while it
+; runs the command (blocks 5-7 are the ROM's own inside a system call), and
+; gargs is low RAM both sides always see.  GRAPHICS takes no gargs itself.
+k_gm_run
+	PHA
+	LDX	#6
+k_gm_cp	LDA	k_gmstr,X
+	STA	gargs,X
+	DEX
+	BPL	k_gm_cp
+	PLA
+	STA	gargs+5
+	LDA	#<gargs
+	LDX	#>gargs
+	JMP	ROM_SHELL
+
+; VICKY CTRL resolution bits (already masked with $1E) -> the console MODE
+; digit that matches
+k_ctrl2digit
+	CMP	#0
+	BEQ	k_c2d_0
+	CMP	#2			; columns halved: 320x240
+	BEQ	k_c2d_2
+	LDA	#'1'			; 640x240 -- and the 200-line modes fall back here too
+	RTS
+k_c2d_0
+	LDA	#'0'
+	RTS
+k_c2d_2
+	LDA	#'2'
+	RTS
+k_gmstr	.byte	"MODE 0",0
+
 K4510_TAIL
-	.assert K4510_TAIL <= $BF00, error, "the $BE00 tail has outgrown its 256 bytes -- lower Ram_top again"
+	.assert K4510_TAIL <= $BF00, error, "the $BD00 tail has outgrown its 512 bytes -- lower Ram_top again"

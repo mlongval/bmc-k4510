@@ -542,3 +542,49 @@ the machine's first tile-mode picture and the first sprites that are not
 drawn by code. Kenney asks for nothing (CC0) but a credit line is the decent
 thing: "Tiny Dungeon by Kenney (kenney.nl), CC0". Recapture any figure that
 lists `/PRG`. Capture recipe: `test/capture rom/kernal.bin 420 out.png "run tiny\n"`.
+
+## The resolution-switch mechanics, reviewed and rebuilt — 2026-08-28
+
+Doc (on t480i5, with screenshots): GRAPH2D/3D cut the 640x480 screen in
+half with the status band stranded in the middle; a 640x480 startup showed
+no logo; and a menu switch 640x480 → 640x240 once left a dead blank screen
+that even Power cycle would not clear. His verdict: "I think the whole
+resolution switch mechanics have to be reviewed." They were. The mode lived
+in three places — the ROM's `vmode`, VICKY's CTRL, and the frontend's
+`mode_shown` + `video.mode` — and two of the writers bypassed the others.
+
+- **$D521 bits 5-7 now always publish the wanted mode (+1, 0 = old host);**
+  the ROM boots straight into it, so there is no boot-time mode request and
+  nothing to wipe the banner with (that was the missing logo: the request
+  landed after the banner and `mode_do` ends in `cls`). `SYSOPT_MODEREQ`
+  only flags a live change now. Old encoding was raw-mode-during-request.
+- **EhBASIC `GRAPHICS` goes through the ROM** instead of writing CTRL
+  behind its back: `SHELL "MODE 0"` / `"MODE 2"` (the line is copied to
+  `gargs` first — this image is invisible to the ROM inside a system
+  call), then layer 1 is set up fresh; `GRAPHICS 0` restores the mode it
+  found on the way in (`gprev`). That fixes the half-screen graphers *and*
+  stops the frontend from "adopting" a CTRL the ROM never knew about into
+  `video.mode` — which is how Doc's cfg silently became 640x480.
+- **Frontend:** a mode request that times out puts the menu setting back
+  (the menu must not lie); Power cycle forgets the mode tracking and
+  re-adopts after the reboot.
+- **Latent bug found while in there:** the gfx vars overlapped — `gw+1`
+  *was* `gsprinit`, and the tokenizer's `k_crx0` ($03B3) sat on `gh`, so
+  typing any graphics statement interactively corrupted the blit height.
+  Vars moved to $03B5-$03BA.
+- **EhBASIC layout:** `Ram_top` came down to $BD00 (the $BE00 tail was
+  full and the $C000 slice 21 bytes over); `K_SPROFF` and the new MODE
+  plumbing live in the 512-byte tail. EhBASIC's "Memory size" banner
+  number shrinks by 256 bytes.
+- ROM budget after: ROM2 4 free, ROM1C 40 — measure before touching.
+- Verified headless: boot 640x480 shows the banner; live switch + LOGO in
+  the new mode; power cycle honours the new mode; GRAPH2D full-height with
+  the band at the bottom; GRAPHICS 1/2/0 round-trip with SPRDEF/SPROFF.
+  All 13 unit tests green. NOT yet run on the Pi.
+
+**For the handbook agent:** user-visible changes. GRAPHICS 2 now gives a
+full-height console under the bitmap (80x50 between bands, 80x60 without)
+and the F7 menu's Resolution row follows GRAPHICS; startup in any saved
+mode shows the banner. The $D521 description changed (core/io.h) —
+regenerate Appendix A. Any figure of GRAPH2D/GRAPH3D taken before today
+shows the half-screen bug: recapture.

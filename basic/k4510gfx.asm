@@ -12,12 +12,16 @@ DMA		= $D200
 
 gargs	= $03A0			; 8 x 16-bit argument slots (above EhBASIC's Ibuffs, which ends at $039F)
 gmode	= $03B0			; current GRAPHICS mode
-gsprinit = $03B2		; 1: the sprite table has been cleared and pointed at
+				; $03B1-$03B4 are NOT free: k_crx0 (the tokenizer's crunch index) is
+				; $03B3, and the old gw/gh/gsprinit here overlapped it and each other
+				; (gw+1 WAS gsprinit) -- typing a graphics statement corrupted gh.
+gw	= $03B5			; bitmap width low/high
+gh	= $03B7			; bitmap height low/high
+gsprinit = $03B9		; 1: the sprite table has been cleared and pointed at
+gprev	= $03BA			; console MODE digit ('0'-'2') to put back at GRAPHICS 0; 0 = none saved
 sprfp	= $03			; zero page $03-$06: far pointer to a sprite table entry (EhBASIC leaves $03-$09 free)
 SPRTAB	= $03F800		; 128 x 16 bytes, above the ROM's row template
-ROM_VIDEO = $FF92		; ROM: restore the text screen mode and palette
-gw	= $03B1			; width low/high
-gh	= $03B3
+; ROM_SHELL comes from k4510basic.asm (A/X = a command line, run as if typed)
 
 ; get N comma-separated integer arguments into gargs
 k_getargs				; X = count
@@ -77,6 +81,14 @@ K_GRAPHICS
 	JMP	k_gfx_off
 k_gfx_some
 	STA	gmode
+	LDA	gprev			; remember the console mode we found, once
+	BNE	k_gfx_saved		; (GRAPHICS 2 after GRAPHICS 1 keeps the first)
+	LDA	VK+$00
+	AND	#$1E			; CTRL bits 1-4: which resolution the machine is in
+	JSR	k_ctrl2digit
+	STA	gprev
+k_gfx_saved
+	LDA	gmode
 	CMP	#1
 	BEQ	k_gfx_lo
 	LDA	#<640
@@ -87,7 +99,7 @@ k_gfx_some
 	STA	gh
 	LDA	#>480
 	STA	gh+1
-	LDA	#$01			; CTRL: display on, full res
+	LDA	#'0'			; console MODE 0: the ROM sets CTRL to 640x480 itself
 	JMP	k_gfx_on
 k_gfx_lo
 	LDA	#<320
@@ -97,10 +109,15 @@ k_gfx_lo
 	LDA	#<240
 	STA	gh
 	STZ	gh+1
-	LDA	#$03			; CTRL: display on, 320x240
+	LDA	#'2'			; console MODE 2: 320x240, 40x30 text
 k_gfx_on
-	STA	VK+$00
+	; Ask the ROM for the matching console mode rather than writing VICKY's
+	; CTRL behind its back: the ROM owns the text layout (PCOLS/PROWS/bands),
+	; and a CTRL the console is not laid out for cuts the screen in half.
+	; MODE n does CTRL + layout + palette + cls, and the host's menu follows.
+	JSR	k_gm_run
 	; layer 1: bitmap, 8 bpp, stride = width, data = GFX_BUF
+	; (video_init turned every layer above the text off; set ours up fresh)
 	STZ	VK+$21			; palofs
 	STZ	VK+$22			; scroll
 	STZ	VK+$23
@@ -155,8 +172,15 @@ k_gfx_rts
 	RTS
 k_gfx_off
 	STZ	VK+$20			; layer 1 off
-	JMP	ROM_VIDEO		; the ROM puts its mode and palette back (the demo may have changed both)
-	RTS
+	LDA	gprev			; the console mode GRAPHICS found, saved on the way in
+	BNE	k_go_have
+	LDA	#'1'			; GRAPHICS 0 with none on: the default text mode
+k_go_have
+	STZ	gprev
+	JMP	k_gm_run		; MODE n: the ROM puts layout, palette and a clean screen back
+
+; k_gm_run / k_ctrl2digit / k_gmstr live in the $BE00 tail (k4510basic.asm):
+; the $C000 slice is nearly full and code there may call the ROM all the same.
 
 ; PLOT x,y,c : a one-pixel LINE from (x,y) to (x,y)
 K_PLOT
@@ -306,19 +330,7 @@ K_SPRITE
 	.byte	$A3, $00		; Z = 0 again
 	RTS
 
-; SPROFF n : disable
-K_SPROFF
-	LDX	#1
-	JSR	k_getargs
-	JSR	k_spr_base
-	.byte	$A3, $08
-	.byte	$EA
-	LDA	(sprfp)
-	AND	#$FE
-	.byte	$EA
-	STA	(sprfp)
-	.byte	$A3, $00
-	RTS
+; SPROFF n : K_SPROFF lives in the $BD00 tail (k4510basic.asm) -- the slice is full
 
 ; SPRDEF n,page,w,h,bpp : data = page*256 (28-bit reach from a 16-bit
 ; argument); w,h in pixels from {8,16,32,64}; bpp 4 or 8. Z-slot 3, no flips.
