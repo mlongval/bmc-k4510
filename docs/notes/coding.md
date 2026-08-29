@@ -50,6 +50,22 @@ a substitute for a resident one.  A reset keeps RAM (the chord is
 sideways banks — `mem_load_rom` writes to `$0FF00000`, which is bank RAM,
 so it overwrites the alias table.
 
+## NEW COMMAND: DELETE — a trash for the shell, not just for RANGER
+
+`DELETE name [name...]` moves to `/.TRASH` instead of destroying — the same
+trash RANGER's `DD` uses, with the same `~1`/`~2` rules, because two
+trashes would be worse than none.  `DELETE -l` lists it, `-r name` restores
+into the current directory, `-e` empties it (that one really deletes).
+
+Nothing expires on its own: a trash that quietly disposes of things after a
+while is one you cannot trust either.
+
+**`RM` is unchanged and still destroys** — it is a ROM built-in, and the
+shell checks built-ins before the "unknown word runs name.prg" rule, so no
+program or alias can shadow it.  Making `RM` trash means a ROM change;
+that is Doc's call and I have asked.  If it happens, the book will want
+both commands described together.
+
 ## NEW COMMAND: RANGER — for the handbook, announcing it the same day
 
 Doc asked for a ranger clone.  `RANGER` is a new `.prg` (`demo/ranger.c`,
