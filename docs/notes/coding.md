@@ -775,3 +775,30 @@ and Status bar rows changed: they take effect when the menu closes, and
 the machine greets you with the logo screen. A program that is running
 instead of the shell gets a phantom CR when the change is performed and
 the logo waits until the next shell prompt.
+
+## SIDPLAY respects the window: the status bands survive it — 2026-08-30
+
+Doc: "the sidplay.prg is broken, it does not respect the top and bottom
+borders and they are gone after exit". Both halves were the same fault.
+SIDPLAY read the console's *origin* from JIM ($DA07/$DA08) but kept its
+own idea of the *size* — `COLS 79, ROWS 29` — and cleared by wiping every
+one of the 80x30 physical cells. With the status bar on, the console is a
+25-row window between two static bands: the list ran 29 rows and spilled
+into the bottom band, and the clear took both bands away for good.
+
+- The whole geometry now comes from JIM ($DA05-$DA08: COLS ROWS OX OY).
+  The list's rows-per-column and the footer row are computed from ROWS,
+  the second column appears only if COLS allows it, and `put` drops
+  anything outside the window rather than writing past it.
+- The clear is now `$DA04 = 2` — JIM's own, which by construction touches
+  the console window and nothing else. Leaving SIDPLAY does the same,
+  instead of the old full-screen wipe.
+- Verified with `test/capture` in all three layouts (status bands, margin,
+  full screen). To take a shot of a machine that booted with the bands up,
+  `test/capture` now honours `K4510_SYSOPT` — the byte the frontend
+  publishes at $D521 (bit 2 skip STARTUP.BAT, bit 3 status bar, bits 5-7
+  mode+1), e.g. `K4510_SYSOPT=0x0C test/capture rom/kernal.bin ...`.
+
+**For the handbook agent:** no register or command changed. Any figure of
+SIDPLAY is still accurate for the full-screen layout; there is now a
+status-bar layout of it too (24 -> 20 tunes a column) if a figure wants it.

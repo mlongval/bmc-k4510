@@ -18,6 +18,10 @@ int main(int argc,char**argv){ int kwait=0;
     const char*keys=argc>4?argv[4]:"";
     uint8_t font[2048]; FILE*ff=fopen("data/font8.bin","rb"); if(!ff||fread(font,1,2048,ff)!=2048){fprintf(stderr,"font\n");return 1;} fclose(ff);
     if(mem_init())return 1; mem_load(K4510_FONT8_PHYS,font,2048); if(mem_load_rom(rom)<=0){fprintf(stderr,"rom\n");return 1;}
+    /* K4510_SYSOPT=0x0C: the switches the frontend publishes at $D521 (bit 2
+     * skip STARTUP.BAT, bit 3 status bar, bits 5-7 mode+1), so a shot can be
+     * taken of a machine that booted with the status bands up. */
+    { const char*so=getenv("K4510_SYSOPT"); if(so) io_set_opts((uint8_t)strtol(so,NULL,0)); }
     cpu65_reset();
     static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){

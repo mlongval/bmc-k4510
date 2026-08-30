@@ -17,16 +17,20 @@ extern unsigned char tune_a;
 #define LISTBUF  0x00300000UL        /* file names, 32 bytes each */
 #define FILEBUF  0x00310000UL        /* the loaded .sid */
 #define MAXFILES 400
-#define COLS 79
-#define ROWS 29
 /* The console's origin is NOT fixed at (1,1): the F7 menu can turn the
  * one-cell margin off, and then it is (0,0).  This was hardcoded, so with the
  * margin off the program drew one cell in from the edge and left column 0 and
  * row 0 holding the previous screen -- a stripe of junk down the side.  The
  * ROM publishes the real origin at $DA07/$DA08 (video_init), so read it; and
- * clear the whole PHYSICAL screen rather than our own window, which makes a
- * leftover impossible whatever the origin turns out to be. */
-static uint8_t s_ox = 1, s_oy = 1;
+ * clear the whole PHYSICAL screen rather than our own window.  But the whole
+ * screen was too much: with the status bar on (F7) the console is a window
+ * between two static bands, and wiping every cell took the bands with it --
+ * they were still gone when the shell came back.  And 79x29 was not the size
+ * of that window either, so the list ran into the bottom band.  So the whole
+ * geometry is read from JIM ($DA05-$DA08: COLS ROWS OX OY) and nothing is
+ * drawn or cleared outside it. */
+static uint8_t s_ox = 1, s_oy = 1, s_cols = 79, s_rows = 29;
+static uint8_t page = 24, ptot = 48;      /* the list: rows per column, entries per page */
 #define C_WHITE 1
 #define C_YEL 7
 #define C_GREY 12
@@ -44,20 +48,22 @@ static uint8_t s_ox = 1, s_oy = 1;
 
 static void put(uint8_t x, uint8_t y, uint8_t ch, uint8_t fg)
 {
-    uint32_t c = SCREEN + ((uint32_t)(y + s_oy) * 80 + x + s_ox) * 4;
+    uint32_t c;
+    if (x >= s_cols || y >= s_rows) return;         /* the window is the whole world */
+    c = SCREEN + ((uint32_t)(y + s_oy) * 80 + x + s_ox) * 4;
     far_poke(c, ch); far_poke(c + 1, 0); far_poke(c + 2, fg); far_poke(c + 3, C_BLUE);
 }
 static void text(uint8_t x, uint8_t y, const char *s, uint8_t fg) { while (*s) put(x++, y, (uint8_t)*s++, fg); }
 static void textn(uint8_t x, uint8_t y, uint32_t fa, uint8_t n, uint8_t fg) { uint8_t i; for (i = 0; i < n; i++) { uint8_t ch = far_peek(fa + i); put(x + i, y, ch ? ch : ' ', fg); } }
-static void clear_all(void)          /* every physical cell, margin or no margin */
+/* JIM knows the window -- it is the same one -- so let it do the clearing:
+ * it never touches a cell outside, which is exactly what the bands need. The
+ * colours are set first, because the attributes are whatever the last program
+ * to write a stream left behind. */
+static void clear_all(void)
 {
-    uint16_t i;
-    for (i = 0; i < 80 * 30; i++) {
-        uint32_t c = SCREEN + (uint32_t)i * 4;
-        far_poke(c, ' '); far_poke(c + 1, 0); far_poke(c + 2, C_YEL); far_poke(c + 3, C_BLUE);
-    }
+    REG(TERM + 0x0B) = C_YEL; REG(TERM + 0x0C) = C_BLUE;
+    REG(TERM + 4) = 2;
 }
-static void clear_rows(uint8_t y0, uint8_t y1) { uint8_t x, y; for (y = y0; y <= y1; y++) for (x = 0; x < COLS; x++) put(x, y, ' ', C_YEL); }
 static void dec(uint8_t x, uint8_t y, uint16_t v, uint8_t fg) { char b[6]; uint8_t i = 5; b[i] = 0; do { b[--i] = '0' + v % 10; v /= 10; } while (v); text(x, y, b + i, fg); }
 static void dec2(uint8_t x, uint8_t y, uint8_t v, uint8_t fg) { put(x, y, '0' + v / 10, fg); put(x + 1, y, '0' + v % 10, fg); }
 static void hex4(uint8_t x, uint8_t y, uint16_t v) { static const char h[] = "0123456789ABCDEF"; uint8_t i; for (i = 0; i < 4; i++) { put(x + 3 - i, y, h[v & 15], C_GREY); v >>= 4; } }
@@ -90,12 +96,11 @@ static void get_name(uint16_t n, char *out) { uint8_t i; for (i = 0; i < 31; i++
 static uint32_t r32far(uint32_t a) { return (uint32_t)far_peek(a) | ((uint32_t)far_peek(a + 1) << 8) | ((uint32_t)far_peek(a + 2) << 16) | ((uint32_t)far_peek(a + 3) << 24); }
 
 /* ---- the chooser -------------------------------------------------------- */
-#define PAGE 24
 static void draw_row(uint16_t top, uint16_t i, uint8_t sel)
 {
     uint8_t r = (uint8_t)(i - top), x, y;
-    if (i >= nfiles || r >= PAGE * 2) return;
-    x = (r < PAGE) ? 2 : 41; y = 2 + (r % PAGE);
+    if (i >= nfiles || r >= ptot) return;
+    x = (r < page) ? 2 : 41; y = (uint8_t)(2 + r % page);
     put(x - 2, y, sel ? 0x10 : ' ', C_WHITE);
     textn(x, y, LISTBUF + (uint32_t)i * 32, 31, sel ? C_WHITE : C_YEL);
 }
@@ -105,8 +110,8 @@ static void draw_list(uint16_t top, uint16_t cur)
     clear_all();
     text(0, 0, "K4510 SID player", C_WHITE); text(22, 0, "/SID", C_GREY);
     dec(30, 0, nfiles, C_GREY); text(35, 0, "tunes", C_GREY);
-    text(0, ROWS - 1, "cursor keys, PgUp/PgDn, Enter plays, Esc leaves", C_GREY);
-    for (i = top; i < nfiles && i < top + PAGE * 2; i++) draw_row(top, i, i == cur);
+    text(0, s_rows - 1, "cursor keys, PgUp/PgDn, Enter plays, Esc leaves", C_GREY);
+    for (i = top; i < nfiles && i < top + ptot; i++) draw_row(top, i, i == cur);
 }
 
 /* ---- the tune ----------------------------------------------------------- */
@@ -162,7 +167,7 @@ static void show_info(uint16_t n)
     dec(34, 6, rate, C_GREY); text(37, 6, "Hz", C_GREY); text(41, 6, clocksel == 2 ? "NTSC" : "PAL ", C_GREY);
     text(66, 7, "tune", C_GREY); text(66, 8, "real", C_GREY);
     text(0, 9,  "voice 1", C_LBLUE); text(0, 11, "voice 2", C_LBLUE); text(0, 13, "voice 3", C_LBLUE);
-    text(0, ROWS - 1, "+/- song   space next tune   Esc back to the list", C_GREY);
+    text(0, s_rows - 1, "+/- song   space next tune   Esc back to the list", C_GREY);
     if (is_rsid) text(0, 16, "RSID: not supported (needs a real C64)", C_YEL);
     else if (!play_addr) text(0, 16, "play $0: tune sets its own IRQ, not supported", C_YEL);
     else if (collides) text(0, 16, "tune loads outside $0300-$CFFF (player lives there)", C_YEL);
@@ -237,7 +242,13 @@ void main(void)
 {
     uint16_t cur = 0, top = 0, oldcur, oldtop; uint8_t k;
     rom_out();                                            /* $0800-$CFFF and $E000-$FEFF are ours */
-    s_ox = REG(TERM + 7); s_oy = REG(TERM + 8);           /* the console's real origin, before anything is drawn */
+    /* The whole window, before anything is drawn.  Everything below is laid
+     * out in these, so the status bands -- which shrink the window -- are
+     * neither drawn on nor wiped. */
+    s_cols = REG(TERM + 5); s_rows = REG(TERM + 6);
+    s_ox = REG(TERM + 7);   s_oy = REG(TERM + 8);
+    page = (uint8_t)(s_rows - 5);             /* rows 2.. , the footer on the last one */
+    ptot = s_cols >= 72 ? (uint8_t)(page * 2) : page;   /* the second list column starts at 41 */
     far_w32(0xD308, (uint16_t)oldcwd); fs_cmd(15);        /* remember the caller's directory */
     list_dir();
     draw_list(top, cur);
@@ -247,25 +258,25 @@ void main(void)
         /* coalesce: handle every queued key before drawing anything (holding a
          * cursor key fills the FIFO much faster than a full redraw drains it) */
         do {
-            if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); clear_all(); fs_setname(oldcwd); fs_cmd(11); return; }
+            if (k == 0x1B || k == 'q' || k == 'Q') { sid_silence(); REG(TERM + 4) = 2; fs_setname(oldcwd); fs_cmd(11); return; }
             if (k == KEY_DOWN && cur + 1 < nfiles) cur++;
             else if (k == KEY_UP && cur) cur--;
-            else if (k == KEY_RIGHT && cur + PAGE < nfiles) cur += PAGE;
-            else if (k == KEY_LEFT && cur >= PAGE) cur -= PAGE;
-            else if (k == KEY_PGDN) { cur += PAGE * 2; if (cur >= nfiles) cur = nfiles - 1; }
-            else if (k == KEY_PGUP) { cur = cur >= PAGE * 2 ? cur - PAGE * 2 : 0; }
+            else if (k == KEY_RIGHT && cur + page < nfiles) cur += page;
+            else if (k == KEY_LEFT && cur >= page) cur -= page;
+            else if (k == KEY_PGDN) { cur += ptot; if (cur >= nfiles) cur = nfiles - 1; }
+            else if (k == KEY_PGUP) { cur = cur >= ptot ? cur - ptot : 0; }
             else if (k == KEY_HOME) cur = 0;
             else if (k == KEY_END) cur = nfiles - 1;
             else if (k == 0x0D && nfiles) {
                 uint8_t r;
                 do { r = play_file(cur); if (r == 1 && cur + 1 < nfiles) cur++; else if (r == 2 && cur) cur--; else if (r) r = 0; } while (r);
-                top = cur - cur % (PAGE * 2);
+                top = cur - cur % ptot;
                 draw_list(top, cur);
                 oldcur = cur; oldtop = top;
                 break;
             }
         } while ((k = key_get()) != 0);
-        if (cur < top || cur >= top + PAGE * 2) top = cur - cur % (PAGE * 2);
+        if (cur < top || cur >= top + ptot) top = cur - cur % ptot;
         if (top != oldtop) draw_list(top, cur);            /* a new page: full redraw */
         else if (cur != oldcur) { draw_row(top, oldcur, 0); draw_row(top, cur, 1); }
     }
