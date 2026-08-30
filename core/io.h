@@ -151,7 +151,7 @@ extern uint16_t io_audio_fill;           /* samples the SIDs made WITHOUT the ma
 /* Keyboard: a FIFO of key-down events. Printable keys arrive as ASCII
  * ($20-$7E, already shifted/dead-keyed by the host layout on the desktop);
  * control keys as ASCII controls; everything else as $80+ codes. */
-#define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none */
+#define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none.  write: push a key into the queue (type-ahead: a program types at the shell) */
 #define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
 #define IO_KBDPEEK     (IO_INPUT + 0x02)  /* read: the next event without popping it; 0 if none */
 #define IO_KBDBREAK    (IO_INPUT + 0x03)  /* read: an ESC ($1B) or Ctrl-C ($03) waiting anywhere in the queue is removed and returned; 0 if none */

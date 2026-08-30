@@ -21,6 +21,8 @@
  *   Tab            switch the active panel        Enter   descend / view
  *   arrows         move the selection             Esc     leave
  *   F3 View        page through a file            F4 Edit  VI or EDIT (via SWAP)
+ *   Enter          directory: descend;  .prg or .com: leave and run it;
+ *                  any other file: view it
  *   F5 Copy        to the other panel             F6 Move  move / rename
  *   F9 MkDir       make a directory               F10 Del  delete
  *   F2 Refresh     re-read both panels            .        show/hide dotfiles
@@ -463,6 +465,80 @@ static void do_delete(void)
     relist_both(); draw_all();
 }
 
+/* ---- Enter on a program: get out of the way and let the shell run it ---- *
+ * A program cannot be started from in here.  A .prg loads over the top of
+ * KOMMANDER, and even if it did not, its output belongs on the shell's screen
+ * and not under the redraw that would follow.  So KOMMANDER leaves, and TYPES
+ * the command at the prompt it returns to: the keyboard has a type-ahead
+ * register (a write to $D100 pushes a key), which is the C64's keyboard
+ * buffer and costs the ROM nothing.  What you see afterwards is exactly what
+ * you would have seen had you typed the name yourself.
+ *
+ * A .COM is a Z80 program on CP/M's drives.  The CCP takes one line, but it
+ * auto-submits a .SUB when the command is not a .COM, so a K-RUN.SUB carrying
+ * a drive change, the program, and an EXIT brings the machine back to this
+ * prompt afterwards -- the trick the ROM's own try_com uses.  The submit file
+ * is read on A: in whatever user area is current, so a submit may change
+ * DRIVE but never USER: for a .COM outside user 0, CP/M is opened AT it
+ * instead (`CPM E3:`) and you type the name at the CCP.  (RANGER does all of
+ * this the same way; the two are deliberately alike here.) */
+#define KBDQ 0xD100u                       /* write: type-ahead */
+#define C_SAVE 10
+static char runline[36];                   /* typed at the shell on the way out */
+/* 1 = .prg, 2 = .com, 0 = an ordinary file */
+static uint8_t prog_kind(const char *n)
+{
+    uint8_t i = 0, a, b, c;
+    while (n[i]) i++;
+    if (i < 5 || n[i - 4] != '.') return 0;
+    a = n[i - 3] | 0x20; b = n[i - 2] | 0x20; c = n[i - 1] | 0x20;
+    if (a == 'p' && b == 'r' && c == 'g') return 1;
+    if (a == 'c' && b == 'o' && c == 'm') return 2;
+    return 0;
+}
+/* /CPM/<drive>/<user> -- the CP/M coordinates of the active panel */
+static uint8_t cpm_du(char *drive, uint8_t *user)
+{
+    const char *p = ppath[active];
+    uint8_t c;
+    if (p[0] != '/' || (p[1] | 0x20) != 'c' || (p[2] | 0x20) != 'p' || (p[3] | 0x20) != 'm' || p[4] != '/') return 0;
+    p += 5;
+    *drive = (char)(*p & 0xDF);
+    if (*drive < 'A' || *drive > 'P' || p[1] != '/') return 0;
+    p += 2;
+    c = (uint8_t)(*p | 0x20);
+    if (p[1]) return 0;                                  /* deeper than the user directory */
+    if (c >= '0' && c <= '9') { *user = (uint8_t)(c - '0'); return 1; }
+    if (c >= 'a' && c <= 'f') { *user = (uint8_t)(c - 'a' + 10); return 1; }
+    return 0;
+}
+static uint8_t start_com(const char *n)
+{
+    char d; uint8_t u, i = 0, j = 0;
+    if (!cpm_du(&d, &u)) return 0;
+    if (u) {                                             /* no submit can follow a user change */
+        strcpy(runline, "CPM ");
+        runline[4] = d; runline[5] = (char)(u < 10 ? '0' + u : 'A' + u - 10);
+        runline[6] = ':'; runline[7] = 0;
+        return 1;
+    }
+    if (d != 'A') { tbuf[i++] = d; tbuf[i++] = ':'; tbuf[i++] = '\r'; tbuf[i++] = '\n'; }
+    while (n[j] && n[j] != '.') tbuf[i++] = n[j++];
+    tbuf[i++] = '\r'; tbuf[i++] = '\n';
+    strcpy(tbuf + i, "EXIT\r\n"); i += 6;
+    tbuf[i++] = 26;                                      /* ^Z: CP/M's end of file */
+    strcpy(tbuf + 64, "/CPM/A/0/K-RUN.SUB");
+    fs_name(tbuf + 64); fs_addr((uint32_t)(uint16_t)tbuf); w32(FS_LEN, (uint32_t)i);
+    if (fs_do(C_SAVE)) return 0;
+    strcpy(runline, "CPM K-RUN");
+    return 1;
+}
+static void type_ahead(const char *s)
+{
+    while (*s) REG(KBDQ) = (uint8_t)*s++;
+    REG(KBDQ) = 0x0D;
+}
+
 static void enter(void)
 {
     int s = cur[active];
@@ -475,7 +551,12 @@ static void enter(void)
         cur[active] = 0; top[active] = 0;
         relist(active);
         draw_all();
-    } else view_file();
+    } else {
+        uint8_t kd = prog_kind(names[active][s]);
+        if (kd == 1) strcpy(runline, names[active][s]);
+        else if (kd == 2) start_com(names[active][s]);
+        if (!runline[0]) view_file();
+    }
 }
 
 /* ---- main -------------------------------------------------------------- */
@@ -503,7 +584,7 @@ void main(void)
         case K_END:   cur[active] = count[active] ? count[active] - 1 : 0; draw_panel(active); break;
         case K_LEFT:  if (active) { active = 0; set_cwd(0); draw_panel(0); draw_panel(1); } break;
         case K_RIGHT: if (!active) { active = 1; set_cwd(1); draw_panel(0); draw_panel(1); } break;
-        case K_ENTER: enter(); break;
+        case K_ENTER: enter(); if (runline[0]) running = 0; break;   /* Enter on a program: leave and run it */
         case K_F1 + 2:  view_file(); break;           /* F3  */
         case K_F1 + 3:  do_edit(); break;             /* F4  */
         case K_F1 + 4:  do_copy(); break;             /* F5  */
@@ -518,4 +599,5 @@ void main(void)
 
     REG(TERM + 4) = 2;                 /* JIM: clear and home, a clean screen for the shell */
     rom_video();
+    if (runline[0]) type_ahead(runline);   /* Enter on a program: the shell types it */
 }

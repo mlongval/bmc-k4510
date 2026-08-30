@@ -27,15 +27,19 @@ static uint8_t kbd_last, kbd_mods;
  * keyboard scan. The F7 menu (core/ui) takes them first: its own key
  * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
  * while it is open, every key is the menu's. */
+static void kbd_enqueue(uint8_t ascii)
+{
+    int next = (kbd_tail + 1) & 63;
+    if (next == kbd_head) return;
+    kbd_fifo[kbd_tail] = ascii;
+    kbd_tail = next;
+}
 void kbd_push(uint8_t ascii)
 {
     if (menu_is_open()) { menu_key(ascii); return; }
     if (ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
     dbg_key(ascii);
-    int next = (kbd_tail + 1) & 63;
-    if (next == kbd_head) return;
-    kbd_fifo[kbd_tail] = ascii;
-    kbd_tail = next;
+    kbd_enqueue(ascii);
 }
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
@@ -1228,6 +1232,14 @@ void io_write(uint16_t addr, uint8_t v)
         return;
     case IO_TERM:
         term_write(addr & 0xFF, v);
+        return;
+    case IO_INPUT:
+        /* Type-ahead: a write to KBD pushes a key into the queue, so a program
+         * can type at the shell -- the C64's keyboard buffer, which is how a
+         * program there handed a command back to BASIC.  It goes straight into
+         * the FIFO, not through kbd_push: a program is not allowed to open the
+         * menu, and the debugger's key log is for keys a person pressed. */
+        if ((addr & 0xFF) == 0) kbd_enqueue(v);
         return;
     default:
         return;
