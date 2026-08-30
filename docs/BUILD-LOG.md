@@ -5349,3 +5349,100 @@ than counting keypresses. A leftover `fs/ZRM` from hand-testing sorted after
 apply the same ~1 rule"* — a trash bug that was not a trash bug. The case
 now asserts which directory it actually landed in before blaming anything,
 which is what `rangertest.sh` already did and this one had not copied.
+
+## 2026-08-30 (a) — the filers learn to run things, and the keyboard gets a buffer
+
+Three from Doc in one message: SIDPLAY is broken, the CP/M network
+slots want reserving, and "in ranger and kommander: enter on a .prg
+starts the program and exits ranger or kommander, while enter on a
+.com starts the program in cpm ... (do you think this is a good
+idea)".
+
+### SIDPLAY drew in a window it had stopped believing in
+
+"It does not respect the top and bottom borders and they are gone
+after exit" — one fault, both halves. SIDPLAY read the console's
+*origin* from JIM ($DA07/$DA08), because the F7 menu can turn the
+one-cell margin off underneath it, but it kept its own idea of the
+*size*: `COLS 79, ROWS 29`, and it cleared by wiping all 80x30
+physical cells. Turn the status bar on and the console is a 25-row
+window between two static bands — so the list ran 29 rows into the
+bottom band, and the clear ate both bands for good.
+
+The geometry comes whole from JIM now ($DA05-$DA08: COLS ROWS OX OY);
+rows-per-column and the footer follow ROWS, the second list column
+appears only if COLS allows it, and `put` drops anything outside the
+window. The clear is JIM's own ($DA04 = 2), which by construction
+touches the console window and nothing else — and is *smaller* than
+the loop it replaces, which mattered: the player lives under the ROM
+in $E000-$FEFF and had 43 bytes spare.
+
+`test/capture` honours `K4510_SYSOPT` now — the byte the frontend
+publishes at $D521 — so a shot can be taken of a machine that booted
+with the bands up. All three layouts checked that way.
+
+### Enter runs a program, and Doc's "exits" was right
+
+The first answer was that SWAP already does this and brings the filer
+*back*: it is how Enter on a text file reaches VI. It is the wrong
+answer, and the reason is worth keeping. SWAP restores the screen on
+the way back, so a program that prints and exits would flash past
+underneath the redraw. For the output to survive, the filer has to
+get out of the way — which is what Doc proposed.
+
+Getting out of the way and *then* running something needs a hand-off
+the ROM does not have. It does not need one from the ROM: **a write
+to KBD ($D100) now pushes a key into the keyboard queue**. Type-ahead
+— the C64's keyboard buffer, and how a program there handed a command
+back to BASIC. The filer leaves, and types the command at the prompt
+it returns to; what you see afterwards is exactly what you would have
+seen had you typed the name yourself. Zero ROM bytes. A guest's key
+goes straight into the FIFO rather than through `kbd_push`: a program
+may not open the F7 menu, and the debugger's key log is for keys a
+person pressed.
+
+Enter in RANGER and KOMMANDER: a directory descends as before, a
+`.prg` leaves and runs, a `.com` leaves and runs under CP/M, anything
+else edits (RANGER) or views (KOMMANDER) as before.
+
+The `.com` launcher is `try_com`'s: a `K-RUN.SUB` on A:0 carrying an
+optional drive-change line, the program, and an `EXIT` — the EXIT is
+what ends the round trip at the K:OS prompt instead of at `A0>`. The
+limit came out of RunCPM's own source rather than experiment:
+`_CheckSUB` forces drive A (`BATCHA`) but *not* user 0 (`BATCH0` is
+commented out), and `_FCBtoHostname` puts the current user in the
+path, so the CCP opens `$$$.SUB` in whatever user area is current. A
+submit may therefore change DRIVE but never USER. For a `.com`
+outside user 0 the filer opens CP/M *at* it (`CPM E3:`) and you type
+the name at the CCP. Flipping `BATCH0` would fix it, but DRI's
+SUBMIT.COM writes `$$$.SUB` into the current user area, so the two
+halves would then disagree; left alone.
+
+Verified end to end in `rangertest`: `hello.prg` through RANGER, with
+the assertion on the program's *own* output — the thing SWAP would
+have lost — and a copy of `STAT.COM` sorted last on A:0, checking that
+it ran, that it ran from a submit (`A0$`), and that the EXIT landed
+back at `/CPM/A/0]`. KOMMANDER's half with `test/capture`; it has no
+suite. One lesson re-learned on the way: a `$$$.SUB` left by a killed
+run hijacks the next boot, exactly as the note says, and it cost two
+confusing screenshots before the penny dropped. Both test legs clean
+it up now.
+
+### N: is the network drive
+
+Doc proposed reserving two CP/M slots, "n14: and n15:", for FujiNet
+and Meatloaf — drive N: user 15, as it turned out. One drive, not
+two, and the whole letter rather than a user area: on this machine
+the SCHEME lives in the NAME and not in the device. That is the
+Meatloaf rule, and `CD tnfs://host/dir` extends it to directories.
+FujiNet and Meatloaf are not two kinds of place; they are two URL
+schemes over one namespace, and splitting them across two drives
+would divide what the machine deliberately joined. N: is also the
+letter that has meant "network" on every machine FujiNet touched.
+
+CP/M's 8.3 names cannot hold a URL, so N: will be a *mount point*
+rather than an address: `N:0` shows the machine's current remote
+directory, moved from the K:OS shell before you come in. The letter
+is claimed now (`fs/CPM/N/0/README.TXT`, whitelisted in
+`fs/CPM/.gitignore`) so nothing takes it before the plumbing exists;
+the plumbing — CP/M over the N: device — is still unbuilt.

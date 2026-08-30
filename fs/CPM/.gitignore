@@ -17,3 +17,9 @@
 !D/
 !D/0
 !A/0/K-*.SUB
+
+# N: is reserved for the network (see N/0/README.TXT). The letter is
+# claimed here so nothing else takes it before the plumbing is written.
+!N/
+!N/0/
+!N/0/README.TXT

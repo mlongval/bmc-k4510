@@ -838,3 +838,17 @@ filer has to get out of the way for the output to survive.
 chapter's key tables are out of date: Enter on a `.prg` or `.com` now leaves
 the filer and runs the program, where before it opened VI (RANGER) or the
 viewer (KOMMANDER).
+
+## N: is the CP/M network drive (reserved) — 2026-08-30
+
+Doc proposed reserving CP/M slots for FujiNet and Meatloaf; settled on
+**one drive, N:, the whole letter**. On this machine the scheme lives in the
+name and not in the device (the Meatloaf rule; `CD tnfs://…` extends it to
+directories), so FujiNet and Meatloaf are two URL schemes over one namespace
+and do not want a drive each. 8.3 names cannot hold a URL, so N: will be a
+mount point: `N:0` shows the machine's current remote directory, moved from
+the K:OS shell. The letter is claimed now (`fs/CPM/N/0/README.TXT`,
+whitelisted in `fs/CPM/.gitignore`); the plumbing is still unbuilt.
+
+**For the handbook agent:** the CP/M chapter's drive table gains N: —
+reserved, empty, network. Nothing else changed about the drives.
