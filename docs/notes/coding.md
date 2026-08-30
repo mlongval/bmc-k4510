@@ -802,3 +802,39 @@ into the bottom band, and the clear took both bands away for good.
 **For the handbook agent:** no register or command changed. Any figure of
 SIDPLAY is still accurate for the full-screen layout; there is now a
 status-bar layout of it too (24 -> 20 tunes a column) if a figure wants it.
+
+## Enter runs a program; the keyboard gets a type-ahead register — 2026-08-30
+
+Doc: "in ranger and kommander: enter on a .prg starts the program and exits
+ranger or kommander, while enter on a .com starts the program in cpm,
+exiting ranger or kommander". Built, and his instinct about the *exiting*
+was right for a reason worth writing down: SWAP could have run a .prg and
+brought the filer back, but SWAP restores the screen on the way back, so a
+program that prints and exits would have flashed past under the redraw. The
+filer has to get out of the way for the output to survive.
+
+- **New register.** A write to KBD (`$D100`) pushes a key into the keyboard
+  queue — type-ahead, which is the C64's keyboard buffer and how a program
+  there handed a command back to BASIC. A guest's key goes straight into the
+  FIFO, not through `kbd_push`: a program may not open the F7 menu, and the
+  debugger's key log is for keys a person pressed. Costs the ROM nothing.
+- **RANGER and KOMMANDER.** Enter: a directory descends as before; a `.prg`
+  leaves and runs; a `.com` leaves and runs under CP/M; anything else edits
+  (RANGER) or views (KOMMANDER) as before.
+- **The .COM launcher** is `try_com`'s: a `K-RUN.SUB` on A:0 carrying an
+  optional drive-change line, the program, and an `EXIT` that brings the
+  machine back to the K:OS prompt. Limit, from RunCPM's own source: the
+  submit file is opened on A: in whatever user area is *current*
+  (`BATCHA` is defined, `BATCH0` is not), so a submit may change DRIVE but
+  never USER. For a `.com` outside user 0 the filer opens CP/M *at* it
+  (`CPM E3:`) and you type the name at the CCP. The `K-RUN.SUB` is left
+  behind — the filer is gone by then — and the next launch overwrites it.
+- **Tests.** rangertest legs 5 and 12: `hello.prg` through RANGER, and a
+  copy of `STAT.COM` on A:0 with the `EXIT` landing back at `/CPM/A/0]`.
+  KOMMANDER's half was checked with `test/capture` (it has no suite).
+
+**For the handbook agent:** two things. `core/io.h`'s KBD line changed —
+**regenerate Appendix A**; $D100 now reads *and* writes. And the file-manager
+chapter's key tables are out of date: Enter on a `.prg` or `.com` now leaves
+the filer and runs the program, where before it opened VI (RANGER) or the
+viewer (KOMMANDER).
