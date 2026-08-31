@@ -89,6 +89,11 @@ int  opl2_enabled(void) { return opl_on; }
 
 void opl2_write(uint8_t reg, uint8_t v)
 {
+    /* The chip is part of the machine, so it answers whether or not the
+     * frontend has got as far as opl2_init -- a bare harness (test/capture)
+     * brings up memory and the CPU and nothing else, and a program that pokes
+     * $D480 there should still find a chip. */
+    if (!opl) opl2_init(opl_rate);
     if (!opl) return;
     switch (reg) {
     case 0: opl_addr = v; ym3812_write(opl, 0, v); return;
@@ -101,7 +106,7 @@ uint8_t opl2_read(uint8_t reg)
     switch (reg) {
     case 0: return opl ? ym3812_read(opl, 0) : 0x00;      /* STATUS */
     case 1: return opl_shadow[opl_addr];
-    case 2: return opl ? 0x02 : 0x00;                     /* an OPL2 is fitted */
+    case 2: return 0x02;                                  /* an OPL2 is fitted: it is part of the machine */
     default: return 0xFF;
     }
 }

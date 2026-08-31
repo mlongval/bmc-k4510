@@ -18,6 +18,7 @@ TUBE = ../tube/src
 RESID_SRC = $(wildcard $(CORE)/resid/*.cc)
 OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o net_pi.o \
        $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicky.o $(CORE)/sid.o $(CORE)/tube_cp.o $(CORE)/net.o $(CORE)/term.o $(CORE)/state.o $(CORE)/calib.o $(CORE)/ui/settings.o $(CORE)/ui/menu.o $(CORE)/ui/ui_draw.o \
+       $(CORE)/fsid.o $(CORE)/fastsid/fastsid.o $(CORE)/opl2.o $(CORE)/opl2/fmopl.o $(CORE)/vice_clk.o \
        bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o runcpm.o \
        $(RESID_SRC:.cc=.o)
 
@@ -47,6 +48,20 @@ include $(CIRCLEHOME)/Rules.mk
 INCLUDE := -I $(SHIM)/include $(CIRCLE_STDLIB_INCLUDES) $(INCLUDE) -I $(CORE)
 CFLAGS  += -DK4510_PI -DK4510_TUBE_INPROC -Wno-unused-function
 LIBS := $(SHIM)/libSDL2-$(BOARD).a $(CIRCLE_STDLIB_LIBS)
+
+# The two vendored pieces of VICE.  They are plain C and want their own
+# directory on the include path, because the shim headers there stand in for
+# the emulator they came from -- and that directory must come FIRST, or
+# Circle's own headers of the same names would be found instead.
+$(CORE)/fastsid/fastsid.o: $(CORE)/fastsid/fastsid.c
+	@echo "  CC    $@"
+	@$(CC) -I $(CORE)/fastsid $(CFLAGS) $(C_STANDARD) -Wno-unused-parameter -c -o $@ $<
+$(CORE)/fsid.o: $(CORE)/fsid.c
+	@echo "  CC    $@"
+	@$(CC) -I $(CORE)/fastsid $(CFLAGS) $(C_STANDARD) -c -o $@ $<
+$(CORE)/opl2/fmopl.o: $(CORE)/opl2/fmopl.c
+	@echo "  CC    $@"
+	@$(CC) -I $(CORE)/opl2 $(CFLAGS) $(C_STANDARD) -Wno-unused-parameter -c -o $@ $<
 
 # the desktop frontend, compiled here under another name
 frontend.o: ../sdl/main.c
