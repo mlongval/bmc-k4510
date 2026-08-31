@@ -58,10 +58,10 @@ on, and the BMC-K4510 boots in about three seconds.
 
 - **CPU: the 45GS10** — the MEGA65's 45GS02 instruction set (Q register,
   32-bit flat addressing, 28-bit MAP) plus the K4510 MMU: bank registers,
-  a far-call gate, RAM under the ROM — **@ optimal MHz**: the machine is a
-  fantasy and its timings are suggestions, so the clock is whatever the
-  host can hold at 60 fps with clean sound. A recent desktop holds 100+
-  (the sweep is in `docs/CPU-CLOCK-POLICY.md`); a Pi 3B+ holds 15. Today it
+  a far-call gate, RAM under the ROM. The machine is a fantasy and its
+  timings are suggestions, so the clock is whatever the host can hold at
+  60 fps with clean sound. A recent desktop holds 100+ (the sweep is in
+  `docs/CPU-CLOCK-POLICY.md`); a Pi 3B+ holds 15. Today it
   is a setting (F7 → Machine, desktop starting at 40.5, Pi at 15) and
   the first boot on a host measures it and picks the highest step that
   fits with margin (`core/calib.c`); `BENCH` shows the whole ladder. The
