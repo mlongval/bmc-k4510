@@ -29,7 +29,7 @@ C_STANDARD = -std=gnu11
 # from.  The desktop Makefile generates it; this build has to as well, or the
 # Pi cannot compile at all -- and a Pi kernel should report its own commit,
 # not whichever machine last ran the desktop build.
-K4510_BUILD := 0.3-$(shell cd $(CORE)/.. && git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(shell cd $(CORE)/.. && git diff --quiet HEAD 2>/dev/null || echo +)
+K4510_BUILD := 0.5-$(shell cd $(CORE)/.. && git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(shell cd $(CORE)/.. && git diff --quiet HEAD 2>/dev/null || echo +)
 .PHONY: FORCE
 FORCE:
 $(CORE)/build.h: FORCE

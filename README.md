@@ -1,7 +1,9 @@
 # K4510
 
-**This is release alpha-0.4, titled 'Imprint'.** The release carries the
-Raspberry Pi SD-card image and the handbook.
+**This is release alpha-0.5, titled 'Timbre'.** The release carries the
+Raspberry Pi SD-card image and the handbook. It is named for what it
+adds: the same notes, and a choice of what they sound like — a second
+SID engine beside reSID, and nine voices of FM beside both.
 
 A fantasy 8/16-bit computer, built from scratch in August 2026. Project
 orchestrator: Michael Longval. It is not an emulation of any real
@@ -77,9 +79,18 @@ on, and the BMC-K4510 boots in about three seconds.
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
   display-list coprocessor in the Amiga copper's tradition. No video RAM:
   every pointer is a 28-bit address.
-- **Sound:** one to four reSID 6581s — four by default, fewer on a host
-  that wants the frame back (F7 → Audio → Active SIDs). (OPL2 is planned,
-  not fitted.)
+- **Sound: three chips, one at a time.** One to four **SIDs** at $D400,
+  through either of two engines — **reSID** (Dag Lem's, cycle-accurate,
+  and what a 6581 sounds like) or **FastSID** (VICE's, stepped once per
+  output sample, and measured here at an eighth of reSID's cost with four
+  chips sounding). Or an **OPL2** at $D480, a Yamaha YM3812 with nine FM
+  voices, wired the AdLib's way — an address port, a data port, a status
+  register — so any AdLib register list or instrument patch means what it
+  says. F7 → Audio → Sound chip picks one; they are mutually exclusive,
+  which is the honest arrangement on a Pi, where the frame will not hold
+  two. Active SIDs (1-4) applies to whichever SID engine is chosen.
+  `SIDS`, `SID6` and `SID12` play the same progression on the SIDs that
+  `OPL2` plays on the FM chip, so you can hear the difference.
 - **MATH unit:** eight IEEE-single registers with in-place ops and the
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
@@ -126,8 +137,16 @@ on, and the BMC-K4510 boots in about three seconds.
   `/SYSTEM/VI.RC` startup file, and the whole file in far memory — 32000
   lines. `*SWAP EDIT name` edits from inside a BASIC.
 - **SID player:** `SIDPLAY`, a chooser over `fs/SID`.
-- **F7** opens the settings menu (C64u-style: video, audio, keys, save
-  and load state, the Tube, the shell's switches; saved to `k4510.cfg`).
+- **Two file managers,** because they are two different ideas about what
+  one is for: `KOMMANDER`, two panels and function keys, and `RANGER`,
+  three miller columns and vi's fingers. Enter on a directory descends;
+  Enter on a `.prg` or a CP/M `.com` leaves the browser and runs the
+  program, which is where the output belongs. `DD` and the shell's `RM`
+  move things to `/.TRASH` rather than destroying them; `DELETE` lists it
+  and puts them back.
+- **F7** opens the settings menu (C64u-style: video, audio — including
+  which sound chip has the machine — keys, save and load state, the Tube,
+  the shell's switches; saved to `k4510.cfg`).
   Super+PageUp resets. Esc is RUN/STOP, Shift+Esc quits the emulator.
 - **When something goes wrong:** `DUMP ON`, make it go wrong again, then
   `BUG` — it interviews you and writes a finished report to
@@ -172,6 +191,8 @@ it in the tree is the K4510 itself, and boots identically either way.
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
     core/        memory, I/O devices, VICKY, SID glue, MATH unit, JIM, the network, host seam
     core/resid/  reSID (GPL-2.0-or-later)
+    core/fastsid/ FastSID, from VICE by way of BMC64 (GPL-2.0-or-later)
+    core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
     rom/         system ROM (cc65) and Wozmon
