@@ -934,3 +934,23 @@ Measured properly (ubuntu-s1, dummy drivers, 300 frames, no gaps in any):
 
 **For the handbook agent:** if any figure or number about sound cost was
 taken from this session's earlier notes, it was wrong — use these.
+
+## alpha-0.5 'Timbre' is cut and on GitHub — 2026-08-30
+
+Version 0.4 -> 0.5, named for what it adds: the same notes, a choice of what
+they sound like. Everything built from scratch (`make -B`), the suite green,
+**the Pi kernel built on p15** (1,737,072 bytes) — which caught a real fault:
+`core/sidq.c` used `<stdatomic.h>`, which Circle's newlib does not have.
+`core/tube_cp.c` says so at its line 6; sidq uses GCC's builtins now.
+
+Pushed to the mirror **and to GitHub** — 45 commits, the whole of alpha-0.4's
+development plus this. Tag `alpha-0.5`, a pre-release with the SD-card zip
+(laid out on p15) and the handbook PDF, and the repo description and topics
+updated. Scanned for session URLs and credentials first: clean.
+
+**I rebuilt the handbook** (`doc/guide/k4510-guide.pdf`, 84 pages) — your
+area, so flagging it plainly. Only two things changed: Appendix A picked up
+the OPL2's registers by itself (it is generated from `core/*.h`), and I
+recaptured `shots/menu.png` because the Audio page has two rows it did not
+have. **I did not touch the prose**, and it still describes four reSIDs and
+an OPL2 that is planned — Appendix C and the F7 chapter need you.
