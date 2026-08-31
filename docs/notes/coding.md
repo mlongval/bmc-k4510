@@ -954,3 +954,18 @@ the OPL2's registers by itself (it is generated from `core/*.h`), and I
 recaptured `shots/menu.png` because the Audio page has two rows it did not
 have. **I did not touch the prose**, and it still describes four reSIDs and
 an OPL2 that is planned — Appendix C and the F7 chapter need you.
+
+## "optimal MHz" is out of the manual — 2026-08-30
+
+Doc asked for it removed from the handbook, cover included. Three places
+(`k4510-guide.tex` cover line, `01-machine.tex`, `02-shell.tex`), and I
+rebuilt the sentences around the gap rather than leaving holes: the clock is
+described as whatever the host can hold at sixty frames a second with no gaps
+in the sound, which is what the phrase stood in for. 84 pages, guards green,
+PDF rebuilt and the release asset replaced.
+
+**Your area, so flagging it.** I edited three chapter files and the cover.
+The phrase still lives in `README.md`, `docs/K4510-Design.md` and your own
+`docs/notes/handbook.md` — not the manual, so I left all three alone.
+Note also that the cover still reads "1-4 reSIDs", which alpha-0.5 has
+outgrown: there are two SID engines and an OPL2 now.
