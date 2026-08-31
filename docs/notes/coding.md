@@ -955,38 +955,27 @@ recaptured `shots/menu.png` because the Audio page has two rows it did not
 have. **I did not touch the prose**, and it still describes four reSIDs and
 an OPL2 that is planned — Appendix C and the F7 chapter need you.
 
-## "optimal MHz" is out of the manual — 2026-08-30
+## How the clock is described — 2026-08-30 / 08-31
 
-Doc asked for it removed from the handbook, cover included. Three places
-(`k4510-guide.tex` cover line, `01-machine.tex`, `02-shell.tex`), and I
-rebuilt the sentences around the gap rather than leaving holes: the clock is
-described as whatever the host can hold at sixty frames a second with no gaps
-in the sound, which is what the phrase stood in for. 84 pages, guards green,
-PDF rebuilt and the release asset replaced.
+Doc has retired the standing form of words the book used for the CPU's
+clock. There is no replacement label: **say it plainly, in each sentence's
+own terms.** What it always meant, and still means, is that the clock is
+whatever the host can hold at 60 fps with clean sound, and that 40.5 is only
+the desktop's starting point.
 
-**Your area, so flagging it.** I edited three chapter files and the cover.
-The phrase still lives in `README.md`, `docs/K4510-Design.md` and your own
-`docs/notes/handbook.md` — not the manual, so I left all three alone.
-Note also that the cover still reads "1-4 reSIDs", which alpha-0.5 has
-outgrown: there are two SID engines and an OPL2 now.
+Done across the manual (the cover's spec line, chapter 1, chapter 5's BENCH
+passage), `README.md`, the GitHub repo description, `docs/K4510-Design.md`
+and `docs/notes/handbook.md`. The sentences were rebuilt around the gap
+rather than left with holes in them. 84 pages, the guide's own guards green,
+PDF rebuilt and the release asset on GitHub replaced.
 
-## "optimal MHz" retired everywhere — 2026-08-31
+**Two things in your area, so flagging them.** I edited three chapter files
+and the cover; and I edited `docs/notes/handbook.md`, which I would not
+normally touch — Doc asked for it by name, because it recorded the retired
+wording as required and would otherwise have had you putting it back. That
+edit is confined to the "banner and the clock paradigm" paragraph and its
+first bullet, which now asks for no number in the boot banner rather than a
+label. Nothing else in the file was touched.
 
-Finished what 2026-08-30 started. The phrase is out of the manual (cover,
-chapter 1, chapter 5), `README.md`, the GitHub repo description,
-`docs/K4510-Design.md` — and out of **this note's counterpart**,
-`docs/notes/handbook.md`, which recorded it as the required phrasing and
-would otherwise have had you putting it back.
-
-**I edited `docs/notes/handbook.md`.** That is your file and I would not
-normally touch it; Doc asked for it by name. The edit is confined to the
-"banner and the clock paradigm" paragraph: an amendment line saying the
-phrase is retired and who retired it, the paragraph reworded to say what it
-meant, and the banner bullet no longer asking for `@ optimal MHz` in the
-banner — it asks for no number there, or the clock in force named as such.
-Nothing else in the file was touched. The one surviving instance of the
-words is inside that amendment, where they are the subject rather than the
-house style.
-
-What to say instead, everywhere: *the clock is whatever the host can hold at
-60 fps with clean sound; 40.5 is only the desktop's starting point.*
+Separately: the cover still reads "1-4 reSIDs", which alpha-0.5 has outgrown
+— there are two SID engines and an OPL2 now.

@@ -119,15 +119,15 @@ written.
 ## For the coding agent
 
 **Doc's request, 2026-08-27 — the banner and the clock paradigm.**
-(Amended 2026-08-31: the phrase **`@ optimal MHz`** is retired. Doc asked
-for it out of the manual — cover included — then the README, then this
-note and the design doc. The coding session made those edits, this file
-with them, on his instruction. What it stood for still holds; say it
-plainly instead.) The book, the README and the design doc describe the
-CPU's clock as whatever the host holds at 60 fps with clean sound: 40.5
-is only the desktop's starting point, and the direction is
-`docs/CPU-CLOCK-POLICY.md` (measure at boot). Doc wants the machine to
-say the same. Two places print a number as if it were the machine's:
+(Amended 2026-08-31 on Doc's instruction; the coding session made the
+edits, in the book, the README, the design doc and this file.) The clock
+is not a property of the machine and is never to be written as one. The
+book, the README and the design doc say what it is: whatever the host can
+hold at 60 fps with clean sound, with 40.5 only the desktop's starting
+point, and the direction in `docs/CPU-CLOCK-POLICY.md` (measure at boot).
+No standing form of words, no label — say it plainly, in the sentence's
+own terms, wherever it comes up. Doc wants the machine to say the same.
+Two places print a number as if it were the machine's:
 
 - the boot banner: `CPU: 45GS10 at 40.5 MHz + runCPM Tube` (`rom/kernal.c`
   banner(), and `demo/logo.c` which draws the same lines) — Doc would like
