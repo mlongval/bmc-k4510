@@ -132,6 +132,7 @@ static const char *file_text(set_id id, char *buf, int max)   /* what goes in th
 void settings_defaults(void) { for (int i = 0; i < SET_COUNT; i++) value[i] = desc[i].def; changed = 0; }
 int settings_changed(void) { return changed; }
 
+const char *settings_key(set_id id) { return (id >= 0 && id < SET_COUNT) ? desc[id].key : ""; }
 static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!strcmp(desc[i].key, k)) return i; return -1; }
 static int parse_value(set_id id, const char *v)
 {

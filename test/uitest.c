@@ -105,6 +105,25 @@ int main(void)
     io_set_opts(settings_get(SET_SHELL_STARTUP) ? 0 : SYSOPT_NOBOOT);
     CHECK((io_read(IO_SYS_OPTS) & SYSOPT_NOBOOT) != 0, "switched off, the guest skips it at power-on");
     printf("5. the STARTUP.BAT switch reaches the guest at $D521\n");
+
+    /* 6. the settings table is indexed by set_id, and nothing in the compiler
+     * checks that the enum's order matches it.  When SET_AUDIO_CORE3 was
+     * added ABOVE SET_AUDIO_CHIP in the enum and BELOW it in the table, the
+     * two swapped in silence: the Sound chip row set a boolean, and the
+     * machine stayed on reSID whatever the menu said.  Every id the frontend
+     * acts on by name is checked here. */
+    { static const struct { set_id id; const char *key; } pairs[] = {
+        { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
+        { SET_VIDEO_STATUSBAR, "video.statusbar" }, { SET_VIDEO_BORDER, "video.border" },
+        { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_SIDS, "audio.sids" },
+        { SET_AUDIO_CHIP, "audio.chip" }, { SET_AUDIO_CORE3, "audio.core3" },
+        { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
+        { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" } };
+      for (unsigned i = 0; i < sizeof pairs / sizeof pairs[0]; i++)
+          CHECK(!strcmp(settings_key(pairs[i].id), pairs[i].key),
+                "id %d is \"%s\", expected \"%s\"", (int)pairs[i].id, settings_key(pairs[i].id), pairs[i].key);
+      printf("6. every set_id names the setting it is supposed to\n"); }
+
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }
