@@ -879,3 +879,34 @@ no register, no command. If Appendix C (the sound) says anything about how
 the four chips are mixed, it can now say that the mix is paced by the
 chip that has produced least, so nothing is invented. `K4510_RINGLOG` is a
 developer's environment variable, not a feature; it does not need a page.
+
+## Two more sound chips, and a switch for them — 2026-08-30
+
+Doc asked for FastSID from BMC64's VICE, an OPL2, a way to switch between
+them, and the SIDs moved to the Pi's core 3. All four are in.
+
+- **FastSID** (`core/fastsid/`, unaltered from BMC64's VICE 3.3; wrapper
+  `core/fsid.c`). The same four chips at `$D400`, stepped once per output
+  sample instead of per cycle. Measured under SID12: **0.153 ms a frame
+  against reSID's 1.266** — 8.3x. The wrapper blocks DC, because FastSID's
+  mix is not centred and the step against reSID's would click at a switch.
+- **OPL2** (`core/opl2/`, MAME's fmopl by way of VICE; device `core/opl2.c`)
+  at `$D480`, wired the AdLib's way: `$D480` ADDR/STATUS, `$D481` DATA,
+  `$D482` ID (reads `$02`). Its two timers work. **OPL2.PRG** plays the same
+  Pachelbel progression as SIDS/SID6/SID12, so the chips can be compared.
+- **The switch is one row, not three toggles**: Audio -> Sound chip =
+  reSID | FastSID | OPL2. All of Doc's rules reduce to "exactly one has the
+  sound", and one three-valued setting cannot reach an illegal state.
+  Active SIDs (1-4) applies to whichever SID engine is chosen.
+- **Sound on core 3** (Pi, off by default): writes are queued with a
+  timestamp and performed by the rendering core; the handover is a
+  rendezvous at a menu close or when the ROM starts the Tube. **Untested on
+  hardware** — it needs a Pi kernel built on p15 and run.
+
+**For the handbook agent:** this is a real chapter's worth of change.
+`core/io.h` gained the OPL2's three registers at `$D480` — **regenerate
+Appendix A**. Appendix C (the sound) now has two SID engines and an FM chip
+to describe, and the F7 chapter's Audio menu has two new rows (Sound chip,
+Sound on core 3). There is a new demo, OPL2.PRG. `CREDITS.md`,
+`LICENSES.md` and `THIRD_PARTY_SOURCES.md` were edited by this session —
+flagging that here as the convention asks, since they are shared.
