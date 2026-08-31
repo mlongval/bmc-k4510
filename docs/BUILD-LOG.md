@@ -5446,3 +5446,66 @@ directory, moved from the K:OS shell before you come in. The letter
 is claimed now (`fs/CPM/N/0/README.TXT`, whitelisted in
 `fs/CPM/.gitignore`) so nothing takes it before the plumbing exists;
 the plumbing — CP/M over the N: device — is still unbuilt.
+
+## 2026-08-30 (b) — SID12 lagged, and it was the mix
+
+Doc, on the laptop: "I ran sid12. There is something you are missing. On
+this machine the sid12 demo should play without any drops. But not only
+does it drop, it lags. So even though you are trying to reassure me,
+there is something you are missing. If it's not the timing, is it the 12
+to 1 combinatorial part that gets the final waveform out?"
+
+He was right on both counts. The question that opened the thread — are
+the SIDs on their own thread? — has the boring answer: no, they are
+clocked inline in the scanline loop, and the only other thread is SDL's
+callback, which does nothing but drain the ring. The interesting answer
+was two lines further down.
+
+**The phases do not agree.** A `sid_render` call advances every clocked
+chip by the same number of SID cycles, but each reSID chip carries its
+own resampling phase. A chip is clocked only once the machine has
+written to it — the optimisation that bought the Pi 2.5 ms of a 16.7 ms
+frame — so a chip that starts sounding later starts from a different
+point inside the sample period and stays there. Ask four chips for 34
+cycles and three hand back two samples while the fourth hands back one.
+Instrumented on SID12: **4.8% of calls**, always by exactly one sample.
+
+**The mix ran to the longest chip.** Two faults out of the one line.
+It read the short chip's buffer past what that chip had written — a
+stale sample from an earlier call, about 2,400 corrupted samples a
+second at 48 kHz, in anything that sounds more than one chip. And it
+emitted more samples than the chips made, so the machine manufactured
+sound faster than the device consumed it. Nothing bounded the ring but
+its own size, 683 ms: the lead walked up and stayed up.
+
+Measured on ubuntu-s1, SID12, ring depth every two seconds:
+
+    before   56 ms -> 226 ms in 38 seconds, still climbing
+    after    41-55 ms, oscillating, no drift, no gaps, over a minute
+
+That is the lag, it gets worse the longer a four-SID program plays, and
+at the top of the ring the writers begin discarding — the drop.
+
+**The fix.** The mix runs to the shortest chip now, and the surplus is
+carried into that chip's next call, so no sample is invented and none is
+lost; the chips share one average rate, so a carry never holds more than
+two. And the ring gained the ceiling it never had: `RING_CAP` is the lead
+plus a frame. The chips are clocked past it either way — pitch is theirs
+and does not move — but the samples are let go, so the lead cannot drift
+late however the two rates disagree. `SID render` still costs 1.22 ms of
+a frame with four chips sounding: the fix is free.
+
+`K4510_RINGLOG=1` now prints the lead, the gap count and the clock every
+two seconds. A lead that climbs is sound arriving later and later behind
+the picture; a lead at zero with gaps rising is sound the device asked
+for and did not get. From the chair they sound alike, which is most of
+why this took a measurement to find rather than a look.
+
+**The lesson, and it is the same one as 2026-08-26.** The first two
+answers in this thread were reassurance built on reading the code —
+"the SIDs cost 0.04 ms", "the lead is 38 ms by design" — and both were
+true of the machine at the prompt and false of the machine Doc was
+listening to. The profile that said 0.041 ms was taken with no chip
+sounding. Doc's "there is something you are missing" was worth more than
+either reading, and the way to honour it was `fs/STARTUP.BAT` with
+`SID12` in it and a counter in the mix.

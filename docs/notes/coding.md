@@ -852,3 +852,30 @@ whitelisted in `fs/CPM/.gitignore`); the plumbing is still unbuilt.
 
 **For the handbook agent:** the CP/M chapter's drive table gains N: —
 reserved, empty, network. Nothing else changed about the drives.
+
+## Four SIDs drifted late: the 4-to-1 mix, and the ring had no ceiling — 2026-08-30
+
+Doc heard SID12 drop and lag on the laptop, and asked whether it was "the
+12 to 1 combinatorial part that gets the final waveform out". It was.
+
+Each reSID chip carries its own resampling phase, and the phases do not
+agree — a chip is clocked only once the machine has written to it, so one
+that starts sounding later sits at a different point inside the sample
+period for good. On SID12, 4.8% of `sid_render` calls had one chip hand
+back a sample fewer than the others. The mix ran to the *longest* chip, so
+it (a) read the short chip's buffer past what it had written — a stale
+sample, ~2,400 corrupted samples a second — and (b) emitted more samples
+than the chips made, which walked the audio lead up with nothing to stop
+it: 56 ms to 226 ms in 38 seconds, heading for the ring's own 683 ms, and
+discarding at the top. Mix now runs to the shortest chip and carries the
+surplus; the ring gained a cap at the lead plus a frame. Same cost
+(1.22 ms a frame, four chips sounding), stable at 41-55 ms over a minute.
+
+`K4510_RINGLOG=1` prints the lead, gaps and clock every two seconds — a
+climbing lead and a starving ring sound the same from the chair.
+
+**For the handbook agent:** nothing user-facing changed in the machine —
+no register, no command. If Appendix C (the sound) says anything about how
+the four chips are mixed, it can now say that the mix is paced by the
+chip that has produced least, so nothing is invented. `K4510_RINGLOG` is a
+developer's environment variable, not a feature; it does not need a page.
