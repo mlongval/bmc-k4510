@@ -1,0 +1,3 @@
+#ifndef K4510_VICE_MACHINE_H
+#define K4510_VICE_MACHINE_H
+#endif

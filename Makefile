@@ -22,7 +22,8 @@ FORCE:
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/calib.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS)
+FASTSID_OBJS = core/fastsid/fastsid.o core/fsid.o
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/calib.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS) $(FASTSID_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -89,8 +90,14 @@ core/ui/settings.o: core/ui/settings.c core/ui/settings.h
 core/ui/menu.o: core/ui/menu.c core/ui/menu.h core/ui/settings.h core/ui/ui_draw.h core/io.h
 core/ui/ui_draw.o: core/ui/ui_draw.c core/ui/ui_draw.h
 core/io.o: core/ui/menu.h
-core/sid.o: core/sid.cc core/sid.h
+core/sid.o: core/sid.cc core/sid.h core/fsid.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
+core/fsid.o: core/fsid.c core/fsid.h core/sid.h core/fastsid/fastsid.h
+	$(CC) $(CFLAGS) -Icore/fastsid -c -o $@ $<
+# VICE's fastsid.c is used unaltered; core/fastsid/ holds it and the shim
+# headers that stand in for the emulator it came from.
+core/fastsid/fastsid.o: core/fastsid/fastsid.c
+	$(CC) $(CFLAGS) -Icore/fastsid -Wno-unused-parameter -c -o $@ $<
 core/resid/%.o: core/resid/%.cc
 	$(CXX) $(CXXFLAGS) -DVERSION=\"1.0.0\" -Wno-unused-parameter -c -o $@ $<
 
@@ -168,7 +175,7 @@ GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c)) \
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o core/fastsid/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 

@@ -1,12 +1,17 @@
 #include "resid/sid.h"
 extern "C" {
 #include "sid.h"
+#include "fsid.h"
 }
 #include <string.h>
 
 static reSID::SID chips[K4510_SIDS];
 static double cpu_hz = 40500000.0; static int rate = 48000;
 static bool active[K4510_SIDS];                  /* written since reset: clocked and mixed */
+static uint8_t shadow[K4510_SIDS][32];           /* every register as last written: replayed into the other engine on a switch */
+static int  engine = SID_ENGINE_RESID;
+static int  muted;                               /* the OPL2 has the sound (they are mutually exclusive) */
+static double fast_acc = 0;                      /* FastSID counts SAMPLES, not cycles */
 static short carry[K4510_SIDS][8]; static int ncarry[K4510_SIDS];   /* the phase surplus; see sid_render */
 static int  sid_max = K4510_SIDS;                /* the menu caps how many chips are clocked: on the Pi four sounding
                                                     chips are ~3.4 ms of a 16.7 ms frame, so dropping to one buys it back */
@@ -22,6 +27,7 @@ extern "C" void sid_set_clock(int sel)          /* 0 = 1 MHz, 1 = PAL C64 (98524
 {
     SID_HZ = sel == 1 ? 985248.0 : sel == 2 ? 1022730.0 : 1000000.0;
     for (int i = 0; i < 4; i++) chips[i].set_sampling_parameters(SID_HZ, reSID::SAMPLE_FAST, sid_rate_saved);
+    fsid_set_clock(SID_HZ);
 }
 
 extern "C" void sid_init(double hz, int sample_rate)
@@ -33,12 +39,52 @@ extern "C" void sid_init(double hz, int sample_rate)
         chips[i].set_sampling_parameters(SID_HZ, reSID::SAMPLE_FAST, rate);
         chips[i].reset();
     }
+    fsid_init(SID_HZ, rate);
 }
 extern "C" void sid_set_cpu_hz(double hz) { cpu_hz = hz; }   /* the CPU clock changed: same SID clock, different ratio */
-extern "C" void sid_reset(void) { sid_acc = 0; for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; ncarry[i] = 0; } }
-extern "C" void sid_write(int c, uint8_t r, uint8_t v) { if (c >= 0 && c < K4510_SIDS) { chips[c].write(r & 0x1F, v); active[c] = true; } }
-extern "C" uint8_t sid_read(int c, uint8_t r) { return (c >= 0 && c < K4510_SIDS) ? chips[c].read(r & 0x1F) : 0xFF; }
-extern "C" void sid_set_model(int c, int m8580) { if (c >= 0 && c < K4510_SIDS) chips[c].set_chip_model(m8580 ? reSID::MOS8580 : reSID::MOS6581); }
+extern "C" void sid_reset(void)
+{
+    sid_acc = 0; fast_acc = 0;
+    memset(shadow, 0, sizeof shadow);
+    for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; ncarry[i] = 0; }
+    fsid_reset();
+}
+extern "C" void sid_write(int c, uint8_t r, uint8_t v)
+{
+    if (c < 0 || c >= K4510_SIDS) return;
+    shadow[c][r & 0x1F] = v; active[c] = true;
+    if (engine == SID_ENGINE_FAST) fsid_write(c, r, v); else chips[c].write(r & 0x1F, v);
+}
+extern "C" uint8_t sid_read(int c, uint8_t r)
+{
+    if (c < 0 || c >= K4510_SIDS) return 0xFF;
+    return engine == SID_ENGINE_FAST ? fsid_read(c, r) : chips[c].read(r & 0x1F);
+}
+extern "C" void sid_set_model(int c, int m8580)
+{
+    if (c < 0 || c >= K4510_SIDS) return;
+    chips[c].set_chip_model(m8580 ? reSID::MOS8580 : reSID::MOS6581);
+    fsid_set_model(c, m8580);
+}
+extern "C" int sid_get_engine(void) { return engine; }
+extern "C" void sid_set_mute(int m) { muted = m ? 1 : 0; }
+/* Switching engine mid-note: the registers are replayed into the one being
+ * turned on, so a tune carries across.  Only the registers -- the oscillator
+ * and envelope state inside the old engine has no counterpart in the new one,
+ * so a note that is sounding restarts its envelope.  That is the whole cost,
+ * and it is heard once. */
+extern "C" void sid_set_engine(int e)
+{
+    e = (e == SID_ENGINE_FAST) ? SID_ENGINE_FAST : SID_ENGINE_RESID;
+    if (e == engine) return;
+    engine = e;
+    for (int c = 0; c < K4510_SIDS; c++) {
+        if (!active[c]) continue;
+        for (int r = 0; r < 32; r++)
+            if (engine == SID_ENGINE_FAST) fsid_write(c, (uint8_t)r, shadow[c][r]);
+            else chips[c].write(r, shadow[c][r]);
+    }
+}
 
 /* Samples a chip produced that its neighbours have not caught up with yet.
  * A call advances every clocked chip by the same number of SID cycles, but
@@ -63,9 +109,30 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
 {
     static short tmp[K4510_SIDS][4096];
     int n = 0, nact = 0, got[K4510_SIDS];
+    /* FastSID advances per OUTPUT SAMPLE, not per cycle, so it is asked for a
+     * sample count and every chip hands back exactly that: none of the phase
+     * reconciliation below applies to it.  The count comes straight from the
+     * CPU cycles, on its own accumulator, so switching engine does not lose
+     * or duplicate a fraction of a sample. */
+    if (engine == SID_ENGINE_FAST && !muted) {
+        int sounding[K4510_SIDS];
+        fast_acc += (double)cycles * rate / cpu_hz;
+        int want = (int)fast_acc; fast_acc -= want;
+        if (want <= 0) return 0;
+        for (int c = 0; c < K4510_SIDS; c++) sounding[c] = active[c] ? 1 : 0;
+        return fsid_render(want, out, max, sid_max, sounding);
+    }
     sid_acc += (double)cycles * SID_HZ / cpu_hz;
     int sid_cycles = (int)sid_acc; sid_acc -= sid_cycles;
     if (sid_cycles <= 0) return 0;
+    /* Muted: the OPL2 has the sound.  Nothing is clocked -- that is the point
+     * of them being exclusive -- but the ring must still be fed at the rate
+     * the device drains it, or the frontend would top up for ever. */
+    if (muted) {
+        n = (int)((double)sid_cycles * rate / SID_HZ); if (n > max) n = max;
+        for (int i = 0; i < n; i++) out[i] = 0;
+        return n;
+    }
     /* Only chips the machine has written since reset are clocked. reSID costs
      * the same for silence as for sound, and at the prompt -- or in SIDPLAY,
      * which uses one chip -- three of the four are silent: on a Pi 3B+ that

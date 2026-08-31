@@ -48,6 +48,18 @@ that the code is unknown; those are listed again at the end.
 | Altered | No. |
 | Verify | `dir: 69adec626fd3713d` |
 
+## FastSID
+
+| | |
+|---|---|
+| Role | The second SID engine: the same four chips, stepped once per output sample from wavetables rather than cycle by cycle. Roughly a twentieth of reSID's cost, and it does not sound the same. The two are mutually exclusive. |
+| Local path | `core/fastsid/` — `fastsid.c`, `fastsid.h`, `fixpoint.h`, `wave6581.h`, `wave8580.h`. The wrapper `core/fsid.c` is ours. |
+| Upstream | VICE (https://vice-emu.sourceforge.io/), by Teemu Rantanen, Michael Schwendt and Ettore Perazzoli. Taken from **BMC64's** vendored copy — `third_party/vice-3.3/src/sid/` in https://github.com/randyrossi/bmc64 — which is what the Pi side already builds against. |
+| Version | VICE 3.3 with BMC64's changes, vendored 2026-08-30. Its `RASPI_COMPILE` blocks are present but not compiled: they assume two SIDs and the K4510 has four. `core/fastsid/VENDORED-FROM.txt` |
+| Licence | GPL-2.0-or-later |
+| Altered | No — the five files above are byte-for-byte upstream. Every other header in that directory is a K4510 shim standing in for the emulator `fastsid.c` expects around it (an allocator, a CPU clock, two settings, the hook struct). |
+| Verify | `dir: 052b449b6300892b` (the five upstream files only) |
+
 ## BBC BASIC (BBCSDL console edition, "BBCTTY")
 
 | | |

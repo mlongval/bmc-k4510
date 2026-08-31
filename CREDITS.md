@@ -17,6 +17,10 @@ Thank you:
   source to lydon for the Q-opcode work on mega65-core.)
 - **Dag Lem** — [reSID](https://en.wikipedia.org/wiki/ReSID), the
   SID emulation behind all four sound chips (as shipped in VICE 3.3).
+- **Teemu Rantanen, Michael Schwendt, Ettore Perazzoli** and VICE's
+  team — FastSID, the second SID engine: the same four chips for about a
+  twentieth of the work, which is what makes four of them affordable on a
+  Raspberry Pi. Taken from VICE 3.3 as BMC64 vendors it.
 - **Lee Davison** (1966–2013) — EhBASIC, the machine's first tongue.
   Derived from EhBASIC.
 - **R.T. Russell** — BBC BASIC (console edition), running on the Tube

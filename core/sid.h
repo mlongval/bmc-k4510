@@ -6,10 +6,21 @@
 #define K4510_SID_H
 #include <stdint.h>
 #define K4510_SIDS 4
+/* The two engines are mutually exclusive: reSID (core/resid) models the chip
+ * cycle by cycle and sounds like one; FastSID (core/fastsid, from VICE) steps
+ * once per output sample from wavetables for about a twentieth of the cost.
+ * Both drive the same four chips at $D400 and the same registers, so a switch
+ * is heard, not seen -- sid_set_engine replays the registers into the engine
+ * it turns on, and a tune plays through it. */
+#define SID_ENGINE_RESID 0
+#define SID_ENGINE_FAST  1
 #ifdef __cplusplus
 extern "C" {
 #endif
-void sid_set_max(int n);   /* clock/mix only the first n chips: the Machine menu's Active SIDs */
+void sid_set_max(int n);      /* clock/mix only the first n chips: the Machine menu's Active SIDs */
+void sid_set_engine(int e);   /* SID_ENGINE_RESID or SID_ENGINE_FAST */
+int  sid_get_engine(void);
+void sid_set_mute(int mute);  /* the OPL2 has the sound: clock nothing, mix silence */
 #ifdef __cplusplus
 }
 #endif
