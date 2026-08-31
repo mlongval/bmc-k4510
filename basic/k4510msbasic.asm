@@ -158,6 +158,21 @@ k4510_ch:     .byte 0           ; the character in flight (A across the call)
 ; what BASIC wants, so no translation -- but lower case is folded up: the
 ; 1977 tokenizer only knows upper-case keywords.
 ;
+; **This routine echoes, and it must.**  MS BASIC never echoes what is
+; typed: INLIN reads through GETLN -> MONRDKEY and prints nothing back
+; (msbasic/inline.s), because on a KIM or a PET it was the monitor's input
+; routine that echoed.  The K4510's does not -- the ROM's own echoing lives
+; in readline(), which BASIC bypasses by calling CHRIN directly.  Without
+; the echo here you type and the screen stays empty, which does not read as
+; "no echo", it reads as a machine ignoring the keyboard.
+;
+; Backspace is the same story from the other end.  BASIC's delete character
+; is "_" ($5F) and its handler is a bare DEX -- it erases nothing on the
+; glass (msbasic/inline.s, L2420).  The host's Backspace ($08) is below $20,
+; so BASIC discards it outright.  So: translate $08 to "_" and do the
+; destructive erase (BS, space, BS) ourselves.  "@" still kills the whole
+; line, as it did in 1977.
+;
 ; While k4510_feed is set, keys come from k4510_answer instead of the
 ; keyboard.  That is how the "MEMORY SIZE?" prompt gets answered: BASIC's
 ; own alternative is to walk RAM upwards probing for the top, and the walk
@@ -175,17 +190,25 @@ k4510_in:
         lda     k4510_answer,x
         beq     @feed_done
         inc     k4510_feedx
-        jmp     @out
+        jmp     @echo    ; echoed too: the boot shows what it answered
 @feed_done:
         lda     #0
         sta     k4510_feed
 @live:
         jsr     ROM_CHRIN
+        cmp     #$08            ; host Backspace: BASIC's delete is "_", and
+        bne     @fold           ; nothing but this routine erases the glass
+        jsr     k4510_rubout
+        lda     #$5F            ; "_" -- echoed already, destructively
+        jmp     @out
+@fold:
         cmp     #'a'
-        bcc     @out
+        bcc     @echo
         cmp     #'z'+1
-        bcs     @out
+        bcs     @echo
         and     #$DF            ; fold to upper case
+@echo:
+        jsr     k4510_out       ; BASIC will not; see above
 @out:
         sta     k4510_ch
         pla
@@ -194,6 +217,16 @@ k4510_in:
         tax
         lda     k4510_ch
         rts
+
+; erase the character to the left: BS, space, BS.  At column 0 the ROM's
+; k_chrout ignores the backspace, so this cannot walk off the line.
+k4510_rubout:
+        lda     #$08
+        jsr     k4510_out
+        lda     #' '
+        jsr     k4510_out
+        lda     #$08
+        jmp     k4510_out
 
 k4510_feed:   .byte 1
 k4510_feedx:  .byte 0

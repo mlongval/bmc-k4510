@@ -1017,3 +1017,25 @@ No figures were captured. If it wants one, the cold-start screen is the
 obvious shot — it prints `MEMORY SIZE?`, `TERMINAL WIDTH?`, `26623 BYTES
 FREE` and `COPYRIGHT 1977 BY MICROSOFT CO.`, which is a nice bit of
 period furniture.
+
+## MS BASIC: the echo, and a warning about screenshots — 2026-08-31 (b)
+
+Same day, straight after the port: MS BASIC looked like it was ignoring
+the keyboard. It was not — it never echoes what you type (that was the
+monitor's job in 1977), so the screen stayed blank until the answer
+appeared. `MONRDKEY` now echoes, and Backspace is translated to BASIC's
+own `_` delete with the erase done on our side.
+
+**If you captured any MS BASIC figure before this, recapture it.** The
+cold start now reads
+
+    MEMORY SIZE? 28672
+    TERMINAL WIDTH? 80
+
+rather than two bare questions, and any shot of a session now shows the
+typed lines as well as the answers. A figure taken this morning is wrong
+in a way that looks deliberate.
+
+Also worth a line in the text if you write the chapter: `@` kills the
+current line and Backspace deletes a character. There is no cursor-key
+editing — this is a 1977 line editor, not the ROM's `readline`.

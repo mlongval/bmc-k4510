@@ -5587,3 +5587,46 @@ wanted, and costs one number in `basic/msbasic.cfg` and the matching
 `MEMTOP`. `test/msbasictest.sh` drives it from the shell the way a user
 would and checks the cold start, `FOR`/`NEXT`, 9-digit `SQR`, strings,
 case folding and the Ctrl-C break; it is in `make test`.
+
+## 2026-08-31 (b) — MS BASIC looked dead at the keyboard, and it was the echo
+
+Doc, within the hour: "the msbasic you built does not respond to keyboard
+input on the emulator."
+
+It responded perfectly. It just never showed anything back, which from
+the chair is the same thing.
+
+**MS BASIC does not echo.** `INLIN` reads a line through `GETLN` ->
+`MONRDKEY` and prints nothing at all — the only thing it ever emits is a
+BEL when the buffer overflows (`msbasic/inline.s`). On a KIM or a PET it
+was the *monitor's* input routine that echoed, and the OEM ports all
+inherited one that did. The K4510's does not: the ROM's echoing lives in
+`readline()`, and BASIC bypasses it by calling `CHRIN` directly. So you
+type a whole line into a blank screen, press Return, and only the answer
+appears. `PRINT 6*7` printed ` 42` with no `PRINT 6*7` above it.
+
+`MONRDKEY` now echoes every key it returns, the canned cold-start
+answers included — so the boot reads `MEMORY SIZE? 28672` and
+`TERMINAL WIDTH? 80` instead of two bare questions, which is both
+prettier and the cheapest possible proof the echo is alive.
+
+Backspace was the same fault from the other end. BASIC's delete character
+is `_` ($5F) and its handler is a bare `DEX` — it erases nothing on the
+glass (`inline.s`, L2420) — while the host's Backspace is $08, below $20,
+which `INLIN` discards outright. So $08 is now translated to `_` and the
+destructive erase (BS, space, BS) is done here. `@` still kills the whole
+line, as it did in 1977.
+
+**Why the tests did not catch it.** `test/headless` pushes keys straight
+into the FIFO and then prints the text screen, so every assertion was
+about *output* — `42`, `1.41421356`, `BREAK IN 10` — and all of it was
+correct. Nothing asserted that the input was ever visible. The test now
+greps for the typed line itself, and that check was confirmed to fail
+against a build with the echo removed before being kept.
+
+Reproducing it needed the real SDL binary under Xvfb with `xdotool`
+typing actual X key events, because both the headless harness and the
+emulator's own `K4510_KEYS` feed go through `kbd_push` — the same door,
+and neither of them can show you a screen with nothing on it. Worth
+remembering: a passing headless test says the machine computed the right
+answer, not that a person could have used it.
