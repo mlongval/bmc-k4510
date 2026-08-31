@@ -2,27 +2,35 @@
  * core is rendering), no lock -- the ring's two indices are the only shared
  * mutable state and each is written by one side only. */
 #include "sidq.h"
-#include <stdatomic.h>
+
+/* GCC's builtins rather than <stdatomic.h>, for the same reason core/tube_cp.c
+ * gives: the Pi kernel compiles freestanding against Circle's newlib, which
+ * has no <stdatomic.h>, and the desktop and the Pi share this file.  (Written
+ * with stdatomic first, and the Pi build said so at once.) */
+#define A_LOAD(p)        __atomic_load_n((p), __ATOMIC_ACQUIRE)
+#define A_STORE(p, v)    __atomic_store_n((p), (v), __ATOMIC_RELEASE)
+#define A_ADD(p, v)      __atomic_fetch_add((p), (v), __ATOMIC_RELEASE)
+#define A_LOAD_RLX(p)    __atomic_load_n((p), __ATOMIC_RELAXED)
 
 #define QN 4096                                  /* ~85 ms of the busiest tune at a write a scanline */
 typedef struct { uint32_t us; uint8_t chip, reg, val, pad; } ev_t;
 static ev_t q[QN];
-static _Atomic unsigned q_w, q_r;
+static volatile unsigned q_w, q_r;
 
-static _Atomic uint32_t now_us;
-static _Atomic int owner = SIDQ_OWNER_CPU;
-static _Atomic int want  = SIDQ_OWNER_CPU;
+static volatile uint32_t now_us;
+static volatile int owner = SIDQ_OWNER_CPU;
+static volatile int want  = SIDQ_OWNER_CPU;
 
-void     sidq_tick(uint32_t us) { atomic_fetch_add_explicit(&now_us, us, memory_order_release); }
-uint32_t sidq_now(void)         { return atomic_load_explicit(&now_us, memory_order_acquire); }
-int      sidq_owner(void)       { return atomic_load_explicit(&owner, memory_order_acquire); }
-int      sidq_pending(void)     { return atomic_load_explicit(&want, memory_order_acquire) != atomic_load_explicit(&owner, memory_order_acquire); }
-void     sidq_accept(void)      { atomic_store_explicit(&owner, atomic_load_explicit(&want, memory_order_acquire), memory_order_release); }
+void     sidq_tick(uint32_t us) { A_ADD(&now_us, us); }
+uint32_t sidq_now(void)         { return A_LOAD(&now_us); }
+int      sidq_owner(void)       { return A_LOAD(&owner); }
+int      sidq_pending(void)     { return A_LOAD(&want) != A_LOAD(&owner); }
+void     sidq_accept(void)      { A_STORE(&owner, A_LOAD(&want)); }
 
 void sidq_reset(void)
 {
-    atomic_store(&q_w, 0); atomic_store(&q_r, 0);
-    atomic_store(&now_us, 0);
+    A_STORE(&q_w, 0u); A_STORE(&q_r, 0u);
+    A_STORE(&now_us, 0u);
 }
 
 /* The rendezvous.  The asking side spins -- this is called at a point where
@@ -32,39 +40,39 @@ void sidq_reset(void)
  * machine must not hang, it must keep the sound itself. */
 int sidq_request(int o)
 {
-    atomic_store_explicit(&want, o, memory_order_release);
-    if (atomic_load_explicit(&owner, memory_order_acquire) == o) return 1;
+    A_STORE(&want, o);
+    if (A_LOAD(&owner) == o) return 1;
     for (long i = 0; i < 20000000L; i++) {                    /* tens of milliseconds: a pump loop is far shorter */
-        if (atomic_load_explicit(&owner, memory_order_acquire) == o) return 1;
+        if (A_LOAD(&owner) == o) return 1;
 #if defined(__aarch64__)
         __asm__ volatile("yield" ::: "memory");
 #endif
     }
-    atomic_store_explicit(&want, atomic_load_explicit(&owner, memory_order_acquire), memory_order_release);
+    A_STORE(&want, A_LOAD(&owner));
     return 0;                                                  /* nobody answered: nothing moved */
 }
 
 int sidq_push(uint8_t chip, uint8_t reg, uint8_t val)
 {
-    unsigned w = atomic_load_explicit(&q_w, memory_order_relaxed);
+    unsigned w = A_LOAD_RLX(&q_w);
     unsigned n = (w + 1) & (QN - 1);
-    if (n == atomic_load_explicit(&q_r, memory_order_acquire)) return 0;      /* full */
+    if (n == A_LOAD(&q_r)) return 0;                                         /* full */
     q[w].us = sidq_now(); q[w].chip = chip; q[w].reg = reg; q[w].val = val;
-    atomic_store_explicit(&q_w, n, memory_order_release);
+    A_STORE(&q_w, n);
     return 1;
 }
 
 void sidq_drain(uint32_t us, void (*apply)(int chip, uint8_t reg, uint8_t val))
 {
-    unsigned r = atomic_load_explicit(&q_r, memory_order_relaxed);
+    unsigned r = A_LOAD_RLX(&q_r);
     for (;;) {
-        unsigned w = atomic_load_explicit(&q_w, memory_order_acquire);
+        unsigned w = A_LOAD(&q_w);
         if (r == w) break;
         /* Unsigned wrap-safe "is it due yet": the stamp is 32 bits of
          * microseconds and rolls over every 71 minutes. */
         if ((uint32_t)(us - q[r].us) >= 0x80000000u) break;                   /* still in the future */
         apply(q[r].chip, q[r].reg, q[r].val);
         r = (r + 1) & (QN - 1);
-        atomic_store_explicit(&q_r, r, memory_order_release);
+        A_STORE(&q_r, r);
     }
 }
