@@ -15,6 +15,7 @@
 #include "../core/vicky.h"
 #include "../core/build.h"   /* K4510_BUILD, for the frame profile */
 #include "../core/sid.h"
+#include "../core/opl2.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
 #include "../core/calib.h"
@@ -688,6 +689,15 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         sid_set_max(settings_get(SET_AUDIO_SIDS) + 1);   /* live: the Active SIDs menu index is 0-based, the count is +1 */
         io_set_sid_active(settings_get(SET_AUDIO_SIDS) + 1);   /* so INFO reports the count in force, not a constant */
+        /* Sound chip: 0 reSID, 1 FastSID, 2 OPL2.  The three are exclusive,
+         * and one setting cannot hold two of them at once -- which is why it
+         * is one row and not three toggles policing each other.  Muting the
+         * SIDs is what stops them being clocked; the OPL2 renders in their
+         * place, at the same rate, so the ring is fed either way. */
+        { int chip = settings_get(SET_AUDIO_CHIP);
+          sid_set_engine(chip == 1 ? SID_ENGINE_FAST : SID_ENGINE_RESID);
+          opl2_set_enabled(chip == 2);
+          sid_set_mute(chip == 2); }
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
             io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);

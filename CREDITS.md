@@ -21,6 +21,10 @@ Thank you:
   team — FastSID, the second SID engine: the same four chips for about a
   twentieth of the work, which is what makes four of them affordable on a
   Raspberry Pi. Taken from VICE 3.3 as BMC64 vendors it.
+- **Jarek Burczynski** and **Tatsuyuki Satoh** — fmopl, the OPL/OPL2 FM
+  sound generator written for MAME, which is the machine's YM3812 at
+  $D480; and **Marco van den Heuvel**, who adapted it for VICE, where
+  this copy comes from.
 - **Lee Davison** (1966–2013) — EhBASIC, the machine's first tongue.
   Derived from EhBASIC.
 - **R.T. Russell** — BBC BASIC (console edition), running on the Tube

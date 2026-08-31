@@ -11,6 +11,12 @@ static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
 static const char *const sids_names[]  = { "1", "2", "3", "4" };
+/* The three are mutually exclusive by construction.  reSID models the SID
+ * cycle by cycle; FastSID is VICE's, a twentieth of the work and a different
+ * sound; the OPL2 is the AdLib's YM3812 at $D480 and is not a SID at all.
+ * Active SIDs applies to whichever SID engine is chosen and is ignored by the
+ * OPL2, which is one chip with nine voices. */
+static const char *const chip_names[]  = { "reSID", "FastSID", "OPL2" };
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
@@ -28,6 +34,7 @@ static const set_desc desc[SET_COUNT] = {
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four */
+    { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 3, SF_LIVE },   /* 0 reSID, 1 FastSID, 2 OPL2 */
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */

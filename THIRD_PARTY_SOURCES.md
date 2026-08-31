@@ -60,6 +60,18 @@ that the code is unknown; those are listed again at the end.
 | Altered | No — the five files above are byte-for-byte upstream. Every other header in that directory is a K4510 shim standing in for the emulator `fastsid.c` expects around it (an allocator, a CPU clock, two settings, the hook struct). |
 | Verify | `dir: 052b449b6300892b` (the five upstream files only) |
 
+## fmopl (the OPL2)
+
+| | |
+|---|---|
+| Role | The Yamaha YM3812 at `$D480` — nine FM voices, the AdLib's chip, wired the AdLib's way. Mutually exclusive with the SIDs. |
+| Local path | `core/opl2/` — `fmopl.c`, `fmopl.h`. The device and wrapper `core/opl2.c` are ours. |
+| Upstream | MAME's FM sound generator (Jarek Burczynski, Tatsuyuki Satoh), version 0.72, adapted for VICE by Marco van den Heuvel. Taken from **BMC64's** vendored copy — `third_party/vice-3.3/src/core/` in https://github.com/randyrossi/bmc64. |
+| Version | VICE 3.3's copy, vendored 2026-08-30. `core/opl2/VENDORED-FROM.txt` |
+| Licence | GPL-2.0+ (stated in the file's own header) |
+| Altered | No. The other headers in that directory are K4510 shims; `alarm.h` is two timer slots and a poll where VICE has a general alarm queue. |
+| Verify | `dir: 3ff3515ef70fe50f` (`fmopl.c` and `fmopl.h` only) |
+
 ## BBC BASIC (BBCSDL console edition, "BBCTTY")
 
 | | |

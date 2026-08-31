@@ -1,0 +1,36 @@
+The OPL2 (Yamaha YM3812) -- fmopl
+=================================
+
+Upstream
+  MAME's FM sound generator, by way of VICE.  Taken from BMC64's vendored
+  copy, the same place FastSID came from:
+      https://github.com/randyrossi/bmc64
+      third_party/vice-3.3/src/core/fmopl.c
+                              src/core/fmopl.h
+  i.e. VICE 3.3, whose copy is "Adapted for use in VICE by Marco van den
+  Heuvel" from Jarek Burczynski and Tatsuyuki Satoh's fmopl 0.72.
+
+  Local clone this was copied from, 2026-08-30:
+      ~/Repositories/VICE_Projects/bmc64
+
+Licence
+  GPL-2.0+, stated in the file's own header.  See LICENSES.md.
+
+Altered
+  No.  fmopl.c and fmopl.h are byte-for-byte upstream.
+
+  The other headers here are K4510 shims, written here, standing in for the
+  emulator fmopl.c expects around it:
+      vice.h lib.h maincpu.h snapshot.h types.h alarm.h
+  alarm.h is the interesting one: VICE has a general alarm queue and the
+  OPL2 uses exactly two entries of it -- Timer A and Timer B, whose overflow
+  flags a player polls in the status register -- so the shim is two slots
+  and a poll rather than the machinery.  core/opl2.c implements it, and
+  core/vice_clk.c fires it as the machine's microsecond clock moves.
+
+  The wrapper and the device at $D480 are core/opl2.c, which is ours.
+
+Verify
+  Fetch bmc64, then:
+      cmp third_party/vice-3.3/src/core/fmopl.c  core/opl2/fmopl.c
+      cmp third_party/vice-3.3/src/core/fmopl.h  core/opl2/fmopl.h

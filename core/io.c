@@ -10,6 +10,7 @@ static int dbg_auto; static uint32_t dbg_auto_next;
 static uint8_t sid_clock_sel;
 #include "vicky.h"
 #include "sid.h"
+#include "opl2.h"
 #include "net.h"
 #include "term.h"
 #include "ui/menu.h"
@@ -1123,6 +1124,7 @@ static uint8_t io_read_inner(uint16_t addr)
     case IO_SID:
         if (addr < IO_FM) return ((addr & 0x1F) < 0x19) ? sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F]
                                                         : sid_read((addr - IO_SID) >> 5, addr & 0x1F);
+        if ((addr - IO_FM) < 3) return opl2_read((uint8_t)(addr - IO_FM));   /* the OPL2: STATUS, data readback, ID */
         return 0xFF;
     case IO_SYS:
         return sys_read(addr & 0xFF);
@@ -1180,6 +1182,7 @@ void io_write(uint16_t addr, uint8_t v)
         vicky_write(addr & 0xFF, v); return;
     case IO_SID:
         if (addr < IO_FM) { sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F] = v; sid_write((addr - IO_SID) >> 5, addr & 0x1F, v); }
+        else if ((addr - IO_FM) < 2) opl2_write((uint8_t)(addr - IO_FM), v);   /* the OPL2: ADDR, DATA */
         return;
     case IO_MATH:
         math_write(addr & 0xFF, v); return;

@@ -22,7 +22,9 @@ static const item_t video_items[] = {
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
 };
-static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME }, { "Active SIDs", MI_SETTING, SET_AUDIO_SIDS } };
+static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
+                                      { "Sound chip", MI_SETTING, SET_AUDIO_CHIP },
+                                      { "Active SIDs", MI_SETTING, SET_AUDIO_SIDS } };
 static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
     { "Menu key",    MI_SETTING, SET_INPUT_MENU_KEY },
@@ -60,7 +62,7 @@ static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
-static const menu_t audio_menu   = { "Audio",   audio_items,   2 };
+static const menu_t audio_menu   = { "Audio",   audio_items,   3 };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, (int)(sizeof machine_items / sizeof machine_items[0]) };   /* was a hard 8: the CPU clock entry never drew */
 static const menu_t shell_menu   = { "Shell",   shell_items,   2 };

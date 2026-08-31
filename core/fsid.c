@@ -21,10 +21,10 @@
 #include "fastsid/fastsid.h"
 
 /* ---- what VICE's fastsid.c reaches for -------------------------------- */
-/* Its CPU clock.  fastsid_read() ages the last store against it to give the
- * register-read behaviour a program can measure, so it has to advance with
- * the chips; fsid_render does that. */
-CLOCK maincpu_clk = 0;
+/* Its CPU clock lives in core/vice_clk.c, shared with the OPL2 and advanced
+ * by core/sid.cc: fastsid_read() ages the last store against it to give the
+ * register-read behaviour a program can measure. */
+#include "vice_clk.h"
 
 static int fsid_filters = 1;             /* the filter emulation: always on */
 static int fsid_model_now = 0;           /* 0 = 6581, 1 = 8580; see fsid_set_model */
@@ -73,7 +73,7 @@ void fsid_set_clock(double sid_hz)
 }
 void fsid_reset(void)
 {
-    maincpu_clk = 0; dcb_x1 = dcb_y1 = 0;
+    dcb_x1 = dcb_y1 = 0;
     memset(shadow, 0, sizeof shadow);
     for (int c = 0; c < K4510_SIDS; c++) if (chip[c]) fastsid_hooks.reset(chip[c], 0);
 }
@@ -142,6 +142,5 @@ int fsid_render(int n, int16_t *out, int max, int nmax, const int *sounding)
         }
         done += want;
     }
-    maincpu_clk += (CLOCK)((double)done * fsid_hz / fsid_rate);
     return done;
 }

@@ -2,6 +2,8 @@
 extern "C" {
 #include "sid.h"
 #include "fsid.h"
+#include "opl2.h"
+#include "vice_clk.h"
 }
 #include <string.h>
 
@@ -12,6 +14,7 @@ static uint8_t shadow[K4510_SIDS][32];           /* every register as last writt
 static int  engine = SID_ENGINE_RESID;
 static int  muted;                               /* the OPL2 has the sound (they are mutually exclusive) */
 static double fast_acc = 0;                      /* FastSID counts SAMPLES, not cycles */
+static double clk_frac = 0;                      /* the microsecond clock's fraction; see clk_advance_us */
 static short carry[K4510_SIDS][8]; static int ncarry[K4510_SIDS];   /* the phase surplus; see sid_render */
 static int  sid_max = K4510_SIDS;                /* the menu caps how many chips are clocked: on the Pi four sounding
                                                     chips are ~3.4 ms of a 16.7 ms frame, so dropping to one buys it back */
@@ -40,6 +43,7 @@ extern "C" void sid_init(double hz, int sample_rate)
         chips[i].reset();
     }
     fsid_init(SID_HZ, rate);
+    opl2_init(rate);
 }
 extern "C" void sid_set_cpu_hz(double hz) { cpu_hz = hz; }   /* the CPU clock changed: same SID clock, different ratio */
 extern "C" void sid_reset(void)
@@ -47,7 +51,7 @@ extern "C" void sid_reset(void)
     sid_acc = 0; fast_acc = 0;
     memset(shadow, 0, sizeof shadow);
     for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; ncarry[i] = 0; }
-    fsid_reset();
+    fsid_reset(); opl2_reset(); vice_clk_reset(); clk_frac = 0;
 }
 extern "C" void sid_write(int c, uint8_t r, uint8_t v)
 {
@@ -105,6 +109,19 @@ extern "C" void sid_set_engine(int e)
  * The fix is to mix only as far as the SHORTEST chip and keep the rest: the
  * surplus goes here and is prepended to that chip's next call.  All four run
  * at one average rate, so a carry never holds more than a sample or two. */
+/* The machine's microsecond clock (core/vice_clk.h) moves with the sound, so
+ * it moves at the same rate whichever engine is rendering and whether the
+ * SIDs are the ones being heard.  Fractions are kept, or the OPL2's timers
+ * would run slow by however much is thrown away each call. */
+static void clk_advance_us(double us)
+{
+    clk_frac += us;
+    uint32_t whole = (uint32_t)clk_frac;
+    if (whole) { clk_frac -= whole; vice_clk_advance(whole); }
+}
+static void clk_advance_cycles(int sid_cycles) { clk_advance_us((double)sid_cycles * K4510_VICE_CLK_HZ / SID_HZ); }
+static void clk_advance_samples(int n)         { clk_advance_us((double)n * K4510_VICE_CLK_HZ / rate); }
+
 extern "C" int sid_render(int cycles, int16_t *out, int max)
 {
     static short tmp[K4510_SIDS][4096];
@@ -114,25 +131,38 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
      * reconciliation below applies to it.  The count comes straight from the
      * CPU cycles, on its own accumulator, so switching engine does not lose
      * or duplicate a fraction of a sample. */
-    if (engine == SID_ENGINE_FAST && !muted) {
+    if ((engine == SID_ENGINE_FAST || muted) && true) {
         int sounding[K4510_SIDS];
         fast_acc += (double)cycles * rate / cpu_hz;
         int want = (int)fast_acc; fast_acc -= want;
         if (want <= 0) return 0;
+        if (want > max) { fast_acc += want - max; want = max; }
+        clk_advance_samples(want);
+        /* Muted means the SIDs are not the ones sounding.  If the OPL2 is what
+         * the machine has instead, it renders here; if nothing is selected the
+         * ring is still fed silence at the device's rate, or the frontend
+         * would top it up for ever. */
+        if (muted) {
+            if (opl2_enabled()) return opl2_render(want, out, max);
+            for (int i = 0; i < want; i++) out[i] = 0;
+            return want;
+        }
         for (int c = 0; c < K4510_SIDS; c++) sounding[c] = active[c] ? 1 : 0;
         return fsid_render(want, out, max, sid_max, sounding);
     }
     sid_acc += (double)cycles * SID_HZ / cpu_hz;
     int sid_cycles = (int)sid_acc; sid_acc -= sid_cycles;
     if (sid_cycles <= 0) return 0;
-    /* Muted: the OPL2 has the sound.  Nothing is clocked -- that is the point
-     * of them being exclusive -- but the ring must still be fed at the rate
-     * the device drains it, or the frontend would top up for ever. */
-    if (muted) {
-        n = (int)((double)sid_cycles * rate / SID_HZ); if (n > max) n = max;
-        for (int i = 0; i < n; i++) out[i] = 0;
-        return n;
-    }
+    /* Never ask for more cycles than `max` samples can hold.  reSID's clock()
+     * fills the buffer and leaves the rest of the cycles in its delta_t, which
+     * this discards -- so an over-long call used to lose sound silently.  The
+     * frontend asks for two samples at a time and never came near it; the
+     * test suite did.  The surplus goes back on the accumulator, so nothing
+     * is lost and nothing is invented. */
+    { int cap = (int)((double)(max < 4096 ? max : 4096) * SID_HZ / rate);
+      if (cap < 1) cap = 1;
+      if (sid_cycles > cap) { sid_acc += sid_cycles - cap; sid_cycles = cap; } }
+    clk_advance_cycles(sid_cycles);
     /* Only chips the machine has written since reset are clocked. reSID costs
      * the same for silence as for sound, and at the prompt -- or in SIDPLAY,
      * which uses one chip -- three of the four are silent: on a Pi 3B+ that
