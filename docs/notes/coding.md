@@ -910,3 +910,27 @@ to describe, and the F7 chapter's Audio menu has two new rows (Sound chip,
 Sound on core 3). There is a new demo, OPL2.PRG. `CREDITS.md`,
 `LICENSES.md` and `THIRD_PARTY_SOURCES.md` were edited by this session —
 flagging that here as the convention asks, since they are shared.
+
+## The Sound chip row was not reaching the machine — 2026-08-30
+
+Doc asked whether the new chips had been compared in the real emulator.
+They had not, and could not have been: `desc[]` in `core/ui/settings.c` is
+indexed by `set_id`, `SET_AUDIO_CORE3` went into the enum above
+`SET_AUDIO_CHIP` and into the table below it, and the two swapped in
+silence. The machine stayed on reSID whatever the menu said. Fixed, and
+`test/uitest` leg 6 now walks every id the frontend acts on against the key
+it is supposed to name.
+
+Measured properly (ubuntu-s1, dummy drivers, 300 frames, no gaps in any):
+
+| chip | program | clock | SID render | the machine |
+|---|---|---|---|---|
+| reSID | SID12 | 30 MHz | 1.226 ms | 5.206 ms |
+| FastSID | SID12 | 30 MHz | **0.142 ms** | 4.606 ms |
+| OPL2 | OPL2 | 30 MHz | 0.300 ms | 5.358 ms |
+| reSID | OPL2 | 30 MHz | 0.055 ms | 5.271 ms (control) |
+| reSID | SID12 | 15 MHz | 1.593 ms | 4.781 ms |
+| FastSID | SID12 | 15 MHz | **0.188 ms** | 3.794 ms |
+
+**For the handbook agent:** if any figure or number about sound cost was
+taken from this session's earlier notes, it was wrong — use these.
