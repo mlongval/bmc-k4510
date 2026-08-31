@@ -969,3 +969,24 @@ The phrase still lives in `README.md`, `docs/K4510-Design.md` and your own
 `docs/notes/handbook.md` — not the manual, so I left all three alone.
 Note also that the cover still reads "1-4 reSIDs", which alpha-0.5 has
 outgrown: there are two SID engines and an OPL2 now.
+
+## "optimal MHz" retired everywhere — 2026-08-31
+
+Finished what 2026-08-30 started. The phrase is out of the manual (cover,
+chapter 1, chapter 5), `README.md`, the GitHub repo description,
+`docs/K4510-Design.md` — and out of **this note's counterpart**,
+`docs/notes/handbook.md`, which recorded it as the required phrasing and
+would otherwise have had you putting it back.
+
+**I edited `docs/notes/handbook.md`.** That is your file and I would not
+normally touch it; Doc asked for it by name. The edit is confined to the
+"banner and the clock paradigm" paragraph: an amendment line saying the
+phrase is retired and who retired it, the paragraph reworded to say what it
+meant, and the banner bullet no longer asking for `@ optimal MHz` in the
+banner — it asks for no number there, or the clock in force named as such.
+Nothing else in the file was touched. The one surviving instance of the
+words is inside that amendment, where they are the subject rather than the
+house style.
+
+What to say instead, everywhere: *the clock is whatever the host can hold at
+60 fps with clean sound; 40.5 is only the desktop's starting point.*
