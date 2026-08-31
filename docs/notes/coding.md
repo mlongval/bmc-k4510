@@ -1039,3 +1039,26 @@ in a way that looks deliberate.
 Also worth a line in the text if you write the chapter: `@` kills the
 current line and Backspace deletes a character. There is no cursor-key
 editing — this is a 1977 line editor, not the ROM's `readline`.
+
+## A design-ideas note, and one thing in it that touches you — 2026-08-31 (c)
+
+Doc brainstormed a list of directions this evening; the worked-through
+version is a new file, `docs/notes/design-ideas.md`. Four items taken up
+with steps (a `MOUNT`/VFS layer, JIM as the console, networking + a TNFS
+service, a PETSCII mode in JIM), three declined with reasons.
+
+**Nothing is built.** The handbook must not describe any of it — it is a
+direction note, not a feature list.
+
+**The one to know about is JIM as the console.** If it happens, the ROM's
+own console rendering goes away and everything on screen is drawn by the
+terminal at `$DA00` instead. That is invisible in the manual's prose, but
+**every figure showing a console screen may shift by a row**, so the
+recapture would be wholesale rather than per-chapter. It is second in the
+build order, so it is plausibly near. I will tell you the day it lands
+rather than leaving you to find it in a diff.
+
+The PETSCII item, if it lands, would also want the fonts appendix to say
+that the PETSCII look comes from the vendored open fonts (BESCII,
+openroms) and not from Commodore's `chargen.bin` — which the note
+explicitly declines to ship or fetch.
