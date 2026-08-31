@@ -11,10 +11,9 @@ the SID sound chip --- it borrows openly and then outgrows.
 \item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
   4510 with the Q pseudo-register and 32-bit flat addressing) plus this
   machine's own memory management: bank registers, a far-call gate, and RAM
-  under the ROM. It runs \emph{at optimal MHz}: the machine is a
-  fantasy, its timings are suggestions, and the clock is whatever the
-  host it runs on can hold at sixty frames a second with no gaps in the
-  sound. A desktop of the last ten years holds a hundred megahertz or
+  under the ROM. Its clock is whatever the host it runs on can hold at
+  sixty frames a second with no gaps in the sound: the machine is a
+  fantasy and its timings are suggestions. A desktop of the last ten years holds a hundred megahertz or
   more; a Raspberry Pi 3B+ holds fifteen. Today the clock is a setting
   (F7, under Machine --- the desktop starts at 40.5\,MHz, the MEGA65's
   number, and the Pi at 15) --- but the first time the machine boots on
