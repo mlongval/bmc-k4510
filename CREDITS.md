@@ -108,8 +108,8 @@ build.
 - **Commodore** — the other half of the machine's soul: PETSCII,
   SIDs, and the 8-bit line from PET to C65.
 - **Michael Steil** — [msbasic](https://github.com/mist64/msbasic),
-  and **Microsoft** for the 2025 MIT release of 6502 BASIC v1.1
-  (planned: the machine's next native BASIC).
+  and **Microsoft** for the 2025 MIT release of 6502 BASIC v1.1.
+  The machine's second native BASIC runs on it.
 - **The VICE team** — decades of emulation scholarship this project
   leans on constantly.
 - **Kim Lemon** and the Lemoners — [Lemon64](https://www.lemon64.com)

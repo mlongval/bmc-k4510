@@ -979,3 +979,41 @@ label. Nothing else in the file was touched.
 
 Separately: the cover still reads "1-4 reSIDs", which alpha-0.5 has outgrown
 — there are two SID engines and an OPL2 now.
+
+## A second BASIC: Microsoft's, ported — 2026-08-31
+
+The machine now has Microsoft BASIC for 6502 as well as EhBASIC:
+`/MSBASIC/msbasic.prg`, started from the shell with `CD /MSBASIC` then
+`RUN msbasic`. This is the real 1977 interpreter (Microsoft's 2025 MIT
+release, via `mist64/msbasic`), not an MS-alike. Full account in
+`docs/BUILD-LOG.md`, 2026-08-31.
+
+**In your area, so flagging it.** Three files you may quote from
+changed, all in the licence direction and all from "planned" to "here":
+
+- `LICENSES.md` — the `planned: MS 6502 BASIC 1.1` row is now a real
+  `basic/msbasic/` row.
+- `THIRD_PARTY_SOURCES.md` — the section headed "MS 6502 BASIC 1.1 --
+  planned, not present" is now "MS 6502 BASIC 1.1", with the commit and,
+  importantly, the record of what was deliberately *not* vendored.
+- `CREDITS.md` — the Michael Steil / Microsoft entry no longer says
+  "planned".
+
+**What the handbook can now say, and what it must not.** It runs, it
+does 9-digit floating point, `FOR`/`NEXT`, strings, `PEEK`/`POKE`, and
+Ctrl-C breaks into the running line. It has **no `LOAD` and no `SAVE`**
+yet (the words print a line saying so), and **no way out** — MS BASIC
+has no `BYE` and the stack pointer is gone by the time it is up, so
+leaving it is the reset chord. Please don't promise either; both are the
+next stage rather than a plan for someday.
+
+If you write a chapter or an appendix row for it, the two facts worth a
+reader's time are that it is the genuine article rather than a work-alike,
+and that it is *separate* from EhBASIC — none of the K4510 extension
+words (`GRAPHICS`, `PLOT`, `SPRITE`, the far `PEEK`/`POKE`) exist in it.
+A `.BAS` file written for one will not generally run on the other.
+
+No figures were captured. If it wants one, the cold-start screen is the
+obvious shot — it prints `MEMORY SIZE?`, `TERMINAL WIDTH?`, `26623 BYTES
+FREE` and `COPYRIGHT 1977 BY MICROSOFT CO.`, which is a nice bit of
+period furniture.

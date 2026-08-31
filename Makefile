@@ -31,7 +31,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/opl2.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/opl2.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -145,10 +145,10 @@ test/sidtest: test/sidtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg
-	@git diff --quiet -- fs/PRG fs/EHBASIC || { \
+check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg
+	@git diff --quiet -- fs/PRG fs/EHBASIC fs/MSBASIC || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
-	  git diff --name-only -- fs/PRG fs/EHBASIC | sed 's/^/  /'; \
+	  git diff --name-only -- fs/PRG fs/EHBASIC fs/MSBASIC | sed 's/^/  /'; \
 	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
@@ -167,6 +167,7 @@ test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/wozt
 	./test/statetest
 	./test/pastest.sh
 	./test/basictest.sh
+	./test/msbasictest.sh
 	./test/romtest
 	./test/mathtest
 	./test/rangertest.sh
@@ -242,6 +243,14 @@ fs/PRG/sidplay.prg: demo/sidplay.c demo/sidplay0.s demo/sidplay-header.s demo/si
 	ca65 --cpu 65c02 -o demo/sidplay_h.o demo/sidplay-header.s
 	ld65 -C demo/sidplay.cfg -o $@ demo/sidplay0.o demo/romcalls.o demo/sidplay_c.o demo/sidplay_h.o none.lib -m demo/sidplay.map
 
+# Microsoft BASIC for 6502 as a .prg at $7000 (msbasic/: mist64's ca65
+# reconstruction of Microsoft's MIT source release, vendored unmodified --
+# only the files a pure-MS configuration assembles; basic/k4510msbasic.asm
+# is the whole K4510 port: config, console glue, .prg header)
+fs/MSBASIC/msbasic.prg: basic/k4510msbasic.asm basic/msbasic.cfg $(wildcard basic/msbasic/*.s)
+	ca65 -I basic/msbasic -o basic/k4510msbasic.o basic/k4510msbasic.asm
+	ld65 -C basic/msbasic.cfg -o $@ basic/k4510msbasic.o
+
 fs/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg
 	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
 	ld65 -C basic/basic.cfg -o $@ basic/k4510basic.o
@@ -287,5 +296,5 @@ tubetest: test/tubetest rom/kernal.bin
 cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 
-demos: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/FORTH/forth.prg
+demos: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg
 .PHONY: demos

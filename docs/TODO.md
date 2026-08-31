@@ -39,8 +39,38 @@ strike through or delete; when the file is empty, delete it.
       RAM but loses the registers, zero page and the sideways banks (see
       `docs/BUILD-LOG.md`, 2026-08-29).
 - [ ] **User banks** — document the convention: sideways banks 3-15 are
-      user RAM banks; the ROM never claims above bank 2.  (msbasic is
-      the penciled first tenant of bank 3.)
+      user RAM banks; the ROM never claims above bank 2.  (msbasic was
+      the penciled first tenant of bank 3; it landed as a plain `.prg`
+      at $7000 instead — see below — so bank 3 is still unclaimed.)
+
+## MS BASIC — the stages after the port (2026-08-31)
+
+Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
+2026-08-31).  What it still owes, roughly in the order it should be paid:
+
+- [ ] **LOAD and SAVE.**  The words currently print "NOT YET ON THIS
+      BASIC".  The ROM has both at $FF89/$FF8C (name pointer $F0/$F1,
+      28-bit address $F2..$F5, length $F6..$F9), so this is contained;
+      the BASIC side is `TXTTAB`/`VARTAB` and `FIX_LINKS`, and the OEM
+      `*_loadsave.s` files upstream are worked examples.
+- [ ] **A way out.**  There is none: MS BASIC has no `BYE`, and
+      `COLD_START` resets the stack pointer before BASIC is up, so the
+      shell's frame is gone and the reset chord is the only exit.  The
+      designed hook is `USR` — 1977's own vendor escape — which needs a
+      patch applied *after* init has pointed it at `IQERR`.
+- [ ] **The K4510 words.**  `GRAPHICS`, `PLOT`, `LINE`, `TRI`,
+      `PALETTE`, `SPRITE`, the far `PEEK`/`POKE`, the shell escape.
+      ~1,850 lines of them exist for EhBASIC (`basic/k4510*.asm`) and
+      none of it transfers mechanically: it is written against
+      EhBASIC's expression evaluator and token table.  This is the big
+      one, and it is what the 2026-08-24 decision was actually aiming at
+      (BASIC65-style `BANK` / 28-bit `PEEK`-`POKE` / DMA tokens in code
+      we fully own).
+- [ ] **More program RAM, free.**  The image sits at $7000 because that
+      is where EhBASIC's is documented to sit, leaving $9000-$CFFF
+      unused.  Raising it is one number in `basic/msbasic.cfg` plus the
+      matching `MEMTOP` and the canned `MEMORY SIZE?` answer in
+      `basic/k4510msbasic.asm` — those three must move together.
 - [ ] **Parked — a SUPERMON kernal** (Doc's idea, 2026-08-29).  A
       boot-selectable monitor image, for when the kernal will not reach a
       prompt: SUPERMON rather than Wozmon, because resident `MON` already

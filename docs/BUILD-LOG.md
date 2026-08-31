@@ -5509,3 +5509,81 @@ listening to. The profile that said 0.041 ms was taken with no chip
 sounding. Doc's "there is something you are missing" was worth more than
 either reading, and the way to honour it was `fs/STARTUP.BAT` with
 `SID12` in it and a counter in the mix.
+
+## 2026-08-31 — MS BASIC arrives: the 1977 interpreter, ported
+
+The decision of 2026-08-24 finally gets its code. Microsoft's 6502
+BASIC — the real one, not an MS-alike — now runs on the machine as
+`/MSBASIC/msbasic.prg`, beside EhBASIC rather than in place of it.
+
+**What was vendored, and what was not.** `basic/msbasic/` is
+`mist64/msbasic` at `2a0bc2f`, unmodified — but only the files a
+*pure-Microsoft* configuration assembles. The OEM material stayed
+upstream: `orig/*.bin` (the original Commodore, Apple, AIM-65 and
+MicroTAN ROM images), the per-machine `defines_*.s`, and the OEM
+`ISCNTC`/`LOAD`/`SAVE`/`EXTRA` reconstructions. This is exactly the
+line the licence research drew: Microsoft's 2025 release is MIT and a
+pure-MS build rests on it alone, while a byte-exact OEM ROM rebuild
+would rest on something murkier. The licence table's "planned" row is
+now a real one.
+
+Nothing inside `basic/msbasic/` is edited, and that turned out to cost
+nothing. `iscntc.s` includes `cbm_iscntc.s` — an empty file — for every
+configuration that is not `CONFIG_CBM_ALL`, and `loadsave.s` and
+`extra.s` emit nothing at all when no OEM flag is set. So a machine that
+defines none of the nine OEM symbols simply gets holes where the OEM
+code would be, and `basic/k4510msbasic.asm` fills them from outside.
+That file is the whole port: the configuration block that
+`defines_<machine>.s` would be, the console glue, and the `.prg` header.
+
+**The configuration is `CONFIG_2C`** — the newest Microsoft base in the
+tree, 9-digit floating point, every bugfix through 2C, and none of the
+OEM additions. Three things were deliberately left off, and the reasons
+are in the file: `CONFIG_ROR_WORKAROUND` (the workaround is for the
+broken `ROR` of the 1975/76 6502s; the 45GS02's works),
+`CONFIG_MONCOUT_DESTROYS_Y` (cheaper to preserve Y in our stub than to
+make BASIC save it at every call site), and `CONFIG_PRINT_CR` — BASIC
+would emit a CR on reaching the last column, but `k_chrout` already
+wraps at `COLS`, so setting it would double-space every full line.
+
+**Two things the port had to solve.**
+
+*The newline.* `k_chrout` makes a full newline of CR **and** of LF
+(`rom/kernal.c`), and BASIC ends every line with the pair. `MONCOUT`
+therefore swallows LF, which is what EhBASIC's glue has always done for
+the same reason.
+
+*"MEMORY SIZE?"* A pure-MS cold start asks where memory ends, and if you
+answer with an empty line it finds out by walking RAM upwards, probing.
+That walk would march straight through the image at $7000. The fix is
+not a fork of `init.s` but a canned answer: while a flag is set,
+`MONRDKEY` returns bytes from a string instead of the keyboard —
+`28672`, then `80` for the `TERMINAL WIDTH?` that `CONFIG_2C` asks next.
+Six lines, no vendored file touched, and it uses BASIC's own documented
+input path.
+
+Ctrl-C is the keyboard queue's break flag at `$D103`, the same trick
+EhBASIC's `k4510_cc` uses: a key typed while a program runs is not lost
+the way polling the queue would lose it. `ISCNTC` cannot fall into
+`STOP` from outside the vendored tree, so it sets Z and C and jumps
+there instead — the flags the OEM versions fall through with.
+
+**What it is not, yet.** There is no `LOAD` or `SAVE` — the ROM has both
+at `$FF89`/`$FF8C` and wiring them is a contained job, but it is the next
+one; for now the words print a line saying so rather than raising a
+misleading `?SYNTAX ERROR`. There is no way out either: MS BASIC has no
+`BYE`, and `COLD_START` has reset the stack pointer before BASIC is up,
+so the shell's frame is gone. The reset chord, for now. The designed
+exit is `USR` — 1977's own vendor hook — which needs a patch applied
+after init has pointed it at `IQERR`.
+
+Typed lower case is folded up, as in EhBASIC: the 1977 tokenizer knows
+only upper-case keywords.
+
+8,570 bytes at $7000-$9175, 26,623 bytes free for programs. The image
+sits where EhBASIC's is documented to sit, which leaves $9000-$CFFF
+unused — raising the load address is free program RAM whenever it is
+wanted, and costs one number in `basic/msbasic.cfg` and the matching
+`MEMTOP`. `test/msbasictest.sh` drives it from the shell the way a user
+would and checks the cold start, `FOR`/`NEXT`, 9-digit `SQR`, strings,
+case folding and the Ctrl-C break; it is in `make test`.
