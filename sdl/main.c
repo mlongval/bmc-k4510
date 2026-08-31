@@ -27,9 +27,26 @@
 #define SCALE 2
 #define AUDIO_RATE 48000
 
-/* Audio: core renders into a ring per scanline; SDL drains it in its thread. */
+/* Audio: core renders into a ring per scanline; SDL drains it in its thread.
+ *
+ * RING_TARGET is the lead the ring is kept at -- one callback, plus a frame,
+ * so a late frame does not starve the device.  RING_CAP is the other side of
+ * it, and it was missing: the writers would fill to RING_MASK, 683 ms, and
+ * anything that made the machine produce sound slightly faster than the
+ * device consumed it walked the lead up there and stayed.  Four sounding
+ * SIDs did exactly that (see core/sid.cc): SID12 went from 56 ms of lead to
+ * 226 ms in 38 seconds and was still climbing.  The chips are clocked either
+ * way -- pitch is theirs and does not move -- but past the cap the samples
+ * are let go, so the lead cannot drift late however the two rates disagree. */
 static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
 #define RING_MASK ((1 << 15) - 1)
+#ifdef K4510_PI
+#define RING_TARGET (1536 + 800)          /* the Pi's device runway is longer */
+#else
+#define RING_TARGET (1024 + 800)          /* one callback, plus a frame */
+#endif
+#define RING_CAP    (RING_TARGET + 800)   /* a frame of slack above the lead */
+#define RING_DEPTH  ((ring_w - ring_h) & RING_MASK)
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
@@ -318,6 +335,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     int running = 1;
     int paused = 0;                                 /* F8: freeze the machine with the screen still showing (unless F8 is the menu key) */
     int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
+    const int ring_log = getenv("K4510_RINGLOG") != NULL;
     /* the governor's window: how long the machine's own half of the frame has
      * been costing, and how many callbacks ran dry, since it last decided */
     Uint64 gov_t0 = 0, gov_mach = 0; unsigned gov_frames = 0, gaps_seen = 0;
@@ -525,7 +543,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 vicky_line(y);
                 Uint64 t2 = PCLK();
                 { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
-                  for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
+                  for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
                 Uint64 t3 = PCLK();
                 p_cpu += t1 - t0; p_vic += t2 - t1; p_sid += t3 - t2;
 #ifdef K4510_PI
@@ -537,9 +555,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                  * whatever the frame rate. */
                 if ((y & 127) == 127) {
                     int vol_ = settings_get(SET_AUDIO_VOLUME); int guard_ = 1024;
-                    while (((ring_w - ring_h) & RING_MASK) < 1536 + 800 && guard_--) {
+                    while (RING_DEPTH < RING_TARGET && guard_--) {
                         int16_t t_[256]; int n_ = sid_render(CYCLES_PER_LINE, t_, 256);
-                        for (int i = 0; i < n_; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(t_[i] * vol_ / 100);
+                        for (int i = 0; i < n_; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(t_[i] * vol_ / 100);
                     }
                     SDL_PumpEvents();
                 }
@@ -560,21 +578,24 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * machine ran -- frozen under the menu, it is silent, as before. */
         if ((!open && !paused) || mode_pending) {
             int vol = settings_get(SET_AUDIO_VOLUME);
-#ifdef K4510_PI
-            const unsigned target = 1536 + 800;               /* the lead, plus a frame */
-#else
-            const unsigned target = 1024 + 800;               /* one callback, plus a frame */
-#endif
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
-            while (((ring_w - ring_h) & RING_MASK) < target && guard--) {
+            while (RING_DEPTH < RING_TARGET && guard--) {
                 int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
-                for (int i = 0; i < n; i++) if (((ring_w - ring_h) & RING_MASK) < RING_MASK) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
+                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
                 if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);
             }
         }
         { Uint64 d = SDL_GetPerformanceCounter() - p_a; p_mach += d; gov_mach += d; gov_frames++; }
+        /* K4510_RINGLOG=1: the audio lead, every two seconds, on stderr.  A
+         * lead that climbs is sound arriving later and later behind the
+         * picture; one that sits at zero with the gap count rising is sound
+         * the device asked for and did not get.  The two faults look alike
+         * from the chair and not at all alike here. */
+        if (ring_log) { static Uint32 rt; if (SDL_GetTicks() - rt >= 2000) { rt = SDL_GetTicks();
+            fprintf(stderr, "ring: lead %u samples (%.0f ms), gaps %u, %.1f MHz\n", RING_DEPTH,
+                    RING_DEPTH * 1000.0 / AUDIO_RATE, io_audio_gaps, settings_cpu_hz() / 1e6); } }
         /* what the menu asked for */
         { int act = menu_take_action();
           if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }
