@@ -35,6 +35,12 @@ static const set_desc desc[SET_COUNT] = {
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four */
     { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 3, SF_LIVE },   /* 0 reSID, 1 FastSID, 2 OPL2 */
+    /* The Pi's core 3 holds the Tube and is asleep until the ROM runs BBC or
+     * CPM, which on most sessions is never; the sound can have it until then.
+     * Off by default: it moves the audio path onto another core, and that is
+     * not a thing to turn on for someone without their asking.  The desktop
+     * has no core to give it to and ignores the row. */
+    { "audio.core3",         "Sound on core 3",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */

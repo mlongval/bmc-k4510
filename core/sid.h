@@ -21,6 +21,7 @@ void sid_set_max(int n);      /* clock/mix only the first n chips: the Machine m
 void sid_set_engine(int e);   /* SID_ENGINE_RESID or SID_ENGINE_FAST */
 int  sid_get_engine(void);
 void sid_set_mute(int mute);  /* the OPL2 has the sound: clock nothing, mix silence */
+void sid_drain_to(uint32_t us);  /* the rendering core: perform every queued write due by then (core/sidq.h) */
 #ifdef __cplusplus
 }
 #endif

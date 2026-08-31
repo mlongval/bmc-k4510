@@ -23,6 +23,7 @@ typedef enum {
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_AUDIO_SIDS,          /* ENUM how many of the four SIDs are clocked (1-4); fewer = cheaper, esp. on the Pi */
+    SET_AUDIO_CORE3,         /* BOOL Pi only: render the sound on core 3 while the Tube is idle */
     SET_AUDIO_CHIP,          /* ENUM which sound chip has the machine: reSID, FastSID, OPL2.  ONE row, because
                               * all three are mutually exclusive and a single value cannot reach an illegal
                               * state -- two toggles policing each other can, and would. */

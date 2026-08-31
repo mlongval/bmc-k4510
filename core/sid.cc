@@ -4,6 +4,7 @@ extern "C" {
 #include "fsid.h"
 #include "opl2.h"
 #include "vice_clk.h"
+#include "sidq.h"
 }
 #include <string.h>
 
@@ -51,14 +52,27 @@ extern "C" void sid_reset(void)
     sid_acc = 0; fast_acc = 0;
     memset(shadow, 0, sizeof shadow);
     for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; ncarry[i] = 0; }
-    fsid_reset(); opl2_reset(); vice_clk_reset(); clk_frac = 0;
+    fsid_reset(); opl2_reset(); vice_clk_reset(); clk_frac = 0; sidq_reset();
+}
+/* The write, once it is the rendering side's turn to perform it. */
+static void sid_apply(int c, uint8_t r, uint8_t v)
+{
+    active[c] = true;
+    if (engine == SID_ENGINE_FAST) fsid_write(c, (uint8_t)(r & 0x1F), v);
+    else chips[c].write(r & 0x1F, v);
 }
 extern "C" void sid_write(int c, uint8_t r, uint8_t v)
 {
     if (c < 0 || c >= K4510_SIDS) return;
-    shadow[c][r & 0x1F] = v; active[c] = true;
-    if (engine == SID_ENGINE_FAST) fsid_write(c, r, v); else chips[c].write(r & 0x1F, v);
+    shadow[c][r & 0x1F] = v;
+    /* Another core has the sound: the write is queued with the moment it
+     * happened and performed there.  If the queue is full that core has
+     * stopped, so it is written through instead -- wrong sound beats none. */
+    if (sidq_owner() != SIDQ_OWNER_CPU && sidq_push((uint8_t)c, (uint8_t)(r & 0x1F), v)) return;
+    sid_apply(c, (uint8_t)(r & 0x1F), v);
 }
+/* The rendering core, before each block: perform everything due by now. */
+extern "C" void sid_drain_to(uint32_t us) { sidq_drain(us, sid_apply); }
 extern "C" uint8_t sid_read(int c, uint8_t r)
 {
     if (c < 0 || c >= K4510_SIDS) return 0xFF;

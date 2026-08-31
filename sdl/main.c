@@ -16,6 +16,7 @@
 #include "../core/build.h"   /* K4510_BUILD, for the frame profile */
 #include "../core/sid.h"
 #include "../core/opl2.h"
+#include "../core/sidq.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
 #include "../core/calib.h"
@@ -81,6 +82,22 @@ static int clock_step_below(int cur)
     return best;
 }
 #define CYCLES_PER_LINE  cycles_per_line
+/* Another core, while it owns the sound (core/sidq.h): the same top-up the
+ * frame loop does, with the queued register writes performed as it passes
+ * their moment.  It is the only writer of the ring while it owns it, which is
+ * what makes the ring's single-producer rule hold across the handover. */
+void k4510_audio_pump(void)
+{
+    int vol = settings_get(SET_AUDIO_VOLUME), guard = 4096;
+    while (RING_DEPTH < RING_TARGET && guard--) {
+        int16_t tmp[256];
+        sid_drain_to(sidq_now());
+        int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+        for (int i = 0; i < n; i++)
+            if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
+    }
+}
+
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
 {
@@ -543,6 +560,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 Uint64 t1 = PCLK();
                 vicky_line(y);
                 Uint64 t2 = PCLK();
+                /* The audio clock the SID writes are stamped with: one
+                 * scanline of it, whoever is rendering.  See core/sidq.h. */
+                sidq_tick(1000000u / (60u * VICKY_HEIGHT));
+                if (sidq_owner() == SIDQ_OWNER_CPU)
                 { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
                   for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
                 Uint64 t3 = PCLK();
@@ -577,7 +598,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * Pitch is the SID clock's and does not move; a slow frame sustains a
          * note a fraction longer instead of cutting it.  Only after a frame the
          * machine ran -- frozen under the menu, it is silent, as before. */
-        if ((!open && !paused) || mode_pending) {
+        if (((!open && !paused) || mode_pending) && sidq_owner() == SIDQ_OWNER_CPU) {
             int vol = settings_get(SET_AUDIO_VOLUME);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
@@ -623,6 +644,17 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             fprintf(stderr, "clock: SETUP measured this machine at %.1f MHz; kept\n", settings_cpu_hz() / 1e6);
         }
         if (menu_closed_pending()) {
+            /* Sound on core 3: the handover happens here, at a menu close --
+             * a moment the machine is already stopped.  menu_closed_pending()
+             * is ONE-SHOT, so this has to live inside the same test as
+             * everything else that acts on a close, not beside it.
+             * The desktop has no second core to give the sound to and is not
+             * asked: the request would spin out its whole bound for nothing,
+             * which the person who opened the menu would feel. */
+#ifdef K4510_PI
+            { int want3 = settings_get(SET_AUDIO_CORE3) ? SIDQ_OWNER_OTHER : SIDQ_OWNER_CPU;
+              if (sidq_owner() != want3) sidq_request(want3); }
+#endif
             if (clock_at_open >= 0 && settings_get(SET_CPU_CLOCK) != clock_at_open && settings_get(SET_CPU_AUTO))
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
             clock_at_open = -1;
