@@ -2,6 +2,10 @@
 test/cputest
 sdl/k4510
 /k4510
+# experimental rebuilds of the emulator kept beside the normal one, so a
+# machine can run two and compare (hdieu, 2026-08-31: -O3 -ffast-math)
+sdl/k4510-o3fast
+/k4510-o3fast
 rom/*.bin
 rom/*.lst
 test/maptest
