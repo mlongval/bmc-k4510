@@ -45,14 +45,25 @@ strike through or delete; when the file is empty, delete it.
 
 ## JIM, the console (2026-08-31)
 
-- [ ] **PETSCII's graphics half.**  `pet_glyph()` in `core/term.c` does the
-      textbook PETSCII -> screen code arithmetic ($A0-$BF minus $40, $C0-$FF
-      minus $80) and it lands on letters, not graphics, even with the
-      open-roms chargen selected.  So the mapping disagrees with the actual
-      layout of the chargen the machine loads.  Work out which, rather than
-      guessing: dump the chargen and look.  The control codes, colours,
-      reverse and cursor codes are all correct and tested; this is the one
-      loose corner.  `PETSCII.PRG` says so on screen.
+- [x] ~~**PETSCII's graphics half**~~ — done 2026-08-31.  The cause was that
+      the machine's font is *always* ASCII/CP437-ordered: a 4096-byte chargen
+      is permuted on the way in by `petscii_to_ascii()` (`sdl/main.c`), so
+      there is no screen-code-ordered font to index and the textbook
+      PETSCII -> screen code arithmetic could only ever land on letters.
+      `pet_glyph()` maps onto CP437 instead; the line-drawing set is exact,
+      because the same loader lifts those glyphs into their CP437 positions.
+- [ ] **PETSCII's *full* graphics set.**  The diagonals, quarter-blocks and
+      card suits have no glyph at any code in an ASCII-ordered font, so they
+      render as spaces.  Giving PETSCII the real repertoire means loading a
+      chargen a second time, unpermuted, and switching the font with the mode
+      — which is a clean design (a PETSCII mode that uses the PETSCII font)
+      but touches the Pi's font path as well as the desktop's.
+- [ ] **A PET chargen as a screen font.**  VICE's PET chargen is 2048 bytes,
+      two sets of 128, where the C64's is 4096, two sets of 256.  `apply_font`
+      only permutes at 4096 and `memcpy`s anything else straight in as an
+      ASCII-ordered font, so a PET chargen currently renders every letter
+      wrong.  It needs its own permutation and its own menu entry — size
+      cannot distinguish it from a plain 8x8 font.
 - [ ] **The cursor.**  JIM can blink its own (`FLAGS` bit 0) but the ROM
       still draws one, so `draw_cursor` and the `k_getin` workaround for the
       two of them are both still there.  Handing it over is where that whole

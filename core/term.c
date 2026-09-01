@@ -318,22 +318,68 @@ static int pet_colour(uint8_t c)          /* -> index into pet_col, or -1 */
     }
 }
 /* PETSCII -> the code the text32 renderer looks the glyph up by.
- * $20-$5F and $60-$7F are left alone: there they agree with ASCII closely enough
- * that the machine's own font shows readable text.  The graphics halves ($A0-$BF,
- * $C0-$FF) become screen codes, which only look right with a PETSCII chargen
- * selected (F7 -> Screen font: BESCII, or a chargen.bin you supplied).  With the
- * ASCII font they are wrong glyphs rather than blanks, and that is the honest
- * behaviour: the mode is doing its job, the font is not a PETSCII one. */
-static uint8_t pet_glyph(uint8_t c)
+ *
+ * NOT a screen code.  The machine's font is always ASCII/CP437-ordered: a
+ * 4096-byte chargen is permuted into ASCII order on the way in
+ * (petscii_to_ascii() in sdl/main.c), so there is no screen-code-ordered font
+ * in RAM to index.  An earlier version of this did the textbook PETSCII ->
+ * screen code arithmetic and rendered letters where graphics belonged, which
+ * is exactly what that mistake looks like.
+ *
+ * So: letters and punctuation land on their ASCII codes, and the line-drawing
+ * half lands on CP437 -- which the machine really does have, because the same
+ * chargen loader lifts those glyphs out of the PETSCII set into their CP437
+ * positions.  The PETSCII codes below are the pairs of that table.
+ *
+ * What is NOT here: the rest of PETSCII's graphics repertoire (the diagonals,
+ * the quarter-blocks, the card suits).  The machine's font has no glyph at any
+ * code for them, so they come out as spaces rather than as some other
+ * character that happens to live there.  Giving PETSCII its full set means
+ * loading the chargen a second time in screen-code order and switching to it
+ * with the mode -- see docs/TODO.md. */
+static uint8_t pet_gfx(uint8_t g)          /* g = the code within a graphics range, 0x40-0x7F */
 {
-    if (c >= 0xA0 && c <= 0xBF) return (uint8_t)(c - 0x40);
-    if (c >= 0xC0)              return (uint8_t)(c - 0x80);
-    return c;
+    switch (g) {
+    case 0x40: return 0xC4;   /* horizontal   */
+    case 0x5D: return 0xB3;   /* vertical     */
+    case 0x70: return 0xDA;   /* top left     */
+    case 0x6E: return 0xBF;   /* top right    */
+    case 0x6D: return 0xC0;   /* bottom left  */
+    case 0x7D: return 0xD9;   /* bottom right */
+    case 0x6B: return 0xC3;   /* tee right    */
+    case 0x73: return 0xB4;   /* tee left     */
+    case 0x5B: return 0xC5;   /* cross        */
+    case 0x71: return 0xC1;   /* tee up       */
+    case 0x72: return 0xC2;   /* tee down     */
+    case 0x66: return 0xB1;   /* shaded block */
+    default:   return ' ';    /* no glyph in this font: a space, not a lie */
+    }
+}
+static uint8_t pet_glyph(uint8_t c, uint8_t lower)
+{
+    if (c >= 0x20 && c <= 0x3F) return c;                       /* space, digits, punctuation */
+    if (c == 0x40) return '@';
+    if (c >= 0x41 && c <= 0x5A)                                 /* the case sets: $0E / $8E */
+        return lower ? (uint8_t)(c + 0x20) : c;
+    if (c >= 0xC1 && c <= 0xDA)                                 /* the other half of the pair */
+        return lower ? (uint8_t)(c - 0x80) : (uint8_t)(c - 0xA0);
+    switch (c) {
+    case 0x5B: return '[';  case 0x5D: return ']';
+    case 0x5C: return 0x9C;                                     /* pound, CP437 */
+    case 0x5E: return 0x18;                                     /* up arrow    */
+    case 0x5F: return 0x1B;                                     /* left arrow  */
+    case 0xA0: return ' ';                                      /* shifted space */
+    default: break;
+    }
+    if (c >= 0x60 && c <= 0x7F) return pet_gfx(c);
+    if (c >= 0xA0 && c <= 0xBF) return pet_gfx((uint8_t)(c - 0x40));
+    if (c >= 0xC0)              return pet_gfx((uint8_t)(c - 0x80));
+    return ' ';
 }
 static void pet_byte(uint8_t c)
 {
     int col, y;
-    if (c >= 0x20 && c != 0x7F && !(c >= 0x80 && c <= 0x9F) && c != 0xA0) { print_char(pet_glyph(c)); return; }
+    if (c >= 0x20 && c != 0x7F && !(c >= 0x80 && c <= 0x9F)) { print_char(pet_glyph(c, T.pet_lower)); return; }
     if ((col = pet_colour(c)) >= 0) { T.fg = (uint8_t) pet_col[col]; return; }
     switch (c) {
     case 0x93: for (y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1);

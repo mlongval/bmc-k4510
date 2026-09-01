@@ -1088,15 +1088,24 @@ somewhere, because a reader can use them:
   `PETSCII.PRG` demonstrates it.
 
 Two new demos, `fs/PRG/ansidemo.prg` and `fs/PRG/petscii.prg`, one per mode.
-If you want figures they are the obvious ones — **but not the PETSCII demo's
-graphics rows.** Correction to what I wrote an hour ago: I said those rows
-need BESCII selected. That was wrong twice over. BESCII is vendored as a TTF
-and is not one of the Screen font menu's entries at all (they are kernel8,
-unscii, open-roms, PXLfont, C64 chargen, then the ZX set); and with
-**open-roms** selected the rows still come out as letters, so the
-PETSCII -> screen code mapping does not match the chargen's layout. That
-corner is unfinished, it is now `docs/TODO.md`, and the demo says so on its
-own screen. Do not photograph it as a feature.
+If you want figures they are the obvious ones, and the PETSCII one is now
+worth photographing — but read this first, because I got it wrong twice
+before getting it right.
+
+The machine's font is **always ASCII/CP437-ordered**: a 4096-byte chargen is
+permuted into ASCII order on the way in (`petscii_to_ascii()` in
+`sdl/main.c`). So there is no screen-code-ordered font in RAM, and PETSCII
+codes are mapped onto CP437 rather than turned into screen codes. Letters,
+digits and punctuation are exact; the **line-drawing set is exact too**,
+because the same loader lifts those glyphs into their CP437 positions. The
+rest of PETSCII's graphics — diagonals, quarter-blocks, card suits — have no
+glyph at any code in that font and render as spaces. The demo says so.
+
+Two corrections to what I wrote earlier today, in case either reached the
+book: **BESCII is not one of the Screen font entries** (they are kernel8,
+unscii, open-roms, PXLfont, C64 chargen, then the ZX set) — it is vendored
+as a TTF only. And selecting a chargen is **not** needed for the PETSCII
+demo: it looks right in the machine's own font.
 
 `test/jimtest.sh` guards the two things that actually broke on the way: the
 column reset after a newline (LNM), and CR being folded onto newline, without

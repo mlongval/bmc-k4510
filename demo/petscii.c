@@ -11,17 +11,16 @@
  * them raw.  It puts the terminal back into ANSI before it returns -- leave
  * it in PETSCII and the shell would come back to a screen it cannot drive.
  *
- * A NOTE ON GLYPHS -- AND AN UNFINISHED CORNER.  The control codes, the
- * colours, reverse and the cursor codes are done and correct.  The graphics
- * half ($A0-$FF) is NOT: pet_glyph() in core/term.c does the textbook
- * PETSCII -> screen code arithmetic, but that lands on letters rather than
- * graphics even with the open-roms chargen selected (F7 -> Screen font), so
- * the mapping does not agree with the chargen's actual layout.  Verified
- * 2026-08-31 and left standing rather than guessed at.  The rows below are
- * therefore a demonstration of what is still wrong, not of what works.
- * (BESCII, incidentally, is vendored as a TTF and is not one of the menu's
- * screen fonts at all -- the PETSCII-capable entries are open-roms, PXLfont
- * and a chargen.bin of your own in /SYSTEM.)
+ * A NOTE ON GLYPHS.  The machine's font is always ASCII/CP437-ordered -- a
+ * chargen is permuted on the way in -- so PETSCII codes are mapped onto that,
+ * not turned into screen codes.  Letters, digits and punctuation are exact.
+ * The line-drawing half is exact too, because the chargen loader lifts those
+ * glyphs into their CP437 positions.  The rest of PETSCII's graphics (the
+ * diagonals, quarter-blocks, card suits) have no glyph at any code in this
+ * font and come out as spaces rather than as some other character that
+ * happens to live there.  Giving PETSCII its full set means loading a chargen
+ * a second time in screen-code order and switching to it with the mode;
+ * docs/TODO.md has it.
  *
  * Its companion is ANSIDEMO.PRG, the same screen in the other mode.
  */
@@ -108,20 +107,19 @@ int main(void)
     nl(); nl();
 
     /* ---- the graphics half ---- */
-    put(P_WHITE); print("THE GRAPHICS HALF ($A0-$FF) IS NOT DONE:"); nl();
-    print("THE SCREEN-CODE MAPPING DOES NOT MATCH THE"); nl();
-    print("CHARGEN YET, SO THESE ARE WRONG GLYPHS."); nl(); nl();
-    put(P_CYAN); print("  ");
-    for (i = 0xA0; i < 0xC0; i++) put(i);
-    nl(); print("  ");
-    for (i = 0xC0; i < 0xE0; i++) put(i);
-    nl(); nl();
+    put(P_WHITE); print("THE LINE-DRAWING SET, WHICH THIS FONT"); nl();
+    print("REALLY HAS:"); nl(); nl();
+    put(P_CYAN);
+    print("  "); put(0xB0); for (i = 0; i < 18; i++) put(0xC0); put(0xAE); nl();
+    print("  "); put(0xDD); print(" PETSCII IN CP437 "); put(0xDD); nl();
+    print("  "); put(0xAB); for (i = 0; i < 18; i++) put(0xC0); put(0xB3); nl();
+    print("  "); put(0xDD); print("THE REST ARE BLANK"); put(0xDD); nl();
+    print("  "); put(0xAD); for (i = 0; i < 18; i++) put(0xC0); put(0xBD); nl(); nl();
 
-    put(P_LOWER);
-    put(0x9B); print("($0E selects the lower-case set, $8E the");
-    nl(); print("upper-case and graphics one.)");
-    put(P_UPPER);
-    nl();
+    put(0x9B);
+    put(P_LOWER); print("$0E GIVES THE LOWER-CASE SET,"); nl();
+    put(P_UPPER); print("$8E THE UPPER-CASE AND GRAPHICS ONE."); nl();
+    print("(BOTH LINES ARE UPPER CASE IN THE SOURCE.)"); nl();
 
     wait_key();
 
