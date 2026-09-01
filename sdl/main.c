@@ -266,14 +266,11 @@ int k4510_frontend_main(int argc, char **argv)
  * it keeps its own time below and presents when it is ready, which is what the
  * Pi has always done.
  *
- * The trade named at the time was tearing, and on a compositor that is not
- * visible.  There is a second half to it, measured on hdieu 2026-08-31: an
- * unsynced present is a buffer commit the compositor must composite at once,
- * and a Wayland session can spend most of a core keeping up (gnome-shell at
- * 94-95%, the i915 flip worker backed up behind it, which the kernel accounts
- * as iowait and top then reports as disk).  So the choice is a setting now, as
- * that commit said it should be -- F7 -> Video -> Vertical sync, off by
- * default, which is exactly today's behaviour.  On the Pi it stays off: the
+ * The trade is tearing, and on a compositor it is not visible.  It is a
+ * SETTING rather than a decision, because that commit said it should be one:
+ * a host, a driver or a pair of eyes may want the flip, and the cost of
+ * wanting it is measurable and local.  F7 -> Video -> Vertical sync, off by
+ * default, which is exactly the behaviour above.  On the Pi it stays off: the
  * shim's present is the blocking one this was escaped from. */
 SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */

@@ -47,10 +47,8 @@ static const set_desc desc[SET_COUNT] = {
      * on hands the pacing to the display: on a host whose refresh is not
      * exactly 60 that costs frames, and frames are sound here (a machine at
      * 51.8 fps makes 51.8 frames of sound where the device wants 60, and you
-     * hear the difference).  It is a setting because the trade goes the other
-     * way on some hosts: presenting unsynced makes every frame a buffer commit
-     * the compositor must composite at once, and a Wayland session can spend a
-     * whole core on it -- measured on hdieu, 2026-08-31. */
+     * hear the difference).  Off, the trade is tearing.  Neither answer is
+     * right for every host, which is why it is a row and not a decision. */
     { "video.vsync",         "Vertical sync",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four */

@@ -1146,15 +1146,23 @@ real screenshot.
 
 ## Vertical sync is a setting — 2026-09-01
 
-A Claude session on hdieu measured gnome-shell at 94-95% of a core while the
-machine ran (the i915 flip worker backed up behind it, which the kernel
-accounts as iowait, so `top` blames the disk) and proposed adding
-`SDL_RENDERER_PRESENTVSYNC` back. That would revert a7c8f19, which was made
-*because of a measurement on hdieu*: with vsync and no pacing of our own it
-ran at 51.8 fps on a 60 Hz display, and frames are sound here — 17% of it
-filled in by the SIDs, and Doc heard it. So the answer is the one a7c8f19
-itself named: **F7 → Video → Vertical sync**, live, off by default, so the
-default behaviour is unchanged.
+A Claude session on hdieu proposed adding `SDL_RENDERER_PRESENTVSYNC` back.
+That would revert a7c8f19, which was made *because of a measurement on
+hdieu*: with vsync and no pacing of our own it ran at 51.8 fps on a 60 Hz
+display, and frames are sound here — 17% of it filled in by the SIDs, and Doc
+heard it. So the answer is the one a7c8f19 itself named: **F7 → Video →
+Vertical sync**, live, off by default, so the default behaviour is unchanged.
+
+**A retraction, recorded because it was briefly in the source.** That session
+first reported the emulator loading hdieu's compositor — gnome-shell at
+94-95% of a core — and I cited it in f504e81's message and in two comments.
+It then profiled gnome-shell per thread and withdrew it: the 95% is the GJS
+main thread (twelve shell extensions, two docks at once), while compositing
+and KMS are idle, and the 44% iowait was the i915 flip worker being booked as
+iowait beside a quiet disk. **The emulator was not loading that compositor.**
+The comments no longer say it does. The setting stands on the other reason,
+which is the one that was always load-bearing: a7c8f19 said the choice should
+be a setting, and neither answer is right for every host.
 
 The hand pacer stays on in both positions; it is a floor, not a cadence, so
 it only sleeps when the frame came early and cannot fight the flip.
