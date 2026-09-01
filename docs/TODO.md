@@ -45,7 +45,11 @@ strike through or delete; when the file is empty, delete it.
 
 ## The Pi, after the first real run (2026-09-01)
 
-- [ ] **OPL playback speed wanders on the Pi** (Doc, 2026-09-01: "speeds are
+- [x] ~~**OPL playback speed wanders on the Pi**~~ — addressed 2026-09-01 with
+      the millisecond counter (option (a) below); **needs hearing on hardware
+      to confirm.**  Original note kept because the diagnosis is the useful
+      part and option (b) is still the correct end state:
+- [ ] ~~superseded~~ **OPL playback speed wandered on the Pi** (Doc, 2026-09-01: "speeds are
       inconsistent, speed up and slow down for unclear reasons").  Diagnosed,
       not fixed.  OPLPLAY walks its stream one step per *frame*, and the frame
       counter it waits on (`sys_frames`, bumped by `io_frame_tick`) counts
@@ -54,10 +58,12 @@ strike through or delete; when the file is empty, delete it.
       OPL2 itself renders host-side at a fixed 48 kHz, so the sound is not
       resampled; only the register writes arrive late.
       Two ways out, and they are different sizes:
-        (a) give the guest a real-time source it can pace against -- a
-            free-running millisecond counter in the SYS page -- and let the
-            player drop or double steps to track it.  Small, and it makes the
-            tempo right on average while leaving it jittery frame to frame.
+        (a) DONE: SYS+$36..$39 is a free-running millisecond counter read
+            from the host's clock at the moment the guest asks, and OPLPLAY
+            paces on it -- stepping more than once in a frame when it is
+            behind, clamping a gap over 250 ms as a stall rather than making
+            it up.  Tempo is right on average; it is still jittery frame to
+            frame, which is the honest limit of a guest-side player.
         (b) play .OPL host-side: the frontend walks the stream against the
             audio clock and the guest only asks for a file.  Correct, and it
             would also survive the machine being paused or slow, but it moves
@@ -74,6 +80,13 @@ strike through or delete; when the file is empty, delete it.
       and `make-sd.sh` copies it; `keymap_us.h` was already compiled in, so no
       Circle rebuild.  The other maps present are `uk`, `fr`, `de`, `es`,
       `it`, `dv` if one is ever wanted.
+- [x] ~~**Core 3 raced the OPL2**~~ — fixed 2026-09-01.  The core-3 handover
+      was built for the SIDs: their register writes go through a stamped
+      queue so the two cores never touch chip state at once.  The OPL2 never
+      had that path, but `sid_render` calls `opl2_render`, so with core 3 on,
+      core 3 rendered from OPL2 state that core 0 was mutating.  Harmless
+      while the Pi was a SID machine; a live race the moment it became an
+      OPL2 one.  The OPL2 now rides the same queue (`chip = K4510_SIDS`).
 - [ ] **The SIDs on the Pi.**  Disabled there, not deleted: both engines still
       build, still pass their tests, and are still the desktop's default.  If
       the Pi's SID sound is ever worth revisiting, the reason it was dropped

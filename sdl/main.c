@@ -65,6 +65,8 @@ static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGH
  * than the workload and for the frontend's own share of the frame -- the
  * texture and the present are outside what calibration times. */
 static double sdl_now_ms(void) { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
+/* what the guest reads at SYS+$36: the wall clock, not the frame count */
+static uint32_t sdl_ms_now(void) { return (uint32_t)SDL_GetTicks(); }
 #define CALIB_MARGIN 0.7
 /* the governor steps down above this much of the frame spent inside the
  * machine: 14 ms of 16.67 leaves the frontend its texture and its present,
@@ -247,6 +249,7 @@ int k4510_frontend_main(int argc, char **argv)
     }
     cpu65_reset();
 
+    io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     sid_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }

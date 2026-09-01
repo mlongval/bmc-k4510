@@ -229,6 +229,10 @@ const char *fs_get_cwd(void);
 uint8_t io_read(uint16_t addr);
 void    io_frame_tick(void);
 void    io_set_cpu_khz(unsigned khz);
+/* SYS+$36..$39: a free-running millisecond counter, read from this at the
+ * moment the guest asks.  For anything that must keep real time rather than
+ * frame time -- see the note in io.c. */
+void    io_set_ms_source(uint32_t (*fn)(void));
 void    io_set_sid_active(int n);   /* the Audio menu's Active SIDs, for INFO to report live */
 extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
 /* --- WATCH ($D530-$D535): who is trampling this byte? ------------------

@@ -607,6 +607,22 @@ int  io_measuring(void) { return measuring; }
  * top-up rather than from a frame the machine ran: it is the sound the
  * machine did not make, which is the sound he is hearing. */
 uint16_t io_audio_fill;
+
+/* A real-time millisecond counter at SYS+$36..$39 (32-bit, little endian).
+ *
+ * The frame counter at SYS+$0D counts frames the machine RENDERED, which is
+ * the right clock for anything that wants to be in step with the picture and
+ * the wrong one for anything that wants to be in step with the world: when
+ * the host runs long, frames stretch and anything paced by them stretches
+ * with them.  OPLPLAY's music did exactly that on the Pi.
+ *
+ * It is read through the host's own clock at the moment the guest asks,
+ * rather than latched once a frame -- latching would hand back the same
+ * granularity the frame counter already has and fix nothing. */
+static uint32_t (*ms_source)(void);
+void io_set_ms_source(uint32_t (*fn)(void)) { ms_source = fn; }
+static uint32_t sys_ms(void) { return ms_source ? ms_source() : 0; }
+
 static uint8_t sys_read(uint8_t r)
 {
     if (r == 4) { sys_latch(); return 0; }
@@ -634,6 +650,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x2C) return (uint8_t)sys_sid_active;               /* SIDs the Audio menu is clocking now (1-4), for INFO */   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r >= 0x30 && r <= 0x33) return (uint8_t)(dbg_watch_addr >> (8 * (r - 0x30)));
+    if (r >= 0x36 && r <= 0x39) return (uint8_t)(sys_ms() >> (8 * (r - 0x36)));   /* the wall clock, in ms */
     if (r == 0x34) return dbg_watch_ctl;
     if (r == 0x35) return dbg_watch_hits;
     if (r == 0xF0) return (uint8_t)dbg_num;

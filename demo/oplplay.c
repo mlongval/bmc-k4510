@@ -153,6 +153,37 @@ static int16_t oy[NCH], energy[NCH];      /* 12.4 fixed: the orbs, and how far e
 static uint8_t lit[NCH];
 static uint8_t cur_tab;
 
+/* ---- keeping real time ---------------------------------------------------
+ * SYS+$36 is a free-running millisecond counter read from the host's own
+ * clock.  The frame counter is no good for music: it counts frames the
+ * machine RENDERED, so when the host runs long the tune slows with it and
+ * speeds back up when it catches up -- which is exactly what the Pi did.
+ *
+ * Sixteen bits of it is plenty.  It wraps every 65.5 seconds and only the
+ * difference between two reads is ever used, so the wrap costs nothing as
+ * long as the reads are closer together than that -- and they are one frame
+ * apart.  A gap larger than a quarter second is a load or a menu, not lost
+ * time, and is clamped rather than made up: catching up two hundred steps at
+ * once would be a burst of noise, not music. */
+#define MSCLK 0xD536u
+static uint16_t ms_last;
+static uint16_t ms_acc;                   /* thousandths of a step still owed */
+static uint16_t ms_now(void) { return (uint16_t)(REG(MSCLK) | ((uint16_t)REG(MSCLK + 1) << 8)); }
+static uint8_t steps_due(uint8_t per_step_frames)
+{
+    uint16_t now = ms_now(), dt = (uint16_t)(now - ms_last);
+    uint8_t n = 0;
+    ms_last = now;
+    if (dt > 250) dt = 250;               /* a stall, not elapsed music */
+    ms_acc = (uint16_t)(ms_acc + dt * 60);        /* 60ths of a second, x1000 */
+    while (ms_acc >= (uint16_t)(1000u * per_step_frames) && n < 8) {
+        ms_acc = (uint16_t)(ms_acc - 1000u * per_step_frames);
+        n++;
+    }
+    if (n == 8) ms_acc = 0;               /* fell far behind: take the loss */
+    return n;
+}
+
 /* ---- the .OPL library, when there is one -------------------------------- */
 static uint16_t ntunes;                   /* 0 = play the built-in tunes */
 static char fsname[36];
@@ -379,6 +410,7 @@ void main(void)
     init_table(SPRTAB_A); init_table(SPRTAB_B);
     write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
     setup_voices();
+    ms_last = ms_now(); ms_acc = 0;             /* start the clock here, not at zero */
     REG(V_CTRL) = 1;
 
     while (!quit) {
@@ -386,14 +418,15 @@ void main(void)
 
         /* ---- the stream, or the sequencer ---- */
         if (ntunes) {
-            if (step_tune()) {                     /* the tune ended and does not loop: next */
+            uint8_t due = steps_due(1), ended = 0;
+            while (due-- && !ended) ended = step_tune();
+            if (ended) {                           /* the tune ended and does not loop: next */
                 for (i = 0; i < NCH; i++) keyoff(i);
                 song = (uint16_t)((song + 1) % ntunes);
                 if (load_tune(song)) { for (i = 0; i < NCH; i++) keyoff(i); }
-                caption(0);
+                caption(0); ms_last = ms_now(); ms_acc = 0;
             }
-        } else if (++tick >= songs[song].frames) {
-            tick = 0;
+        } else for (tick = steps_due(songs[song].frames); tick; tick--) {
             for (i = 0; i < 6; i++) {
                 uint8_t n = songs[song].trk[i][step];
                 if (n) note_on(trk_ch[i], n);
@@ -427,7 +460,7 @@ void main(void)
         else if (k == ' ') { for (i = 0; i < NCH; i++) keyoff(i);
                              if (ntunes) { song = (uint16_t)((song + 1) % ntunes);
                                            if (load_tune(song)) song = 0;
-                                           caption(0); }
+                                           caption(0); ms_last = ms_now(); ms_acc = 0; }
                              else { song = (uint16_t)((song + 1) % 3); step = 0; tick = 0; caption((uint8_t)song); } }
         else if (k >= '1' && k <= '9') { uint8_t v = (uint8_t)(k - '1');
                                          muted[v] ^= 1; if (muted[v]) keyoff(v); }

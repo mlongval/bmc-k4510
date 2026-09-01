@@ -19,6 +19,8 @@ void    opl2_reset(void);
 void    opl2_set_enabled(int on);
 int     opl2_enabled(void);
 void    opl2_write(uint8_t reg, uint8_t v);   /* reg 0 = ADDR, 1 = DATA */
+void    opl2_apply(uint8_t reg, uint8_t v);   /* the same write, performed on the rendering core
+                                               * after the queue has carried it there (core/sidq.h) */
 uint8_t opl2_read(uint8_t reg);               /* reg 0 = STATUS, 1 = data readback, 2 = ID */
 int     opl2_render(int n, int16_t *out, int max);
 #ifdef __cplusplus

@@ -21,6 +21,8 @@
  * that is what the top of this file is.
  */
 #include "opl2.h"
+#include "sidq.h"
+#include "sid.h"   /* K4510_SIDS: the queue slot the OPL2 uses */
 #include "vice_clk.h"
 #include <string.h>
 #include "opl2/fmopl.h"
@@ -87,6 +89,16 @@ void opl2_reset(void)
 void opl2_set_enabled(int on) { opl_on = on ? 1 : 0; }
 int  opl2_enabled(void) { return opl_on; }
 
+/* The write, once it is the rendering side's turn to perform it.  Port 0 and
+ * port 1 writes are queued in the order they were made, so the chip's own
+ * address latch is driven by the drained stream and stays in step. */
+void opl2_apply(uint8_t reg, uint8_t v)
+{
+    if (!opl) opl2_init(opl_rate);
+    if (!opl) return;
+    if (reg < 2) ym3812_write(opl, reg, v);
+}
+
 void opl2_write(uint8_t reg, uint8_t v)
 {
     /* The chip is part of the machine, so it answers whether or not the
@@ -95,11 +107,19 @@ void opl2_write(uint8_t reg, uint8_t v)
      * $D480 there should still find a chip. */
     if (!opl) opl2_init(opl_rate);
     if (!opl) return;
-    switch (reg) {
-    case 0: opl_addr = v; ym3812_write(opl, 0, v); return;
-    case 1: opl_shadow[opl_addr] = v; ym3812_write(opl, 1, v); return;
-    default: return;
-    }
+    if (reg > 1) return;
+    /* The shadow and the address latch are this side's own bookkeeping: they
+     * answer the readback at $D481 and must be right here, now, whoever is
+     * doing the rendering. */
+    if (reg == 0) opl_addr = v; else opl_shadow[opl_addr] = v;
+    /* Another core has the sound: hand the write over stamped, exactly as the
+     * SIDs do (core/sid.cc).  Without this the OPL2's state was being mutated
+     * here while core 3 rendered from it -- the race the SIDs were given the
+     * queue to avoid, which nobody had noticed because the OPL2 was not the
+     * Pi's chip when core 3 was written.  A full queue means that core has
+     * stopped, so write through instead: wrong sound beats none. */
+    if (sidq_owner() != SIDQ_OWNER_CPU && sidq_push(K4510_SIDS, reg, v)) return;
+    ym3812_write(opl, reg, v);
 }
 uint8_t opl2_read(uint8_t reg)
 {

@@ -57,6 +57,7 @@ extern "C" void sid_reset(void)
 /* The write, once it is the rendering side's turn to perform it. */
 static void sid_apply(int c, uint8_t r, uint8_t v)
 {
+    if (c == K4510_SIDS) { opl2_apply(r, v); return; }   /* the OPL2 rides the same queue */
     active[c] = true;
     if (engine == SID_ENGINE_FAST) fsid_write(c, (uint8_t)(r & 0x1F), v);
     else chips[c].write(r & 0x1F, v);
