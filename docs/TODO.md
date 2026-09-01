@@ -43,6 +43,25 @@ strike through or delete; when the file is empty, delete it.
       the penciled first tenant of bank 3; it landed as a plain `.prg`
       at $7000 instead — see below — so bank 3 is still unclaimed.)
 
+## The Pi, after the first real run (2026-09-01)
+
+- [ ] **The C64 keyboard on the GPIO connector is buggy** (Doc, on hardware).
+      Not diagnosed — no symptom recorded beyond "buggy", so the first job is
+      to write down what it actually does.  `pi/c64kbd.cpp`, and the USB
+      keyboard is a working fallback in the meantime.
+- [x] ~~**The USB keyboard came up German**~~ — done 2026-09-01.  Circle takes
+      `keymap=` from `cmdline.txt` and the card had no `cmdline.txt`, so it
+      fell back to `sysconfig.h`'s `DEFAULT_KEYMAP`, which in this Circle is
+      `"DE"` — hence y and z swapped.  `pi/cmdline.txt` carries `keymap=us`
+      and `make-sd.sh` copies it; `keymap_us.h` was already compiled in, so no
+      Circle rebuild.  The other maps present are `uk`, `fr`, `de`, `es`,
+      `it`, `dv` if one is ever wanted.
+- [ ] **The SIDs on the Pi.**  Disabled there, not deleted: both engines still
+      build, still pass their tests, and are still the desktop's default.  If
+      the Pi's SID sound is ever worth revisiting, the reason it was dropped
+      was quality, not cost — Doc, 2026-09-01: "both reSid and FastSid sound
+      terrible.  OPL2 however sounds really nice."
+
 ## JIM, the console (2026-08-31)
 
 - [x] ~~**PETSCII's graphics half**~~ — done 2026-08-31.  The cause was that

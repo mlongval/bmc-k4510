@@ -34,6 +34,12 @@ done
 B="${SHIM:-$HOME/Projects/k4510-pi/circle-libsdl2}/circle-stdlib-rpi3/libs/circle/boot"
 cp "$B/bootcode.bin" "$B/start.elf" "$B/fixup.dat" "$M/"
 cp "$HERE/config.txt" "$M/config.txt"
+# Circle reads cmdline.txt for its kernel options, and keymap= is one of them.
+# Without the file it falls back to sysconfig.h's DEFAULT_KEYMAP, which in this
+# Circle is "DE" -- so a USB keyboard came up German, with y and z swapped
+# (Doc, 2026-09-01, on real hardware).  keymap_us.h is already compiled in, so
+# this is the whole fix; no Circle rebuild.
+cp "$HERE/cmdline.txt" "$M/cmdline.txt"
 cp "$HERE/kernel8.img" "$M/kernel8.img"
 mkdir -p "$M/k4510/rom" "$M/k4510/data" "$M/k4510/fs"
 cp "$REPO/rom/kernal.bin" "$REPO/rom/wozmon.bin" "$REPO/rom/demo.bin" "$M/k4510/rom/"

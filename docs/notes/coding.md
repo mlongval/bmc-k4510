@@ -1110,3 +1110,36 @@ demo: it looks right in the machine's own font.
 `test/jimtest.sh` guards the two things that actually broke on the way: the
 column reset after a newline (LNM), and CR being folded onto newline, without
 which EhBASIC overprints itself on one row.
+
+
+## The Pi is an OPL2 machine — 2026-09-01
+
+Doc ran the card on hardware. Verdict: **both SID engines sound bad on the
+Pi and the OPL2 sounds good**, so the Pi build now offers the OPL2 and
+nothing else. The SIDs are *disabled there, not deleted* — they still build,
+still pass their tests, and are still what a desktop starts with.
+
+**For the manual, this is a real difference between the two machines**, and
+it is the sort of thing the naming split exists for: the K4510 (desktop) has
+1-4 SIDs *or* an OPL2; the BMC-K4510 (the Pi appliance) has an OPL2. The F7
+Audio page differs accordingly — on the Pi the Sound chip row has one entry
+and the Active SIDs row is not there at all.
+
+Two new things to describe if you want them:
+
+- **`OPLPLAY.PRG`** — three tunes on the nine FM voices, with nine sprites
+  moving to them: each voice owns an orb, a note-on lifts it, and how high is
+  the note's own pitch, so the picture carries the tune's shape. SPACE cycles
+  the tunes, 1-9 mute a voice. **The music is original**, written for the
+  program, so it carries the project licence and there is nothing to credit.
+- The **USB keyboard layout is fixed** — it was coming up German (y and z
+  swapped) because Circle fell back to `DEFAULT_KEYMAP` with no `cmdline.txt`
+  on the card. There is one now.
+
+Still broken and *not* to be described as working: **the C64 keyboard on the
+GPIO connector**. Doc reports it buggy on hardware and it is not diagnosed.
+
+A note on figures: `OPLPLAY` draws through the sprite engine and its own text
+layer, so `test/headless` cannot see its screen — `test/opltest.sh` only
+checks that it runs and hands the machine back. Any figure of it has to be a
+real screenshot.

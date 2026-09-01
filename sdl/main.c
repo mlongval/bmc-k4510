@@ -727,6 +727,13 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * SIDs is what stops them being clocked; the OPL2 renders in their
          * place, at the same rate, so the ring is fed either way. */
         { int chip = settings_get(SET_AUDIO_CHIP);
+#ifdef K4510_PI
+          chip = 2;                          /* the Pi is an OPL2 machine: the SIDs are built but never
+                                              * clocked there.  Forced rather than defaulted, so a
+                                              * k4510.cfg carried over from a desktop cannot turn them
+                                              * back on -- the settings file stores labels, and "reSID"
+                                              * is not a label the Pi's own row has. */
+#endif
           sid_set_engine(chip == 1 ? SID_ENGINE_FAST : SID_ENGINE_RESID);
           opl2_set_enabled(chip == 2);
           sid_set_mute(chip == 2); }

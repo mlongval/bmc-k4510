@@ -16,7 +16,17 @@ static const char *const sids_names[]  = { "1", "2", "3", "4" };
  * sound; the OPL2 is the AdLib's YM3812 at $D480 and is not a SID at all.
  * Active SIDs applies to whichever SID engine is chosen and is ignored by the
  * OPL2, which is one chip with nine voices. */
+#ifdef K4510_PI
+/* The Pi is an OPL2 machine (Doc, 2026-09-01: "both reSID and FastSid sound
+ * terrible [there], OPL2 however sounds really nice").  Neither SID engine is
+ * deleted -- they are still built, still tested, and still the desktop's
+ * default -- but the Pi does not offer them, and forces the OPL2 on regardless
+ * of what an older k4510.cfg carried over from a desktop.  One label, so the
+ * row cannot be stepped somewhere the hardware will not follow. */
+static const char *const chip_names[]  = { "OPL2" };
+#else
 static const char *const chip_names[]  = { "reSID", "FastSID", "OPL2" };
+#endif
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
@@ -34,7 +44,11 @@ static const set_desc desc[SET_COUNT] = {
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four */
+#ifdef K4510_PI
+    { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 1, SF_LIVE },   /* the only one: OPL2 */
+#else
     { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 3, SF_LIVE },   /* 0 reSID, 1 FastSID, 2 OPL2 */
+#endif
     /* The Pi's core 3 holds the Tube and is asleep until the ROM runs BBC or
      * CPM, which on most sessions is never; the sound can have it until then.
      * Off by default: it moves the audio path onto another core, and that is
