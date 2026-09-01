@@ -47,7 +47,12 @@ cp "$REPO/data/font8.bin" "$M/k4510/data/"
 # exception and is done below: its drive letters are links that cannot be
 # followed -- K:/0 is deliberately cyclic (it *is* this filesystem) and
 # D:/P: point into a CP/M library that is installed but never committed.
-for d in "$REPO"/fs/*; do
+# The dotfiles as well as the visible ones: fs/.HELP is the shell's help text,
+# and a * glob does not match it.  A card that carries last month's .HELP
+# documents a command set the ROM on it no longer has -- RANGER, DELETE and
+# MSBASIC were all missing from the card's help while being present on it.
+for d in "$REPO"/fs/* "$REPO"/fs/.[!.]*; do
+    [ -e "$d" ] || continue
     [ "$(basename "$d")" = CPM ] || cp -rL "$d" "$M/k4510/fs/"
 done
 

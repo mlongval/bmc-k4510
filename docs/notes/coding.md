@@ -1088,10 +1088,15 @@ somewhere, because a reader can use them:
   `PETSCII.PRG` demonstrates it.
 
 Two new demos, `fs/PRG/ansidemo.prg` and `fs/PRG/petscii.prg`, one per mode.
-If you want figures they are the obvious ones — but note PETSCII's graphics
-half only looks right with a PETSCII chargen selected (F7 -> Screen font ->
-BESCII). With the machine's ASCII font those rows show letters, and the demo
-says so on screen rather than pretending.
+If you want figures they are the obvious ones — **but not the PETSCII demo's
+graphics rows.** Correction to what I wrote an hour ago: I said those rows
+need BESCII selected. That was wrong twice over. BESCII is vendored as a TTF
+and is not one of the Screen font menu's entries at all (they are kernel8,
+unscii, open-roms, PXLfont, C64 chargen, then the ZX set); and with
+**open-roms** selected the rows still come out as letters, so the
+PETSCII -> screen code mapping does not match the chargen's layout. That
+corner is unfinished, it is now `docs/TODO.md`, and the demo says so on its
+own screen. Do not photograph it as a feature.
 
 `test/jimtest.sh` guards the two things that actually broke on the way: the
 column reset after a newline (LNM), and CR being folded onto newline, without

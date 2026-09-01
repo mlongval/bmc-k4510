@@ -11,12 +11,17 @@
  * them raw.  It puts the terminal back into ANSI before it returns -- leave
  * it in PETSCII and the shell would come back to a screen it cannot drive.
  *
- * A NOTE ON GLYPHS.  The letters and punctuation are right in any font.  The
- * graphics characters ($A0-$FF) are screen codes, and they only look like
- * PETSCII with a PETSCII chargen selected: F7 -> Screen font -> BESCII (or a
- * chargen.bin of your own in /SYSTEM).  With the machine's ASCII font they
- * come out as the wrong glyphs, which is the honest result -- the mode is
- * working, the font is not a PETSCII one.
+ * A NOTE ON GLYPHS -- AND AN UNFINISHED CORNER.  The control codes, the
+ * colours, reverse and the cursor codes are done and correct.  The graphics
+ * half ($A0-$FF) is NOT: pet_glyph() in core/term.c does the textbook
+ * PETSCII -> screen code arithmetic, but that lands on letters rather than
+ * graphics even with the open-roms chargen selected (F7 -> Screen font), so
+ * the mapping does not agree with the chargen's actual layout.  Verified
+ * 2026-08-31 and left standing rather than guessed at.  The rows below are
+ * therefore a demonstration of what is still wrong, not of what works.
+ * (BESCII, incidentally, is vendored as a TTF and is not one of the menu's
+ * screen fonts at all -- the PETSCII-capable entries are open-roms, PXLfont
+ * and a chargen.bin of your own in /SYSTEM.)
  *
  * Its companion is ANSIDEMO.PRG, the same screen in the other mode.
  */
@@ -103,8 +108,9 @@ int main(void)
     nl(); nl();
 
     /* ---- the graphics half ---- */
-    put(P_WHITE); print("AND THE GRAPHICS HALF ($A0-$FF).  THESE"); nl();
-    print("WANT A PETSCII CHARGEN -- F7, SCREEN FONT:"); nl(); nl();
+    put(P_WHITE); print("THE GRAPHICS HALF ($A0-$FF) IS NOT DONE:"); nl();
+    print("THE SCREEN-CODE MAPPING DOES NOT MATCH THE"); nl();
+    print("CHARGEN YET, SO THESE ARE WRONG GLYPHS."); nl(); nl();
     put(P_CYAN); print("  ");
     for (i = 0xA0; i < 0xC0; i++) put(i);
     nl(); print("  ");

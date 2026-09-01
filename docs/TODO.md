@@ -43,6 +43,25 @@ strike through or delete; when the file is empty, delete it.
       the penciled first tenant of bank 3; it landed as a plain `.prg`
       at $7000 instead — see below — so bank 3 is still unclaimed.)
 
+## JIM, the console (2026-08-31)
+
+- [ ] **PETSCII's graphics half.**  `pet_glyph()` in `core/term.c` does the
+      textbook PETSCII -> screen code arithmetic ($A0-$BF minus $40, $C0-$FF
+      minus $80) and it lands on letters, not graphics, even with the
+      open-roms chargen selected.  So the mapping disagrees with the actual
+      layout of the chargen the machine loads.  Work out which, rather than
+      guessing: dump the chargen and look.  The control codes, colours,
+      reverse and cursor codes are all correct and tested; this is the one
+      loose corner.  `PETSCII.PRG` says so on screen.
+- [ ] **The cursor.**  JIM can blink its own (`FLAGS` bit 0) but the ROM
+      still draws one, so `draw_cursor` and the `k_getin` workaround for the
+      two of them are both still there.  Handing it over is where that whole
+      bug class finally closes.
+- [ ] **BESCII as a screen font.**  It is vendored (CC0) but only as a TTF
+      and glyph source, so it cannot be chosen in the menu.  If it were
+      rendered to an 8x8 .bin it would be the licence-clean PETSCII chargen
+      the machine currently lacks.
+
 ## MS BASIC — the stages after the port (2026-08-31)
 
 Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
