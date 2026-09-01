@@ -157,39 +157,49 @@ static void cls(void)
         for (i = 0; i < PROWS; i++) blank_row(i);       /* every physical row, the margins with them */
     }
     cx = cy = 0;
-}
-
-static void scroll(void)
-{
-    w32(DMA + 0, SCREEN + (uint32_t)(OY + 1) * PCOLS * 4); w32(DMA + 4, SCREEN + (uint32_t)OY * PCOLS * 4);
-    w32(DMA + 8, (uint32_t)(ROWS - 1) * PCOLS * 4);
-    REG(DMA + 12) = 1;
-    blank_row(OY + ROWS - 1);
+    REG(TERM + 9) = 0; REG(TERM + 10) = 0;      /* the cursor is JIM's: moving it means telling it */
 }
 
 static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
                                               * the reader having said q -- the caller checks it,
                                               * since newline cannot abort anyone itself */
 static uint8_t page_break(void);
-static void newline(void)
-{
-    cx = 0;
-    if (++cy >= ROWS) { cy = ROWS - 1; scroll(); }
-    if (paging && page_break()) paged_out = 1;
-}
 
+/* The console is JIM's (D-11).  Every byte the machine prints goes to the
+ * terminal at $DA00, which owns the wrap, the scroll, the tab stops and the
+ * cursor arithmetic -- one renderer on the screen instead of the two that used
+ * to share it.  cx/cy are read back rather than tracked: they are still the
+ * console's own, because JIM draws in the console's window (video_init hands it
+ * COLS/ROWS/OX/OY/STRIDE), and the full-screen UI still writes cells directly.
+ *
+ * Three bytes keep their old meaning rather than JIM's, because every caller in
+ * this ROM already means the old one:
+ *   $08  destructive: JIM's backspace only steps left, ours rubs out
+ *   $0C  clear: cls() keeps the status bands, JIM's own clear would not
+ *   $0D  a full newline, as CHROUT has always promised.  LNM (set in video_init)
+ *        makes JIM's \n return the column, and CR is folded onto it -- EhBASIC's
+ *        glue, BBC BASIC and CP/M all send a bare CR and mean "next line", and
+ *        JIM's own CR is a carriage return only.  Folding it here keeps every
+ *        existing program working; not folding it overprints their output.
+ * JIM's fg/bg are pushed only when they have actually changed, which is far
+ * cheaper than two stores per character. */
+static uint8_t jim_fg = 0xFF, jim_bg = 0xFF;
 void __fastcall__ k_chrout(uint8_t ch)
 {
-    uint32_t c;
+    uint8_t oy;
     draw_cursor(0);
-    if (ch == '\r' || ch == '\n') { newline(); return; }
-    if (ch == 8) { if (cx) { cx--; c = cell(cx, cy); far_poke(c, ' '); far_poke(c + 1, 0); } return; }
     if (ch == 12) { cls(); return; }
-    if (ch == 9) { do { k_chrout(' '); } while (cx & 7); return; }
-    if (ch < 0x20) return;
-    c = cell(cx, cy); far_poke(c, ch); far_poke(c + 1, 0); far_poke(c + 2, fg); far_poke(c + 3, bg);
-    if (++cx >= COLS) newline();
+    if (fg != jim_fg) { REG(TERM + 11) = fg; jim_fg = fg; }
+    if (bg != jim_bg) { REG(TERM + 12) = bg; jim_bg = bg; }
+    if (ch == 8) { REG(TERM) = 8; REG(TERM) = ' '; REG(TERM) = 8; cx = REG(TERM + 9); return; }
+    if (ch == 13) ch = 10;
+    oy = REG(TERM + 10);
+    REG(TERM) = ch;
+    cx = REG(TERM + 9); cy = REG(TERM + 10);
+    if (paging && (ch == '\n' || cy != oy) && page_break()) paged_out = 1;
 }
+
+static void newline(void) { k_chrout('\n'); }
 
 static void puts_(const char *s) { while (*s) k_chrout(*s++); }
 static void puthex(uint8_t v) { static const char h[] = "0123456789ABCDEF"; k_chrout(h[v >> 4]); k_chrout(h[v & 15]); }
@@ -607,7 +617,7 @@ static uint8_t page_break(void)
     typed = 0;
     ofg = fg; fg = C_DIM; puts_("-- more --"); fg = ofg;
     do { k = k_getin(); } while (!k);
-    cx = 0; blank_row((uint8_t)(cy + OY));       /* take the prompt back off */
+    cx = 0; REG(TERM + 9) = 0; blank_row((uint8_t)(cy + OY));   /* take the prompt back off */
     inside = 0;
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
 }
@@ -1409,6 +1419,9 @@ static void video_init(void)
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
     REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;
+    REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */
+    REG(TERM + 9) = cx; REG(TERM + 10) = cy;                                             /* and JIM starts where the console is */
+    jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */
 }
 
 #pragma code-name (pop)

@@ -1062,3 +1062,37 @@ The PETSCII item, if it lands, would also want the fonts appendix to say
 that the PETSCII look comes from the vendored open fonts (BESCII,
 openroms) and not from Commodore's `chargen.bin` — which the note
 explicitly declines to ship or fetch.
+
+## The console is JIM's now (first increment) — 2026-08-31 (d)
+
+Started the JIM work from `docs/notes/design-ideas.md`. **This one is real,
+not a plan**, so the handbook needs to know.
+
+Every byte the ROM prints now goes to the terminal at `$DA00`. JIM owns the
+wrap, the scroll, the tab stops and the cursor arithmetic; `k_chrout` is a
+byte sink. The full-screen UI (RANGER, KOMMANDER, the menu, the bands) still
+writes cells directly, as planned — that stays cheaper in ROM than escape
+sequences.
+
+**ROM2 went from 547 to 753 bytes free**, which was the argument for doing it.
+
+**For the manual.** Screens should look the same, and the tests say they do,
+but the drawing path underneath is completely different — so if a figure ever
+looks a pixel off, that is why. Two behaviours are now worth a sentence
+somewhere, because a reader can use them:
+
+- A program can print ANSI escape sequences straight through `CHROUT` and
+  they work. That is what `ANSIDEMO.PRG` demonstrates.
+- The terminal has a **PETSCII mode** (`FLAGS` bit 2 at `$DA0E`): the CBM
+  control codes, the sixteen colour codes, RVS, the case sets.
+  `PETSCII.PRG` demonstrates it.
+
+Two new demos, `fs/PRG/ansidemo.prg` and `fs/PRG/petscii.prg`, one per mode.
+If you want figures they are the obvious ones — but note PETSCII's graphics
+half only looks right with a PETSCII chargen selected (F7 -> Screen font ->
+BESCII). With the machine's ASCII font those rows show letters, and the demo
+says so on screen rather than pretending.
+
+`test/jimtest.sh` guards the two things that actually broke on the way: the
+column reset after a newline (LNM), and CR being folded onto newline, without
+which EhBASIC overprints itself on one row.

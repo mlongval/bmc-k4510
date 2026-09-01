@@ -14,6 +14,10 @@ static struct {
     uint8_t bold, rev, uline;          /* attributes */
     uint8_t top, bot;                  /* scroll region, 0-based inclusive */
     uint8_t wrap, origin, ckm, insert, shown, dirty, pending;   /* modes; pending = the VT100 last-column wrap */
+    uint8_t lnm;                       /* ANSI mode 20: LF also returns the column.  The ROM console
+                                        * ends its lines with a bare \n and expects column 0 back,
+                                        * which is exactly what LNM is for. */
+    uint8_t petscii, pet_lower;        /* PETSCII mode (FLAGS bit 2), and its case set ($0E / $8E) */
     uint8_t g0, g1, shift;             /* charsets: 0 ASCII, 1 DEC line drawing; shift = SO */
     uint8_t tabs[32];                  /* tab stops, one bit per column */
     struct { uint8_t cx, cy, fg, bg, bold, rev, uline, g0, g1, shift, origin; } saved;
@@ -191,6 +195,7 @@ static void mode(int on)
             else if (v == 7) T.wrap = (uint8_t) on;
             else if (v == 25) T.shown = (uint8_t) on;
         } else if (v == 4) T.insert = (uint8_t) on;
+        else if (v == 20) T.lnm = (uint8_t) on;          /* LNM */
     }
 }
 static void csi(uint8_t c)
@@ -289,16 +294,77 @@ static void esc(uint8_t c)
     T.st = 0;
 }
 
+/* ---- PETSCII ----------------------------------------------------------------- *
+ * The other way an 8-bit machine talked to its screen.  Not a protocol: a set of
+ * control codes and a character set, so this is a second dispatch beside the ANSI
+ * one rather than a second renderer -- colours land in the same T.fg/T.bg, reverse
+ * in the same T.rev, and printing goes through the same print_char.
+ *
+ * The sixteen colour codes, in the C64's own palette order (0 black .. 15 light
+ * grey), which is the palette VICKY boots with. */
+static const uint8_t pet_col[16] = {
+    /* $90 */ 0, /* $05 */ 1, /* $1C */ 2, /* $9F */ 3, /* $9C */ 4, /* $1E */ 5,
+    /* $1F */ 6, /* $9E */ 7, /* $81 */ 8, /* $95 */ 9, /* $96 */ 10, /* $97 */ 11,
+    /* $98 */ 12, /* $99 */ 13, /* $9A */ 14, /* $9B */ 15
+};
+static int pet_colour(uint8_t c)          /* -> index into pet_col, or -1 */
+{
+    switch (c) {
+    case 0x90: return 0;  case 0x05: return 1;  case 0x1C: return 2;  case 0x9F: return 3;
+    case 0x9C: return 4;  case 0x1E: return 5;  case 0x1F: return 6;  case 0x9E: return 7;
+    case 0x81: return 8;  case 0x95: return 9;  case 0x96: return 10; case 0x97: return 11;
+    case 0x98: return 12; case 0x99: return 13; case 0x9A: return 14; case 0x9B: return 15;
+    default: return -1;
+    }
+}
+/* PETSCII -> the code the text32 renderer looks the glyph up by.
+ * $20-$5F and $60-$7F are left alone: there they agree with ASCII closely enough
+ * that the machine's own font shows readable text.  The graphics halves ($A0-$BF,
+ * $C0-$FF) become screen codes, which only look right with a PETSCII chargen
+ * selected (F7 -> Screen font: BESCII, or a chargen.bin you supplied).  With the
+ * ASCII font they are wrong glyphs rather than blanks, and that is the honest
+ * behaviour: the mode is doing its job, the font is not a PETSCII one. */
+static uint8_t pet_glyph(uint8_t c)
+{
+    if (c >= 0xA0 && c <= 0xBF) return (uint8_t)(c - 0x40);
+    if (c >= 0xC0)              return (uint8_t)(c - 0x80);
+    return c;
+}
+static void pet_byte(uint8_t c)
+{
+    int col, y;
+    if (c >= 0x20 && c != 0x7F && !(c >= 0x80 && c <= 0x9F) && c != 0xA0) { print_char(pet_glyph(c)); return; }
+    if ((col = pet_colour(c)) >= 0) { T.fg = (uint8_t) pet_col[col]; return; }
+    switch (c) {
+    case 0x93: for (y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1);
+               T.pending = 0; move(0, 0); return;           /* CLR */
+    case 0x13: move(0, 0); return;                         /* HOME */
+    case 0x11: move(T.cx, T.cy + 1); return;               /* cursor down */
+    case 0x91: move(T.cx, T.cy ? T.cy - 1 : 0); return;    /* cursor up */
+    case 0x1D: move(T.cx + 1, T.cy); return;               /* cursor right */
+    case 0x9D: move(T.cx ? T.cx - 1 : 0, T.cy); return;    /* cursor left */
+    case 0x12: T.rev = 1; return;                          /* RVS ON */
+    case 0x92: T.rev = 0; return;                          /* RVS OFF */
+    case 0x0E: T.pet_lower = 1; return;                    /* lower/upper case set */
+    case 0x8E: T.pet_lower = 0; return;                    /* upper/graphics set */
+    case 0x0D: case 0x0A: T.cx = 0; linefeed(); return;    /* RETURN is both, on a CBM; LF too, so a
+                                                            * program may drive this through CHROUT */
+    case 0x14: if (T.cx) { move(T.cx - 1, T.cy); print_char(' '); move(T.cx - 1, T.cy); } return;  /* DEL */
+    default: return;                                       /* everything else: swallowed */
+    }
+}
+
 /* ---- the stream -------------------------------------------------------------- */
 static void put_byte(uint8_t c)
 {
+    if (T.petscii && T.st == 0) { pet_byte(c); return; }
     switch (T.st) {
     case 0:
         if (c >= 0x20 && c != 0x7F) { print_char(c); return; }
         switch (c) {
         case 0x1B: T.st = 1; return;
         case '\r': T.cx = 0; T.pending = 0; return;
-        case '\n': case 0x0B: case 0x0C: linefeed(); return;
+        case '\n': case 0x0B: case 0x0C: linefeed(); if (T.lnm) T.cx = 0; return;
         case 8: if (T.cx) T.cx--; T.pending = 0; return;
         case 9: { int x = T.cx + 1; while (x < T.cols - 1 && !(T.tabs[x >> 3] & (1 << (x & 7)))) x++; move(x, T.cy); return; }
         case 0x0E: T.shift = 1; return;
@@ -358,7 +424,7 @@ uint8_t term_read(uint8_t r)
     case 0x09: return T.cx;    case 0x0A: return T.cy;
     case 0x0B: return T.fg;    case 0x0C: return T.bg;
     case 0x0D: return T.stride;
-    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0));
+    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0) | (T.petscii ? 4 : 0));
     case 0x10: case 0x11: case 0x12: case 0x13: return (uint8_t)(T.base >> (8 * (r - 0x10)));
     case 0x14: return T.deffg; case 0x15: return T.defbg;
     default: return 0;
@@ -389,7 +455,9 @@ void term_write(uint8_t r, uint8_t v)
     case 0x0B: T.fg = v; return;
     case 0x0C: T.bg = v; return;
     case 0x0D: cur_undraw(); T.stride = v; clamp_geometry(); cur_draw(); return;
-    case 0x0E: cur_undraw(); T.shown = v & 1; cur_draw(); return;
+    case 0x0E: cur_undraw(); T.shown = v & 1;
+               if (((v >> 2) & 1) != T.petscii) { T.petscii = (v >> 2) & 1; T.pet_lower = 0; }
+               cur_draw(); return;
     case 0x10: case 0x11: case 0x12: case 0x13:
         cur_undraw(); T.base = (T.base & ~(0xFFu << (8 * (r - 0x10)))) | ((uint32_t) v << (8 * (r - 0x10))); T.base &= K4510_PHYS_MASK; cur_draw(); return;
     case 0x14: T.deffg = v; return;
