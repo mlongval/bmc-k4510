@@ -1143,3 +1143,24 @@ A note on figures: `OPLPLAY` draws through the sprite engine and its own text
 layer, so `test/headless` cannot see its screen — `test/opltest.sh` only
 checks that it runs and hands the machine back. Any figure of it has to be a
 real screenshot.
+
+## Vertical sync is a setting — 2026-09-01
+
+A Claude session on hdieu measured gnome-shell at 94-95% of a core while the
+machine ran (the i915 flip worker backed up behind it, which the kernel
+accounts as iowait, so `top` blames the disk) and proposed adding
+`SDL_RENDERER_PRESENTVSYNC` back. That would revert a7c8f19, which was made
+*because of a measurement on hdieu*: with vsync and no pacing of our own it
+ran at 51.8 fps on a 60 Hz display, and frames are sound here — 17% of it
+filled in by the SIDs, and Doc heard it. So the answer is the one a7c8f19
+itself named: **F7 → Video → Vertical sync**, live, off by default, so the
+default behaviour is unchanged.
+
+The hand pacer stays on in both positions; it is a floor, not a cadence, so
+it only sleeps when the frame came early and cannot fight the flip.
+
+**For the handbook agent:** the F7 chapter's Video menu has a new row,
+*Vertical sync*, off by default. Worth a sentence on what the trade is: off
+is the machine keeping its own 60 Hz, on hands pacing to the display, which
+costs frames (and therefore sound) if the display is not 60 — and saves a
+compositor a great deal of work.
