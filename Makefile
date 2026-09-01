@@ -170,6 +170,7 @@ test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/wozt
 	./test/msbasictest.sh
 	./test/jimtest.sh
 	./test/opltest.sh
+	./test/palettetest.sh
 	./test/romtest
 	./test/mathtest
 	./test/rangertest.sh

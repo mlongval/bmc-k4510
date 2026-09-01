@@ -9,6 +9,8 @@
 // (see Makefile), so core/io.c is the same file as on the desktop.
 //
 #include "kernel.h"
+#include <circle/sysconfig.h>   /* DEFAULT_KEYMAP, for the boot report */
+#include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_circle.h>
 #include <unistd.h>
@@ -85,6 +87,38 @@ TShutdownMode CKernel::Run(void)
     int ok = 0;
     for (int i = 0; i < 5 && !ok; i++) { if (chdir("SD:/k4510") == 0) ok = 1; else m_Timer.MsDelay(200); }
     if (!ok) { m_Logger.Write(From, LogError, "no SD:/k4510 directory on the card"); return ShutdownHalt; }
+
+    /* ---- what the keyboard layout actually resolved to ---------------------
+     * Two attempts at making the USB keyboard American both failed and both
+     * looked identical from here -- the first because cmdline.txt was missing,
+     * the second because it ended in a newline and Circle splits its command
+     * line on spaces alone, so "us\n" matched no layout and it fell back to
+     * DEFAULT_KEYMAP ("DE").  Guessing a third time is not a plan.
+     *
+     * So the machine says what it got.  Written where Doc can read it without
+     * a serial cable: TYPE /SYSTEM/BOOT.TXT at the shell.  It records the raw
+     * command line the firmware passed, what CKernelOptions parsed out of it,
+     * and what the compiled-in fallback is -- which between them say whether
+     * the file arrived, whether it parsed, or whether something downstream is
+     * ignoring the answer. */
+    {
+        const char *km = m_Options.GetKeyMap();
+        FILE *f = fopen("SD:/k4510/fs/SYSTEM/BOOT.TXT", "w");
+        if (f) {
+            fprintf(f, "K4510 boot report\n=================\n\n");
+            fprintf(f, "keymap= from cmdline.txt : \"%s\"%s\n",
+                    km ? km : "(null)",
+                    (km && *km) ? "" : "   <-- EMPTY: the option did not arrive or did not parse");
+            fprintf(f, "compiled-in fallback     : \"%s\"\n", DEFAULT_KEYMAP);
+            fprintf(f, "\nIf the first line is empty, Circle used the fallback and the\n");
+            fprintf(f, "keyboard is whatever that says.  cmdline.txt must sit in the root\n");
+            fprintf(f, "of the card, contain keymap=us, and end WITHOUT a newline.\n");
+            fclose(f);
+        }
+        m_Logger.Write(From, LogNotice, "keymap option \"%s\", fallback \"%s\"",
+                       km ? km : "(null)", DEFAULT_KEYMAP);
+    }
+
     c64kbd_init();                              // GPIO pins are plain MMIO: core 1 may poll them directly
     SDL2Circle_SplitInit();
     // The network is NOT started here. pi/net_pi.cpp starts it on the machine's

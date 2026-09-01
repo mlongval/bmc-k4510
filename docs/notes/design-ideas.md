@@ -256,6 +256,54 @@ to have settled first.
 
 ---
 
+## Palettes — built 2026-09-01
+
+Doc asked how palettes could be defined and switched inside K/OS; this is what
+was built, and the one thing that made it non-obvious.
+
+**The constraint.** `video_init` reloaded its own copy of the VIC-II sixteen
+into VICKY entries 0-15 *every time it ran* — every mode change, every `VIDEO`
+call, every BBC BASIC text mode. So any palette poked into VICKY looked like it
+worked and then silently reverted. But the ROM's table was **byte-identical to
+what `vicky_reset` already seeds** (`core/vicky.c`), so the reload did nothing
+at power-on and undid work afterwards. It is gone. The palette belongs to VICKY
+and to whoever last set it; `PALETTE RESET` and the reset chord are the ways
+back. That also returned about 80 bytes of resident ROM.
+
+**The command** lives in bank 2 (`sw_call(2, ...)`):
+
+    PALETTE                list entries 0-15
+    PALETTE n rr gg bb     set one entry, hex, n may be 0-FF
+    PALETTE LOAD name      apply a .PAL from /SYSTEM/PALETTES
+    PALETTE SAVE name      write entries 0-15 out
+    PALETTE RESET          back to the VIC-II sixteen
+
+**The format is text**, because this machine has `VI` — a palette you cannot
+edit on the machine wastes what makes it interesting. Lines of `index rr gg bb`
+in hex, `#` comments, and **a file only changes the entries it names**, so a
+theme can be two lines. A `.PAL` may also carry a `COLOR f b` line, which the
+loader honours: without it a ramp is a trap, because fifteen levels of amber
+under the shell's default `COLOR 7 6` is level seven on level six, which cannot
+be read well enough to type the fix.
+
+Four ship in `/SYSTEM/PALETTES`: `C64` (as it boots), `PEPTO` (Timmermann's
+measured VIC-II colours — same hues, duller and warmer), `GREY` (sixteen even
+steps) and `AMBER` (black plus fifteen levels, a VT220).
+
+**What a program gets, since the console's sixteen is only a convention:** 256
+entries of 24-bit RGB, one palette shared by everything. 8bpp bitmap reaches all
+256; 4bpp gets 16 from any of 16 banks; tile cells carry 4 bits of palette
+offset each; sprites choose a bank per sprite; and text32 cells already carry
+byte-wide fg *and* bg, so text can use all 256 too. SHEILA can rewrite entries
+between scanlines, so more than 256 can appear in one frame.
+
+**A bug this turned up.** Bank 2's code grew past `$B000`, where the alias
+engine builds its table at runtime, and the alias records overwrote the palette
+table — `PALETTE RESET` produced `MBASIC` and `CPM` as colours. The linker had
+no idea `$B000` was reserved. `rom/k4510.cfg` now splits SW2 into code
+(`$A000-$B3FF`) and table (`$B400-$BFFF`) so the linker enforces it, and
+`test/palettetest.sh` checks an alias still works after all of this.
+
 ## Considered and declined
 
 **Downloading `chargen.bin` from zimmers.net.** The `.gitignore` states

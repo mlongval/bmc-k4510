@@ -1,0 +1,23 @@
+# PEPTO -- Philip Timmermann's measured VIC-II colours.
+# The same sixteen hues as C64.PAL, but taken off real hardware:
+# duller, warmer, and what a C64 on a CRT actually looked like.
+#
+# index rr gg bb, all hex.  A file only changes the entries it names.
+#
+COLOR 7 6
+0 00 00 00
+1 FF FF FF
+2 68 37 2B
+3 70 A4 B2
+4 6F 3D 86
+5 58 8D 43
+6 35 28 79
+7 B8 C7 6F
+8 6F 4F 25
+9 43 39 00
+A 9A 67 59
+B 44 44 44
+C 6C 6C 6C
+D 9A D2 84
+E 6C 5E B5
+F 95 95 95

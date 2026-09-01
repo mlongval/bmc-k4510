@@ -1189,11 +1189,168 @@ static void cmd_clg(const char *p)
  * resident too, and the expanded line is copied into `line' before returning. */
 #pragma code-name (push, "SWCODE2")
 #pragma rodata-name (push, "SWRODATA2")
+
+/* ---- PALETTE -------------------------------------------------------------
+ * VICKY has 256 entries of 24-bit RGB, one palette shared by everything: the
+ * console's colours are only entries 0-15 by convention, and a program may
+ * have all 256 (text32 cells already carry byte-wide fg and bg).  COLOR picks
+ * indices; PALETTE says what those indices look like.
+ *
+ *   PALETTE                list entries 0-15
+ *   PALETTE n rr gg bb     set one entry (hex, n may be 0-FF)
+ *   PALETTE LOAD name      apply a .PAL from /SYSTEM/PALETTES
+ *   PALETTE SAVE name      write entries 0-15 out as a .PAL
+ *   PALETTE RESET          back to the VIC-II sixteen
+ *
+ * A .PAL is text, so it can be written with VI on the machine: lines of
+ * "index rr gg bb" in hex, # to end of line is a comment, and a file only
+ * changes the entries it names -- an amber terminal is two lines, not sixteen.
+ *
+ * This lives in bank 2 with its own table because bank 1 has 964 bytes left
+ * and bank 2 has 6762; it calls only resident helpers (fs_cmd, fs_name,
+ * parsehex, puts_, error), as everything in this bank must. */
+#define PALBUF   0x0FE10000UL            /* a .PAL, loaded whole; clear of EXECBUF */
+static const uint8_t pal_vic2[16][3] = {
+    {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
+    {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
+
+static void pal_put(uint8_t i, uint8_t r, uint8_t g, uint8_t b)
+{
+    REG(VICKY + 6) = i; REG(VICKY + 7) = r; REG(VICKY + 8) = g; REG(VICKY + 9) = b;
+}
+static uint8_t pal_get(uint8_t i, uint8_t c)     /* c: 0 R, 1 G, 2 B */
+{
+    REG(VICKY + 6) = i; return REG(VICKY + 7 + c);
+}
+static char pal_dig(uint8_t v) { v &= 15; return (char)(v < 10 ? '0' + v : 'A' + v - 10); }
+static void pal_hex2(uint8_t v) { k_chrout(pal_dig((uint8_t)(v >> 4))); k_chrout(pal_dig(v)); }
+
+static uint8_t pal_word(const char **p, const char *w)   /* case-folded word match */
+{
+    const char *q = *p;
+    while (*w) { char c = *q; if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+                 if (c != *w) return 0; q++; w++; }
+    if (*q && *q != ' ') return 0;
+    while (*q == ' ') q++;
+    *p = q; return 1;
+}
+/* /SYSTEM/PALETTES/NAME.PAL unless the name already has a path or a dot */
+static void pal_path(const char *name, char *out)
+{
+    const char *q = name; uint8_t dot = 0, slash = 0, i = 0;
+    while (*q) { if (*q == '.') dot = 1; if (*q == '/') slash = 1; q++; }
+    if (!slash) { const char *d = "/SYSTEM/PALETTES/"; while (*d) out[i++] = *d++; }
+    q = name; while (*q) out[i++] = *q++;
+    if (!dot) { const char *e = ".PAL"; while (*e) out[i++] = *e++; }
+    out[i] = 0;
+}
+
+static void pal_load(const char *name)
+{
+    char path[NAMEMAX], lb[64];
+    uint32_t len, off = 0; uint8_t n = 0;
+    pal_path(name, path);
+    fs_name(path); w32(FS + 8, PALBUF);
+    if (fs_cmd(9)) { error("palette: no such file"); return; }
+    len = r32(FS + 0x0C);
+    while (off < len) {
+        uint8_t i = 0; const char *q; uint8_t d; uint32_t idx, r, g, b;
+        while (off < len && i < 63) { char c = (char)peek(PALBUF + off++);
+                                      if (c == '\n' || c == '\r') break;
+                                      lb[i++] = c; }
+        lb[i] = 0;
+        q = lb; while (*q == ' ' || *q == 9) q++;
+        if (!*q || *q == '#') continue;
+        /* A palette may choose the console colours that suit it.  Without this
+         * a ramp is a trap: load fifteen levels of amber and the shell's
+         * default COLOR 7 6 is level seven on level six, which cannot be read
+         * -- and cannot be read well enough to type the fix. */
+        if (pal_word(&q, "COLOR") || pal_word(&q, "COLOUR")) {
+            uint32_t f = parsehex(&q, &d); if (!d) continue;
+            while (*q == ' ') q++; b = parsehex(&q, &d);
+            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
+            cls();
+            continue;
+        }
+        idx = parsehex(&q, &d); if (!d) continue;
+        while (*q == ' ') q++; r = parsehex(&q, &d); if (!d) continue;
+        while (*q == ' ') q++; g = parsehex(&q, &d); if (!d) continue;
+        while (*q == ' ') q++; b = parsehex(&q, &d); if (!d) continue;
+        pal_put((uint8_t)idx, (uint8_t)r, (uint8_t)g, (uint8_t)b);
+        n++;
+    }
+    puts_("palette: "); {
+        char nb[4]; uint8_t j = 0, v = n;
+        if (v >= 100) { nb[j++] = (char)('0' + v / 100); v = (uint8_t)(v % 100); }
+        if (n >= 10)  { nb[j++] = (char)('0' + v / 10); }
+        nb[j++] = (char)('0' + v % 10); nb[j] = 0; puts_(nb);
+    }
+    puts_(" entries from "); puts_(path); newline();
+}
+
+static void pal_save(const char *name)
+{
+    char path[NAMEMAX]; uint32_t o = 0; uint8_t i, c;
+    const char *hdr = "# K4510 palette -- index rr gg bb, hex\n";
+    pal_path(name, path);
+    while (*hdr) far_poke(PALBUF + o++, (uint8_t)*hdr++);
+    for (i = 0; i < 16; i++) {
+        far_poke(PALBUF + o++, (uint8_t)pal_dig(i));
+        far_poke(PALBUF + o++, ' ');
+        for (c = 0; c < 3; c++) { uint8_t v = pal_get(i, c);
+            far_poke(PALBUF + o++, (uint8_t)pal_dig((uint8_t)(v >> 4)));
+            far_poke(PALBUF + o++, (uint8_t)pal_dig(v));
+            far_poke(PALBUF + o++, ' '); }
+        far_poke(PALBUF + o++, '\n');
+    }
+    fs_name(path); w32(FS + 8, PALBUF); w32(FS + 0x0C, o);
+    if (fs_cmd(10)) { error("palette: cannot write"); return; }
+    puts_("palette: written to "); puts_(path); newline();
+}
+
+static void cmd_palette(const char *p)
+{
+    uint8_t d; uint32_t idx, r, g, b; uint8_t i;
+    while (*p == ' ') p++;
+    if (!*p) {                                     /* list the console's sixteen */
+        for (i = 0; i < 16; i++) {
+            k_chrout(pal_dig(i)); k_chrout(' ');
+            pal_hex2(pal_get(i, 0)); pal_hex2(pal_get(i, 1)); pal_hex2(pal_get(i, 2));
+            k_chrout(' '); k_chrout(' ');
+            if ((i & 3) == 3) newline();
+        }
+        return;
+    }
+    if (pal_word(&p, "RESET")) {
+        for (i = 0; i < 16; i++) pal_put(i, pal_vic2[i][0], pal_vic2[i][1], pal_vic2[i][2]);
+        return;
+    }
+    if (pal_word(&p, "LOAD"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: load name?"); return; } pal_load(nm); return; }
+    if (pal_word(&p, "SAVE"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: save name?"); return; } pal_save(nm); return; }
+    idx = parsehex(&p, &d); if (!d) { error("palette: [n rr gg bb | LOAD f | SAVE f | RESET]"); return; }
+    while (*p == ' ') p++; r = parsehex(&p, &d); if (!d) { error("palette: n rr gg bb"); return; }
+    while (*p == ' ') p++; g = parsehex(&p, &d); if (!d) { error("palette: n rr gg bb"); return; }
+    while (*p == ' ') p++; b = parsehex(&p, &d); if (!d) { error("palette: n rr gg bb"); return; }
+    pal_put((uint8_t)idx, (uint8_t)r, (uint8_t)g, (uint8_t)b);
+}
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+
+#pragma code-name (push, "SWCODE2")
+#pragma rodata-name (push, "SWRODATA2")
 #define ALIAS_BANK  2
-#define ALIAS_TAB   ((char *) 0xB000u)      /* the table sits above the engine, in the same bank */
+#define ALIAS_TAB   ((char *) 0xB400u)      /* the table sits above the engine, in the same bank.
+                                             * $B400 is the SW2/SW2T split in rom/k4510.cfg: the
+                                             * linker refuses code past it, so this cannot be
+                                             * silently overrun again. */
 #define ALIAS_SCRAP ((char *) 0xBF00u)      /* the last page: where the expanded line is built */
 #define ALIAS_LIMIT ((char *) 0xBEF0u)      /* the table may grow to here */
 #define ALIAS_SEND  ((char *) 0xBFF0u)
+/* One byte at the bottom of SW2T so the linker emits the area (zero filled)
+ * and the alias table's RAM is really there.  Nothing reads it. */
+#pragma rodata-name (push, "SW2TAB")
+static const uint8_t alias_tab_floor = 0;
+#pragma rodata-name (pop)
 static uint8_t alias_depth;
 static uint8_t alias_hit;                 /* BSS, so resident: alias_expand cannot return one */
 static char afold(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
@@ -1323,6 +1480,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "INFO"))  { sw_call(1, cmd_info, p); return; }
     if (is_cmd(&p, "TIME"))  { sw_call(1, cmd_time, p); return; }
     if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { sw_call(1, cmd_color, p); return; }
+    if (is_cmd(&p, "PALETTE")) { sw_call(2, cmd_palette, p); return; }
     if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
@@ -1394,10 +1552,6 @@ static void cmd_mon(const char *p)
 
 #pragma code-name (pop)
 #pragma rodata-name (pop)
-static const uint8_t c64pal[16][3] = {
-    {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
-    {221,136,85},{102,68,0},{255,119,119},{51,51,51},{119,119,119},{170,255,102},{0,136,255},{187,187,187} };
-
 /* VICKY CTRL for each MODE: halve columns (2), halve lines (4), 200-line
  * field (8), quarter columns (16).  See core/vicky.h. */
 static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
@@ -1414,7 +1568,13 @@ static void video_init(void)
     COLS = PCOLS - (bband ? 0 : margin); ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
     REG(VICKY + 1) = C_BG;
-    for (i = 0; i < 16; i++) { REG(VICKY + 6) = i; REG(VICKY + 7) = c64pal[i][0]; REG(VICKY + 8) = c64pal[i][1]; REG(VICKY + 9) = c64pal[i][2]; }
+    /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
+     * VIC-II sixteen already in entries 0-15 (core/vicky.c: vicky_reset), byte
+     * for byte the same table this used to write, so the write was doing
+     * nothing at power-on -- and undoing PALETTE's work at every mode change,
+     * every VIDEO call and every BBC BASIC text mode.  The palette belongs to
+     * VICKY and to whoever last set it; PALETTE RESET and the reset chord are
+     * the ways back.  See docs/notes/design-ideas.md. */
     /* layer 0: text32, 8x8, map SCREEN, glyphs FONT, 80 cells/row */
     w16(VICKY + 0x16, PCOLS);
     w32(VICKY + 0x1C, SCREEN);

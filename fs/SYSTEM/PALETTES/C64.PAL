@@ -1,0 +1,21 @@
+# C64 -- the VIC-II sixteen as this machine boots them.
+#
+# index rr gg bb, all hex.  A file only changes the entries it names.
+#
+COLOR 7 6
+0 00 00 00
+1 FF FF FF
+2 88 00 00
+3 AA FF EE
+4 CC 44 CC
+5 00 CC 55
+6 00 00 AA
+7 EE EE 77
+8 DD 88 55
+9 66 44 00
+A FF 77 77
+B 33 33 33
+C 77 77 77
+D AA FF 66
+E 00 88 FF
+F BB BB BB
