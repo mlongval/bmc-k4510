@@ -273,6 +273,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                          VICKY_WIDTH, VICKY_HEIGHT * 2);
     int scan_applied = -1, smooth_applied = -1, logical_tall = -1;
+    /* The border, striped like the screen: one column of pixels, one texture
+     * row per logical row, stretched across.  A single RenderCopy rather than
+     * a few hundred RenderDrawLines, and it is rebuilt only when the colour or
+     * the scanline setting changes. */
+    uint32_t border_lit = 0, border_dim = 0;
+    SDL_Texture *btex = NULL; int btex_scan = -1, btex_col = -1;
     const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
                                      /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
@@ -802,6 +808,14 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               BUILD(mpal[i], mdpal[i], h);
           }
           for (int i = 0; i < UIC_COUNT; i++) BUILD(upal[i], udpal[i], ui_palette_rgb(i));
+          /* The border is part of the picture, so it is scanlined and gained
+           * with it.  It used to be a flat SDL_RenderClear at full palette
+           * brightness, which left it both unstriped and brighter than the
+           * average of the tube it was framing -- Doc, 2026-09-01: "scanline
+           * effects do not seem to carry over to borders, looks a little
+           * weird".  It was two things at once. */
+          { uint32_t c = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
+            BUILD(border_lit, border_dim, c); }
 #undef BUILD
 #undef LIT
 #undef DIM
@@ -838,8 +852,27 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               logical_tall = tall;
               SDL_RenderSetLogicalSize(ren, VICKY_WIDTH * k, VICKY_HEIGHT * k);
           }
+          int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
+          if (!btex || btex_scan != scan_applied || btex_col != bcol) {
+              if (btex) SDL_DestroyTexture(btex);
+              btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+                                       1, VICKY_HEIGHT * 2);
+              btex_scan = scan_applied; btex_col = bcol;
+              if (btex) { void *bp; int bpitch;
+                  SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);
+                  if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
+                      for (int y = 0; y < VICKY_HEIGHT * 2; y++)
+                          *(uint32_t *)((uint8_t *)bp + y * bpitch) =
+                              (tall && (y & 1)) ? border_dim : border_lit;
+                      SDL_UnlockTexture(btex);
+                  } }
+          }
+          /* RenderClear still paints the letterbox outside the logical area,
+           * where a stripe would only be an edge artefact. */
           SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
           SDL_RenderClear(ren);
+          if (btex) { SDL_Rect bsrc = { 0, 0, 1, tall ? VICKY_HEIGHT * 2 : VICKY_HEIGHT };
+                      SDL_RenderCopy(ren, btex, &bsrc, NULL); }
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
