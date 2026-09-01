@@ -95,3 +95,18 @@ SOURCES
   records every borrowed component and its licence; EhBASIC is Lee
   Davison's, see k4510/README-EhBASIC.txt.  Built in August 2026 by Doc
   and Claude.
+
+
+Keyboard layout
+---------------
+cmdline.txt in the root of the card carries Circle's kernel options, and
+the one that matters here is the keyboard layout:
+
+    keymap=us
+
+**No trailing newline.**  CKernelOptions splits the command line on spaces
+and nothing else, so a newline stays inside the value, "us\n" matches no
+layout, and Circle falls back to its compiled-in default -- which in this
+Circle is "DE", with y and z swapped.  Write it with `printf`, not `echo`.
+
+The layouts available: us, uk, de, fr, es, it, dv.

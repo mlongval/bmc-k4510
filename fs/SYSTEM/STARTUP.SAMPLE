@@ -12,3 +12,64 @@ ALIAS WS     CPM K-WS
 
 # odds and ends
 ALIAS LL DIR A
+
+# ---------------------------------------------------------------------
+# CONSOLE COLOURS.  COLOR (or COLOUR) sets the foreground and, if you give
+# a second value, the background.  Both are palette indices IN HEX, and it
+# clears the screen as it takes effect -- which is why it belongs near the
+# top of a startup file rather than the bottom.
+#
+#     COLOR fg
+#     COLOR fg bg
+#
+# The palette is the C64's sixteen, in the C64's own order:
+#
+#     0  black          8  orange
+#     1  white          9  brown
+#     2  red            A  light red
+#     3  cyan           B  dark grey
+#     4  purple         C  grey
+#     5  green          D  light green
+#     6  blue           E  light blue
+#     7  yellow         F  light grey
+#
+# The machine's own is yellow on blue, which is COLOR 7 6.  Some others
+# worth trying:
+#
+#     COLOR D 0      light green on black   (a VDU)
+#     COLOR 1 6      white on blue          (plainer than the default)
+#     COLOR 8 0      amber on black         (a terminal)
+#     COLOR 0 F      black on light grey    (paper)
+#
+# Uncomment one, or add your own:
+#
+# COLOR D 0
+# ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+# THE KEYBOARD LAYOUT IS NOT SET HERE, and cannot be.  This file is the
+# guest's shell script; the USB keyboard is translated by the host below
+# it -- on the Pi by Circle, before the ROM has run at all -- so nothing
+# written in here can reach it.
+#
+# On the Pi it is cmdline.txt in the root of the SD card, which must
+# contain exactly this and NO trailing newline (Circle splits its command
+# line on spaces only, so a newline stays inside the value and the whole
+# option is silently ignored):
+#
+#     keymap=us
+#
+# The layouts Circle carries, and the only names it accepts:
+#
+#     us    United States (the default this machine ships)
+#     uk    United Kingdom
+#     de    Germany          <- what it falls back to when the option
+#                               is missing or malformed
+#     fr    France
+#     es    Spain
+#     it    Italy
+#     dv    Dvorak
+#
+# On the desktop the layout is the host operating system's own; the
+# emulator does not translate keys itself.
+# ---------------------------------------------------------------------

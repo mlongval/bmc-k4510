@@ -55,6 +55,11 @@ k4510-slot*.k4s
 # Commodore's character ROM, if you drop one in /SYSTEM: not ours to publish
 fs/SYSTEM/chargen.bin
 
+# Your own OPL tune library.  tools/vgm2opl.py converts VGM/VGZ OPL2 logs into
+# the .OPL files OPLPLAY reads; the music is nobody's here to redistribute, so
+# it is not in the repository.  Absent, OPLPLAY plays its three built-in tunes.
+fs/OPL/
+
 # your own startup script: yours, not the repo's (see /SYSTEM/STARTUP.SAMPLE)
 fs/STARTUP.BAT
 # and your own VI startup file (see /SYSTEM/VI.SAMPLE)

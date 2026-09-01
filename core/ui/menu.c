@@ -23,9 +23,9 @@ static const item_t video_items[] = {
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
 };
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
-                                      { "Sound chip", MI_SETTING, SET_AUDIO_CHIP },
 #ifndef K4510_PI
-                                      { "Active SIDs", MI_SETTING, SET_AUDIO_SIDS },   /* the OPL2 is one chip with nine voices */
+                                      { "Sound chip", MI_SETTING, SET_AUDIO_CHIP },    /* the Pi has only the OPL2: nothing to choose */
+                                      { "Active SIDs", MI_SETTING, SET_AUDIO_SIDS },   /* and the OPL2 is one chip with nine voices */
 #endif
                                       { "Sound on core 3", MI_SETTING, SET_AUDIO_CORE3 } };
 static const item_t input_items[] = {

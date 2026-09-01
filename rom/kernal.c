@@ -160,6 +160,7 @@ static void cls(void)
     REG(TERM + 9) = 0; REG(TERM + 10) = 0;      /* the cursor is JIM's: moving it means telling it */
 }
 
+static uint16_t band_mhz = 0xFFFF;           /* what the status band's clock last showed */
 static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
                                               * the reader having said q -- the caller checks it,
                                               * since newline cannot abort anyone itself */
@@ -271,6 +272,15 @@ uint8_t k_getin(void)
      * console's cursor would be a second one -- blinking to a different
      * clock, parked on whatever cell the shell last left it on, reversing
      * whatever the program has since drawn there. */
+    /* The band's clock follows the menu.  draw_bands() only runs from cls(), so
+     * a clock changed in F7 used to leave yesterday's number sitting in the bar
+     * until something cleared the screen (Doc, 2026-09-01).  This is the poll
+     * every program already goes through, so it is where the number is kept
+     * honest -- and it costs a compare per key poll, only while the bands are up. */
+    if (bband) {
+        uint16_t m = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
+        if (m != band_mhz) { band_mhz = m; bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
+    }
     if (REG(TERM + 0x0E)) { if (cursor_vis) draw_cursor(0); }
     else if (!cursor_vis) draw_cursor(1);
     return 0;
@@ -1582,16 +1592,13 @@ static void banner(void)
         fg = ofg;
         newline();
     }
-    /* A machine nobody has measured runs at the compiled-in safe step.  Say so
-     * rather than let the user assume the number is the machine's: the boot
-     * does not stop to measure (that would cost every boot for an answer that
-     * changes once), so this line is the only thing that tells them SETUP has
-     * something to do. */
-    if (!REG(SYS + 0x28)) {
-        newline();
-        pad(2); fg = 8; puts_("Clock not measured on this machine -- run SETUP"); fg = ofg;
-        newline();
-    }
+    /* The "clock not measured -- run SETUP" line used to live here.  It is out
+     * (Doc, 2026-09-01): the boot probe that would have cleared it is itself
+     * disabled (sdl/main.c: "the boot probe: kept, not run"), so the banner was
+     * nagging every boot about a job the machine no longer offers to do.  SETUP
+     * still exists for anyone who wants the number; it is just not advertised
+     * on a machine that is running perfectly well without it.
+     */
     newline();
 }
 

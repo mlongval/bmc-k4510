@@ -17,6 +17,13 @@
  * register here is the one in an OPL2 programming guide, and the patches are
  * ordinary two-operator AdLib patches.
  *
+ * IF /OPL EXISTS, IT PLAYS THAT INSTEAD.  tools/vgm2opl.py turns VGM/VGZ OPL2
+ * logs into .OPL files -- the machine's YM3812 runs at 3579545 Hz, the AdLib
+ * crystal every VGM assumes, so they play at the right pitch untouched.  That
+ * library is nobody's to redistribute, so it is not in this repository and
+ * /OPL is in .gitignore; the three built-in tunes are what ships, and what
+ * plays when the directory is absent.
+ *
  *   SPACE  next tune      1-9  mute a voice      Q or Escape  back to the shell
  */
 #include "k4510.h"
@@ -31,6 +38,9 @@
 #define SPRTAB_A 0x121000UL
 #define SPRTAB_B 0x122000UL
 #define TEXTMAP  0x123000UL
+#define LISTBUF  0x130000UL       /* the /OPL directory: MAXTUNES names of 32 */
+#define TUNEBUF  0x200000UL       /* the loaded .OPL, whole; they run 10-60 KB */
+#define MAXTUNES 2048             /* the archive this was written against holds 826 */
 
 /* channel n's modulator slot; the carrier is three on */
 static const uint8_t opslot[NCH] = { 0, 1, 2, 8, 9, 10, 16, 17, 18 };
@@ -143,6 +153,93 @@ static int16_t oy[NCH], energy[NCH];      /* 12.4 fixed: the orbs, and how far e
 static uint8_t lit[NCH];
 static uint8_t cur_tab;
 
+/* ---- the .OPL library, when there is one -------------------------------- */
+static uint16_t ntunes;                   /* 0 = play the built-in tunes */
+static char fsname[36];
+static uint32_t tp, tend;                 /* the walk: cursor and end */
+static uint32_t tloop;                    /* loop point, 0 = one-shot */
+static uint16_t twait;                    /* frames still owed to a 02 nn */
+static char ttitle[32];
+
+static uint8_t fs_cmd(uint8_t c) { REG(0xD300) = c; return REG(0xD301); }
+static void fs_setname(const char *n) { far_w32(0xD304, (uint16_t)n); }
+
+static void list_tunes(void)
+{
+    ntunes = 0;
+    fs_setname("/OPL"); if (fs_cmd(11)) return;          /* no /OPL: built-ins it is */
+    if (fs_cmd(6)) return;
+    for (;;) {
+        uint8_t i, len; char *e;
+        far_w32(0xD308, (uint16_t)fsname);
+        if (fs_cmd(7)) break;
+        if (far_r32(0xD310) == 0xFFFFFFFFUL) continue;   /* a directory */
+        len = 0; while (fsname[len]) len++;
+        if (len < 5) continue; e = fsname + len - 4;
+        if (e[0] != '.' || (e[1] | 0x20) != 'o' || (e[2] | 0x20) != 'p' || (e[3] | 0x20) != 'l') continue;
+        for (i = 0; i < 31; i++) far_poke(LISTBUF + (uint32_t)ntunes * 32 + i, (uint8_t)(i < len ? fsname[i] : 0));
+        far_poke(LISTBUF + (uint32_t)ntunes * 32 + 31, 0);
+        if (++ntunes == MAXTUNES) break;
+    }
+}
+
+/* Load tune n and stand the walker at the first command.  A bad header is not
+ * fatal: the caller steps to the next file rather than playing noise. */
+static uint8_t load_tune(uint16_t n)
+{
+    uint32_t size; uint8_t i;
+    for (i = 0; i < 31; i++) fsname[i] = (char)far_peek(LISTBUF + (uint32_t)n * 32 + i);
+    fsname[31] = 0;
+    fs_setname(fsname); far_w32(0xD308, TUNEBUF);
+    if (fs_cmd(9)) return 1;
+    size = far_r32(0xD30C);
+    if (size < 45) return 1;
+    if (far_peek(TUNEBUF) != 'K' || far_peek(TUNEBUF + 1) != '4' ||
+        far_peek(TUNEBUF + 2) != 'O' || far_peek(TUNEBUF + 3) != 'P') return 1;
+    tloop = far_r32(TUNEBUF + 8);
+    if (tloop) tloop += TUNEBUF + 44;
+    for (i = 0; i < 31; i++) ttitle[i] = (char)far_peek(TUNEBUF + 12 + i);
+    ttitle[31] = 0;
+    if (!ttitle[0]) { for (i = 0; i < 31; i++) ttitle[i] = fsname[i]; ttitle[31] = 0; }
+    tp = TUNEBUF + 44; tend = TUNEBUF + size; twait = 0;
+    return 0;
+}
+
+/* One frame of the stream: every write up to the next wait.  Key-ons are
+ * lifted out as they go past so the orbs still move -- $B0+n bit 5 is the
+ * key, and the block and F-number high bits in the same byte are pitch
+ * enough to throw the orb by. */
+static uint8_t step_tune(void)
+{
+    uint8_t c, r, d;
+    if (twait) { twait--; return 0; }
+    for (;;) {
+        if (tp >= tend) { if (tloop) { tp = tloop; continue; } return 1; }
+        c = far_peek(tp);
+        if (c == 0x01) {
+            r = far_peek(tp + 1); d = far_peek(tp + 2); tp += 3;
+            if (r >= 0xB0 && r <= 0xB8) {
+                uint8_t ch = (uint8_t)(r - 0xB0);
+                if (muted[ch]) continue;                 /* a muted voice is not written at all */
+                if (d & 0x20) {
+                    uint8_t pitch = (uint8_t)(((d >> 2) & 7) * 8 + ((d & 3) << 1));
+                    energy[ch] = (int16_t)((30 + (int16_t)pitch * 4) << 4);
+                    lit[ch] = 15;
+                }
+            }
+            opl(r, d);
+        } else if (c == 0x02) {
+            twait = far_peek(tp + 1); tp += 2;
+            if (twait) twait--;
+            return 0;
+        } else if (c == 0x00) {
+            if (tloop) { tp = tloop; continue; }
+            return 1;
+        } else tp++;                                     /* not ours: step over it */
+    }
+}
+
+
 static void keyoff(uint8_t ch) { opl((uint8_t)(0xB0 + ch), 0); }
 static void note_on(uint8_t ch, uint8_t note)
 {
@@ -236,8 +333,19 @@ static void caption(uint8_t s)
     uint8_t i;
     dma_fill(' ', TEXTMAP, 80 * 60);
     text8_print(TEXTMAP, 80, 2, 1, "K4510   OPLPLAY -- the OPL2, nine voices, nine orbs");
-    text8_print(TEXTMAP, 80, 2, 3, (char *)songs[s].name);
+    if (ntunes) { char b[40]; uint8_t i;
+                  for (i = 0; i < 31 && ttitle[i]; i++) b[i] = ttitle[i];
+                  b[i] = 0;
+                  text8_print(TEXTMAP, 80, 2, 3, b); }
+    else text8_print(TEXTMAP, 80, 2, 3, (char *)songs[s].name);
     text8_print(TEXTMAP, 80, 2, 56, "SPACE next tune    1-9 mute a voice    Q returns to the shell");
+    if (ntunes) { char b[48]; uint16_t v = ntunes; uint8_t i = 0, j;
+                  char d[6]; j = 0; do { d[j++] = (char)('0' + v % 10); v /= 10; } while (v);
+                  while (j) b[i++] = d[--j];
+                  b[i++] = ' '; b[i++] = 't'; b[i++] = 'u'; b[i++] = 'n'; b[i++] = 'e'; b[i++] = 's';
+                  b[i++] = ' '; b[i++] = 'i'; b[i++] = 'n'; b[i++] = ' '; b[i++] = '/'; b[i++] = 'O';
+                  b[i++] = 'P'; b[i++] = 'L'; b[i] = 0;
+                  text8_print(TEXTMAP, 80, 55, 3, b); }
     text8_print(TEXTMAP, 80, 2, 57, "each orb is one FM voice; a note-on throws it up");
     /* $D482 answers "an OPL2 is fitted" whether or not it is the chip the menu
      * has clocked, so the program cannot tell silence from sound.  Say it
@@ -251,13 +359,22 @@ static void caption(uint8_t s)
 
 void main(void)
 {
-    uint8_t song = 0, step = 0, tick = 0, i, k, quit = 0;
+    uint16_t song = 0;
+    uint8_t step = 0, tick = 0, i, k, quit = 0;
     uint16_t frame = 0;
 
     REG(V_CTRL) = 0;
+    list_tunes();                                  /* /OPL if it is there, the built-ins if not */
+    if (ntunes) { while (ntunes && load_tune(song)) {   /* a bad file: drop it and try the next */
+                      uint16_t j; ntunes--;
+                      for (j = song; j < ntunes; j++) { uint8_t b2;
+                          for (b2 = 0; b2 < 32; b2++)
+                              far_poke(LISTBUF + (uint32_t)j * 32 + b2,
+                                       far_peek(LISTBUF + (uint32_t)(j + 1) * 32 + b2)); }
+                      if (song >= ntunes) song = 0; } }
     make_orb(); make_palette();
     for (i = 0; i < NCH; i++) { oy[i] = (int16_t)(430 << 4); energy[i] = 0; muted[i] = 0; }   /* resting on the floor */
-    caption(song);
+    caption((uint8_t)(ntunes ? 0 : song));
     text8_layer(0, TEXTMAP, 80, 0);
     init_table(SPRTAB_A); init_table(SPRTAB_B);
     write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
@@ -267,8 +384,15 @@ void main(void)
     while (!quit) {
         uint32_t back = cur_tab ? SPRTAB_A : SPRTAB_B;
 
-        /* ---- the sequencer: one step every songs[].frames frames ---- */
-        if (++tick >= songs[song].frames) {
+        /* ---- the stream, or the sequencer ---- */
+        if (ntunes) {
+            if (step_tune()) {                     /* the tune ended and does not loop: next */
+                for (i = 0; i < NCH; i++) keyoff(i);
+                song = (uint16_t)((song + 1) % ntunes);
+                if (load_tune(song)) { for (i = 0; i < NCH; i++) keyoff(i); }
+                caption(0);
+            }
+        } else if (++tick >= songs[song].frames) {
             tick = 0;
             for (i = 0; i < 6; i++) {
                 uint8_t n = songs[song].trk[i][step];
@@ -301,7 +425,10 @@ void main(void)
         k = key_get();
         if (k == 'q' || k == 'Q' || k == 0x1B) quit = 1;
         else if (k == ' ') { for (i = 0; i < NCH; i++) keyoff(i);
-                             song = (uint8_t)((song + 1) % 3); step = 0; tick = 0; caption(song); }
+                             if (ntunes) { song = (uint16_t)((song + 1) % ntunes);
+                                           if (load_tune(song)) song = 0;
+                                           caption(0); }
+                             else { song = (uint16_t)((song + 1) % 3); step = 0; tick = 0; caption((uint8_t)song); } }
         else if (k >= '1' && k <= '9') { uint8_t v = (uint8_t)(k - '1');
                                          muted[v] ^= 1; if (muted[v]) keyoff(v); }
     }

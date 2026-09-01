@@ -45,6 +45,24 @@ strike through or delete; when the file is empty, delete it.
 
 ## The Pi, after the first real run (2026-09-01)
 
+- [ ] **OPL playback speed wanders on the Pi** (Doc, 2026-09-01: "speeds are
+      inconsistent, speed up and slow down for unclear reasons").  Diagnosed,
+      not fixed.  OPLPLAY walks its stream one step per *frame*, and the frame
+      counter it waits on (`sys_frames`, bumped by `io_frame_tick`) counts
+      RENDERED frames, not real time -- so when the Pi's frame loop runs long,
+      the music slows with it, and speeds back up when it catches up.  The
+      OPL2 itself renders host-side at a fixed 48 kHz, so the sound is not
+      resampled; only the register writes arrive late.
+      Two ways out, and they are different sizes:
+        (a) give the guest a real-time source it can pace against -- a
+            free-running millisecond counter in the SYS page -- and let the
+            player drop or double steps to track it.  Small, and it makes the
+            tempo right on average while leaving it jittery frame to frame.
+        (b) play .OPL host-side: the frontend walks the stream against the
+            audio clock and the guest only asks for a file.  Correct, and it
+            would also survive the machine being paused or slow, but it moves
+            the player out of the machine, which is a real change in what this
+            demo is demonstrating.
 - [ ] **The C64 keyboard on the GPIO connector is buggy** (Doc, on hardware).
       Not diagnosed — no symptom recorded beyond "buggy", so the first job is
       to write down what it actually does.  `pi/c64kbd.cpp`, and the USB

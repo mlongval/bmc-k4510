@@ -39,6 +39,12 @@ cp "$HERE/config.txt" "$M/config.txt"
 # Circle is "DE" -- so a USB keyboard came up German, with y and z swapped
 # (Doc, 2026-09-01, on real hardware).  keymap_us.h is already compiled in, so
 # this is the whole fix; no Circle rebuild.
+#
+# The file must have NO trailing newline.  Circle's CKernelOptions::GetToken
+# splits the command line on ' ' and nothing else, so a newline stays inside
+# the value: "keymap=us\n" looks up a locale called "us\n", finds nothing, and
+# falls back to DEFAULT_KEYMAP -- which is how the first attempt at this fix
+# still came up German.
 cp "$HERE/cmdline.txt" "$M/cmdline.txt"
 cp "$HERE/kernel8.img" "$M/kernel8.img"
 mkdir -p "$M/k4510/rom" "$M/k4510/data" "$M/k4510/fs"
