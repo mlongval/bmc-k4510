@@ -255,15 +255,26 @@ int k4510_frontend_main(int argc, char **argv)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
-/* No vsync, anywhere.  It was off on the Pi already, because the shim blocked
- * the present until the flip and a frame that overran by a millisecond waited
- * for the next one, stepping the machine down to 30 or 20 fps.  The desktop
- * kept vsync and had no pacing of its own, so it ran at whatever the compositor
- * gave it -- 51.8 fps on hdieu's 60 Hz display, with the present taking 16.9 ms
- * of a 19.3 ms frame.  And a machine at 51.8 fps makes 51.8 frames of sound a
- * second where the device wants 60, so the SIDs fill in the missing seventh and
- * you hear it.  The machine is a 60 Hz design: it keeps its own time below and
- * presents when it is ready, which is what the Pi has always done. */
+/* No vsync by default, anywhere.  It was off on the Pi already, because the
+ * shim blocked the present until the flip and a frame that overran by a
+ * millisecond waited for the next one, stepping the machine down to 30 or 20
+ * fps.  The desktop kept vsync and had no pacing of its own, so it ran at
+ * whatever the compositor gave it -- 51.8 fps on hdieu's 60 Hz display, with
+ * the present taking 16.9 ms of a 19.3 ms frame.  And a machine at 51.8 fps
+ * makes 51.8 frames of sound a second where the device wants 60, so the SIDs
+ * fill in the missing seventh and you hear it.  The machine is a 60 Hz design:
+ * it keeps its own time below and presents when it is ready, which is what the
+ * Pi has always done.
+ *
+ * The trade named at the time was tearing, and on a compositor that is not
+ * visible.  There is a second half to it, measured on hdieu 2026-08-31: an
+ * unsynced present is a buffer commit the compositor must composite at once,
+ * and a Wayland session can spend most of a core keeping up (gnome-shell at
+ * 94-95%, the i915 flip worker backed up behind it, which the kernel accounts
+ * as iowait and top then reports as disk).  So the choice is a setting now, as
+ * that commit said it should be -- F7 -> Video -> Vertical sync, off by
+ * default, which is exactly today's behaviour.  On the Pi it stays off: the
+ * shim's present is the blocking one this was escaped from. */
 SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
@@ -272,7 +283,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * written and copied, so it costs nothing at all. */
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                          VICKY_WIDTH, VICKY_HEIGHT * 2);
-    int scan_applied = -1, smooth_applied = -1, logical_tall = -1;
+    int scan_applied = -1, smooth_applied = -1, logical_tall = -1, vsync_applied = -1;
     /* The border, striped like the screen: one column of pixels, one texture
      * row per logical row, stretched across.  A single RenderCopy rather than
      * a few hundred RenderDrawLines, and it is rebuilt only when the colour or
@@ -765,6 +776,18 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         if (ui_cell_h((vicky_read(VR_CTRL) & 6) ? 16 : 8)) menu_dirty();
         menu_draw(ov);
 
+        /* Vertical sync, live.  SDL_RenderSetVSync arrived in 2.0.18, so on
+         * anything older the setting simply cannot be honoured and the
+         * machine keeps its own pacing -- which is the default anyway.  Not
+         * on the Pi: the shim's present is the blocking one all of this was
+         * escaped from. */
+#ifndef K4510_PI
+        if (settings_get(SET_VIDEO_VSYNC) != vsync_applied) {
+            vsync_applied = settings_get(SET_VIDEO_VSYNC);
+            if (SDL_RenderSetVSync(ren, vsync_applied) != 0)
+                fprintf(stderr, "vsync: this SDL or driver will not take it (%s)\n", SDL_GetError());
+        }
+#endif
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
             smooth_applied = settings_get(SET_VIDEO_SMOOTH);
             /* Only "soft" is meant to be soft.  sharp-fit was picking linear
@@ -876,6 +899,16 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
+        /* The hand pacer runs whether or not vsync is on, and the two cannot
+         * fight, because it is a FLOOR and not a cadence: it sleeps only when
+         * the frame came early.  With vsync on a 60 Hz display the present has
+         * already spent the frame, so it never sleeps; on a 144 Hz display it
+         * holds the machine at 60 instead of letting it run at 144, which is
+         * what the design wants.  Standing it down when vsync was asked for
+         * was tried first and was worse: SDL reports success for a vsync the
+         * driver does not really provide (the dummy driver on a screenshot
+         * run), and then nothing paced the machine at all -- 63.1 fps,
+         * measured, which is sound as well as speed. */
         { /* 60 frames a second, drift-free: sleep to the next deadline; if the
            * frame overran, the deadline just moves on -- no step down to 30 */
           static Uint64 next; Uint64 now = SDL_GetPerformanceCounter(), per = SDL_GetPerformanceFrequency() / 60;

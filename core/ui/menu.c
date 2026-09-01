@@ -21,6 +21,7 @@ static const item_t video_items[] = {
     { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
+    { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
 };
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
 #ifndef K4510_PI

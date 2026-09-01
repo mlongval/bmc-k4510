@@ -115,6 +115,7 @@ int main(void)
     { static const struct { set_id id; const char *key; } pairs[] = {
         { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
         { SET_VIDEO_STATUSBAR, "video.statusbar" }, { SET_VIDEO_BORDER, "video.border" },
+        { SET_VIDEO_FULLSCREEN, "video.fullscreen" }, { SET_VIDEO_VSYNC, "video.vsync" },
         { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_SIDS, "audio.sids" },
         { SET_AUDIO_CHIP, "audio.chip" }, { SET_AUDIO_CORE3, "audio.core3" },
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },

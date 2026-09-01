@@ -21,6 +21,9 @@ typedef enum {
     SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
     SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
+    SET_VIDEO_VSYNC,         /* BOOL desktop only: present on the vertical blank instead of pacing by hand.
+                              * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
+                              * display, which costs frames on a host whose refresh is not 60. */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_AUDIO_SIDS,          /* ENUM how many of the four SIDs are clocked (1-4); fewer = cheaper, esp. on the Pi */
     SET_AUDIO_CHIP,          /* ENUM which sound chip has the machine: reSID, FastSID, OPL2.  ONE row, because
